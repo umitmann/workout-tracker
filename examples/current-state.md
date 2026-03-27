@@ -59,8 +59,13 @@
 - **Exercise detail** (`/routines/[id]`) — image, category, equipment, primary/secondary muscles, step-by-step instructions
 - **Workout logging** (`/workout/[id]`) — start workout creates DB row, add sets (exercise + weight + reps), delete sets, finish returns to dashboard; resumable (pre-loads existing sets on page load)
 
+## Known Issues
+
+- **Add button does nothing** — `addSet` server action returns silently. Error is now surfaced below the input row so the actual failure message is visible. Likely cause: RLS policy on `sets` blocking the insert, or a foreign key type mismatch. Needs testing with the error message visible.
+
 ## Next Steps
 
+- Resolve Add button issue (check error message now shown in UI)
 - Scheduling: assign routines to specific dates (`scheduled_workouts` table is ready)
 - Preset routines: seed the `routines` and `routine_exercises` tables
 - Trainer/admin features (see `examples/admin-groups.md`)

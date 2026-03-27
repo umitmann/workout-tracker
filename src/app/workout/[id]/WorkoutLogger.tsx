@@ -41,8 +41,10 @@ export default function WorkoutLogger({
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
   const [search, setSearch] = useState('')
+  const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
+  // exercises as vertical list, sets as horizontal chips per exercise
   const grouped = sets.reduce<Record<number, { name: string; sets: SetRow[] }>>((acc, s) => {
     if (!acc[s.exercise_id]) {
       acc[s.exercise_id] = {
@@ -60,10 +62,12 @@ export default function WorkoutLogger({
     setSearch('')
     setWeight('')
     setReps('')
+    setError(null)
   }
 
   function handleAddSet() {
     if (!selectedExercise) return
+    setError(null)
 
     const data = {
       weight: weight ? Number(weight) : null,
@@ -72,22 +76,24 @@ export default function WorkoutLogger({
 
     startTransition(async () => {
       const result = await addSet(workout.id, selectedExercise.id, data)
-      if ('id' in result) {
-        setSets((prev) => [
-          ...prev,
-          {
-            id: result.id as number,
-            exercise_id: selectedExercise.id,
-            weight: data.weight,
-            reps: data.reps,
-            duration_minutes: null,
-            distance: null,
-            exercises: { name: selectedExercise.name },
-          },
-        ])
-        setWeight('')
-        setReps('')
+      if ('error' in result) {
+        setError(result.error)
+        return
       }
+      setSets((prev) => [
+        ...prev,
+        {
+          id: result.id as number,
+          exercise_id: selectedExercise.id,
+          weight: data.weight,
+          reps: data.reps,
+          duration_minutes: null,
+          distance: null,
+          exercises: { name: selectedExercise.name },
+        },
+      ])
+      setWeight('')
+      setReps('')
     })
   }
 
@@ -131,27 +137,27 @@ export default function WorkoutLogger({
       </header>
 
       <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-6">
+
+        {/* Exercises — vertical list, sets — horizontal chips */}
         {Object.entries(grouped).map(([exerciseId, group]) => (
-          <div key={exerciseId}>
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-white mb-2">
-              {group.name}
-            </h2>
-            <div className="flex flex-col gap-1">
+          <div key={exerciseId} className="flex flex-col gap-2">
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">{group.name}</h2>
+            <div className="flex flex-row flex-wrap gap-2">
               {group.sets.map((s, i) => (
                 <div
                   key={s.id}
-                  className="flex items-center gap-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-4 py-2"
+                  className="flex items-center gap-1.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3 py-1.5"
                 >
-                  <span className="text-xs text-zinc-400 dark:text-zinc-600 w-5">#{i + 1}</span>
-                  <span className="text-sm text-zinc-900 dark:text-white flex-1">
-                    {s.weight != null ? `${s.weight} kg` : '—'}
+                  <span className="text-xs text-zinc-400 dark:text-zinc-600">#{i + 1}</span>
+                  <span className="text-xs font-medium text-zinc-900 dark:text-white">
+                    {s.weight != null ? `${s.weight}kg` : '—'}
                     {s.reps != null ? ` × ${s.reps}` : ''}
-                    {s.duration_minutes != null ? ` ${s.duration_minutes} min` : ''}
+                    {s.duration_minutes != null ? ` ${s.duration_minutes}min` : ''}
                   </span>
                   <button
                     onClick={() => handleDeleteSet(s.id)}
                     disabled={isPending}
-                    className="text-xs text-zinc-400 hover:text-red-500 transition-colors"
+                    className="text-zinc-300 hover:text-red-500 dark:text-zinc-700 dark:hover:text-red-500 transition-colors leading-none"
                   >
                     ✕
                   </button>
@@ -167,6 +173,7 @@ export default function WorkoutLogger({
           </p>
         )}
 
+        {/* Add set */}
         <div className="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 flex flex-col gap-3">
           <button
             onClick={() => setShowPicker(true)}
@@ -196,13 +203,18 @@ export default function WorkoutLogger({
                 disabled={isPending || (!weight && !reps)}
                 className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-zinc-900 disabled:opacity-40"
               >
-                Add
+                {isPending ? '…' : 'Add'}
               </button>
             </div>
+          )}
+
+          {error && (
+            <p className="text-xs text-red-500">{error}</p>
           )}
         </div>
       </main>
 
+      {/* Exercise picker */}
       {showPicker && (
         <div
           className="fixed inset-0 bg-black/50 flex items-end z-50"
@@ -231,9 +243,7 @@ export default function WorkoutLogger({
                   >
                     <p className="text-sm font-medium text-zinc-900 dark:text-white">{ex.name}</p>
                     {ex.category && (
-                      <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">
-                        {ex.category}
-                      </p>
+                      <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">{ex.category}</p>
                     )}
                   </button>
                 </li>
