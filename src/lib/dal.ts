@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import { createServerSupabaseClient } from './supabase-server'
 
 export async function getRecentWorkouts(limit = 5) {
@@ -38,16 +39,20 @@ export async function getWorkoutWithSets(workoutId: number) {
   return { ...workout, sets: sets ?? [] }
 }
 
-export async function getAllExercises() {
-  const supabase = await createServerSupabaseClient()
+export const getAllExercises = unstable_cache(
+  async () => {
+    const supabase = await createServerSupabaseClient()
 
-  const { data } = await supabase
-    .from('exercises')
-    .select('id, name, category, equipment')
-    .order('name', { ascending: true })
+    const { data } = await supabase
+      .from('exercises')
+      .select('id, name, category, equipment')
+      .order('name', { ascending: true })
 
-  return data ?? []
-}
+    return data ?? []
+  },
+  ['all-exercises'],
+  { revalidate: false },
+)
 
 export async function getExercise(id: number) {
   const supabase = await createServerSupabaseClient()
