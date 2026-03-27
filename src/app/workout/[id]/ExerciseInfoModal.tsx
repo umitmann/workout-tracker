@@ -57,7 +57,7 @@ export default function ExerciseInfoModal({
           {images.length > 0 && (
             <div className="relative bg-zinc-100 dark:bg-zinc-800">
               <img
-                src={`https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${images[imgIndex]}`}
+                src={images[imgIndex]}
                 alt={`${exercise.name} illustration`}
                 className="w-full object-cover max-h-56"
                 onError={(e) => {
