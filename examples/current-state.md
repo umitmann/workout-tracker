@@ -8,24 +8,24 @@
 - Google SSO working via Supabase Auth
 - Auth callback route: `/auth/callback` → redirects to `/dashboard`
 
+---
+
 ## Phase 2 — Complete
 
 ### Auth
-- `proxy.ts` protects `/dashboard`, `/routines`, `/workout` — unauthenticated users redirected to `/`
+- `proxy.ts` protects `/dashboard`, `/routines`, `/workout`, `/workouts` — unauthenticated users redirected to `/`
 - Authenticated users redirected away from `/` to `/dashboard`
 - Dashboard reads session server-side, shows avatar + name + sign-out button
 - Sign-out via Server Action
 - Registration gated by `REGISTRATION_ENABLED` env var (currently `false`)
-  - New signups blocked at `/auth/callback`, redirected with `?error=registration_disabled`
-  - Existing users unaffected
 
 ### Tables — all created and verified
-- `exercises` — RLS: authenticated users can read; array columns `text[]`; `equipment` added manually
-- `workouts` — RLS: users manage their own
+- `exercises` — RLS: authenticated users can read; array columns `text[]`
+- `workouts` — RLS: users manage their own; has `status` and `template_id` columns (see Phase 4)
 - `sets` — RLS: users manage their own
 - `routines` — RLS: users read presets + their own; write only their own
-- `routine_exercises` — RLS: all authenticated users can read; users manage their own
-- `scheduled_workouts` — RLS: users manage their own
+- `routine_exercises` — RLS: all authenticated users can read; users manage their own; has `weight` column (see Phase 4)
+- `scheduled_workouts` — RLS: users manage their own (unused — superseded by `workouts.status`)
 
 ### Exercises seed
 - 873 exercises seeded from `yuhonas/free-exercise-db`
@@ -33,77 +33,124 @@
 - Run: `npx tsx scripts/seed-exercises.ts` (requires `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`)
 
 ### Known gotchas
-- `exercises.id` and `workouts.id` are `bigint` (Table Editor default) — foreign keys must match
-- Schema cache may need refresh after column changes: `notify pgrst, 'reload schema';`
+- `exercises.id` is `bigint` — foreign keys in `sets` and `routine_exercises` must also be `bigint`
+- Schema cache may need refresh after column changes: `NOTIFY pgrst, 'reload schema';`
+- `params` and `searchParams` are `Promise` in Next.js 16 — must be `await`-ed in page components
+
+---
 
 ## Phase 3 — Complete
 
 ### Architecture decisions
 - **Data Access Layer** (`src/lib/dal.ts`) — all DB queries live here, auth checked inside each function
-- **Server Actions** verify auth internally (proxy alone is not sufficient per Next.js 16 docs)
-- `params` and `searchParams` are `Promise` in Next.js 16 — must be `await`-ed in page components
-- Only the workout logger (`WorkoutLogger.tsx`) is a Client Component; everything else is Server Components
+- **Server Actions** verify auth internally (proxy alone is insufficient per Next.js 16 docs)
+- `getAllExercises()` wrapped with `unstable_cache` using a service-role Supabase client (no cookies) — DB hit once per server lifetime; `use cache` was tried but blocked by `cookies()` inside the cached scope
+- Exercise details fetched lazily per-click via `getExerciseDetails(id)` server action — avoids loading heavy data for all 873 exercises upfront
 
-### Routes
+### Routes (Phase 3)
 | Route | Type | Description |
 |---|---|---|
 | `/` | Server | Sign-in page (Google SSO) |
-| `/dashboard` | Server | Recent workouts + start workout + browse link |
+| `/dashboard` | Server + Client | Calendar view + start workout |
 | `/routines` | Server + Client | Exercise browser with search + category filter |
 | `/routines/[id]` | Server | Exercise detail (muscles, instructions, images) |
 | `/workout/[id]` | Server + Client | Active workout logger |
 
-### Core features implemented
-- **Dashboard** — shows today's date, last 5 workouts with set counts, Start Workout + Workouts + Browse Exercises buttons
-- **Exercise browser** (`/routines`) — searchable, filterable by category, 873 exercises
-- **Exercise detail** (`/routines/[id]`) — image, category, equipment, primary/secondary muscles, step-by-step instructions
-- **Workout logging** (`/workout/[id]`) — sets held client-side until Finish (bulk-inserted on save); add/edit/delete sets inline; load template to pre-populate; abandon prompt on back navigation; `i` info button per exercise
-- **Workout templates** (`/workouts`) — create/edit/delete named templates with planned exercises, sets, reps, and weight; import into active workout via "Load template"
-- **Exercise info modal** — `i` button in workout logger and template editor opens modal with image carousel, muscles pills, and numbered instructions
+### Shared components
+- `ExercisePickerSheet.tsx` — bottom sheet with search; used by WorkoutLogger and TemplateEditor
+- `ExerciseInfoModal.tsx` — full-screen modal with image carousel, muscles, instructions, and history chart tab
 
-### Architecture notes (Phase 3 additions)
-- `getAllExercises()` cached with `unstable_cache` (service-role client, revalidate: false) — DB hit once per server lifetime
-- Exercise info fetched lazily per-click via `getExerciseDetails(id)` server action
-- New shared component: `ExercisePickerSheet.tsx` — used by both WorkoutLogger and TemplateEditor
-- New component: `ExerciseInfoModal.tsx`
+---
 
-### Phase 4 — Workout templates + deferred persistence (complete)
+## Phase 4 — Complete
 
-**Schema change required (run once in Supabase SQL editor):**
+### Schema migrations (run once in Supabase SQL editor)
 ```sql
+-- Add planned weight to routine exercises
 ALTER TABLE routine_exercises ADD COLUMN weight numeric;
+
+-- Add status lifecycle and template linkage to workouts
+ALTER TABLE workouts ADD COLUMN status text NOT NULL DEFAULT 'in_progress';
+ALTER TABLE workouts ADD COLUMN template_id bigint REFERENCES routines(id) ON DELETE SET NULL;
+
 NOTIFY pgrst, 'reload schema';
 ```
 
-**Routes added:**
+### All routes
 | Route | Type | Description |
 |---|---|---|
-| `/workouts` | Server | List user's workout templates |
-| `/workouts/new` | Server + Client | Create new template |
-| `/workouts/[id]` | Server + Client | Edit existing template |
+| `/` | Server | Sign-in page |
+| `/dashboard` | Server + Client | Calendar view, month navigation, start/schedule/log workouts |
+| `/routines` | Server + Client | Exercise browser |
+| `/routines/[id]` | Server | Exercise detail |
+| `/workout/[id]` | Server + Client | Active workout logger |
+| `/workouts` | Server | Workout template list |
+| `/workouts/new` | Server + Client | Create template |
+| `/workouts/[id]` | Server + Client | Edit template |
 
-**New files:**
-- `src/app/workouts/page.tsx` — template list with delete
-- `src/app/workouts/new/page.tsx` — thin server shell → TemplateEditor
-- `src/app/workouts/[id]/page.tsx` — loads template + exercises → TemplateEditor
-- `src/app/workouts/[id]/TemplateEditor.tsx` — client component; exercise picker, sets/reps/weight inputs per exercise, save/delete
-- `src/app/workout/[id]/ExercisePickerSheet.tsx` — extracted picker shared by logger + editor
-- `src/app/actions/templates.ts` — createTemplate, saveTemplateExercises, deleteTemplate, fetchUserTemplates
+### Features
 
-**Key architectural decisions:**
-- Sets are no longer saved immediately to DB; `WorkoutLogger` holds them in `LocalSet[]` state
-- `finishWorkout(workoutId, sets[])` bulk-inserts all sets at once, then redirects
-- Back navigation in the logger shows an "Abandon workout?" prompt; confirming calls `deleteWorkout` to clean up the empty workout row
-- Inline set editing: clicking a set chip enters edit mode (weight/reps inputs + confirm/cancel)
-- Template import: "Load template" button fetches user templates lazily, then expands each `routine_exercise` into N `LocalSet` entries (N = planned sets count)
+**Dashboard — calendar view**
+- Replaced recent-workouts list with a full monthly calendar (`CalendarView.tsx`)
+- Month navigation via `?y=&m=` search params (prev/next arrows)
+- Each day shows workout status: planned (border), in_progress (filled), completed (filled + checkmark)
+- Tapping a past/today empty day → options to log a workout or schedule one from a template
+- Tapping a planned day → "Start" button transitions it to in_progress and redirects to logger
+- Tapping an in_progress day → resumes the logger
+- "Start workout", "Templates", "Exercises" buttons in header
+
+**Workout templates (`/workouts`)**
+- Create/edit/delete named templates
+- Each template has a list of exercises with planned sets count, reps, and weight
+- "Start now" on a template: saves template, creates a workout, pre-populates sets from planned values, redirects to logger
+- "Save" saves without starting
+- Template list shows exercise count; delete button per row
+
+**Workout logger (`/workout/[id]`)**
+- Sets held entirely in client state (`LocalSet[]`) until explicitly saved
+- "Save" button: saves sets to DB without completing (stays `in_progress`); warns user on first save that this is a mid-session save, not a finish
+- "Done" button: saves sets and marks workout as `completed`; redirects to dashboard
+- "← Back" opens an abandon prompt — confirming deletes the workout row and redirects
+- Inline set editing: tap a set chip to edit weight/reps; Enter or ✓ to confirm, ✕ to cancel
+- "Load template" button: lazy-fetches user's templates; selecting one expands `routine_exercises` into `LocalSet[]` (N sets per exercise)
+- `i` button per exercise group: lazy-fetches full exercise data and opens `ExerciseInfoModal`
+- `beforeunload` handler prevents accidental tab close when sets are unsaved
+
+**Exercise info modal**
+- Tabs: Info (image carousel, equipment, muscles pills, instructions) and History
+- History tab: lazy-fetches `getExerciseHistory()` for the last 90 days of completed workouts
+- History chart: SVG polyline with dot markers; toggles between max weight and total volume
+- Handles single-data-point case (shows value + date instead of chart)
+
+### Key server actions (`src/app/actions/workouts.ts`)
+| Action | Description |
+|---|---|
+| `startWorkout()` | Creates `in_progress` workout for today, redirects to logger |
+| `startWorkoutFromTemplate(templateId)` | Creates workout, pre-populates sets from template, redirects |
+| `logWorkoutForDate(date, templateId?)` | Creates `in_progress` workout for any past/today date |
+| `scheduleWorkout(date, templateId?)` | Creates `planned` workout for a future date |
+| `startPlannedWorkout(workoutId)` | Transitions `planned` → `in_progress`, pre-populates sets, redirects |
+| `saveWorkoutProgress(workoutId, sets[])` | Bulk-replaces sets, keeps status `in_progress`, no redirect |
+| `completeWorkout(workoutId, sets[])` | Bulk-replaces sets, sets status `completed`, redirects to dashboard |
+| `deleteWorkout(workoutId)` | Deletes workout row (and cascade-deletes sets), redirects |
+
+### DAL functions (`src/lib/dal.ts`)
+| Function | Description |
+|---|---|
+| `getAllExercises()` | Cached (service-role, revalidate: false) — id, name, category, equipment |
+| `getExerciseDetails(id)` | Full exercise data including muscles, images, instructions |
+| `getExerciseHistory(id, limitDays?)` | Per-workout max weight + total volume for last N days of completed workouts |
+| `getWorkoutWithSets(id)` | Workout row + all sets with exercise name join |
+| `getMonthWorkouts(year, month)` | All workouts in a calendar month with status and set count |
+| `getUserTemplates()` | User's routines with nested routine_exercises + exercise names |
+| `getTemplate(id)` | Single template with full routine_exercises detail |
+
+---
 
 ## Known Issues
-
-- **Add button does nothing** — `addSet` server action returns silently. Error is now surfaced below the input row so the actual failure message is visible. Likely cause: RLS policy on `sets` blocking the insert, or a foreign key type mismatch. Needs testing with the error message visible.
+- None currently tracked.
 
 ## Next Steps
-
-- Resolve Add button issue (check error message now shown in UI)
-- Scheduling: assign routines to specific dates (`scheduled_workouts` table is ready)
-- Preset routines: seed the `routines` and `routine_exercises` tables
-- Trainer/admin features (see `examples/admin-groups.md`)
+- Preset / system-provided routines (seed `routines` with `is_preset = true`)
+- Trainer/admin features — assign workouts to clients (see `examples/admin-groups.md`)
+- Progress page — overall volume/frequency trends across all exercises
