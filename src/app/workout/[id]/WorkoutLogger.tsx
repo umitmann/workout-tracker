@@ -76,7 +76,7 @@ export default function WorkoutLogger({
         setSets((prev) => [
           ...prev,
           {
-            id: result.id,
+            id: result.id as number,
             exercise_id: selectedExercise.id,
             weight: data.weight,
             reps: data.reps,
