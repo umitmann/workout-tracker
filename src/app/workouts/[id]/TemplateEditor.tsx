@@ -3,10 +3,12 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createTemplate, saveTemplateExercises, deleteTemplate, TemplateExercisePayload } from '@/app/actions/templates'
-import { fetchExerciseDetails } from '@/app/actions/exercises'
-import { RoutineWithExercises } from '@/lib/dal'
+import { startWorkoutFromTemplate, startPlannedWorkout, scheduleWorkout } from '@/app/actions/workouts'
+import { fetchExerciseDetails, fetchLastExercisePerformance } from '@/app/actions/exercises'
+import { LastExercisePerformance, RoutineWithExercises } from '@/lib/dal'
 import ExercisePickerSheet, { SlimExercise } from '@/app/workout/[id]/ExercisePickerSheet'
 import ExerciseInfoModal from '@/app/workout/[id]/ExerciseInfoModal'
+import LastPerfModal from '@/app/workout/[id]/LastPerfModal'
 
 type TemplateExercise = {
   localId: string
@@ -32,12 +34,19 @@ type ExerciseDetails = {
 export default function TemplateEditor({
   exercises,
   template,
+  date,
+  workoutId,
 }: {
   exercises: SlimExercise[]
   template?: RoutineWithExercises
+  date?: string
+  workoutId?: number
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+
+  const today = new Date().toISOString().split('T')[0]
+  const isScheduling = !!date && date > today
 
   const [name, setName] = useState(template?.name ?? '')
   const [items, setItems] = useState<TemplateExercise[]>(
@@ -59,6 +68,9 @@ export default function TemplateEditor({
   const [showPicker, setShowPicker] = useState(false)
   const [infoExercise, setInfoExercise] = useState<ExerciseDetails | null>(null)
   const [infoLoading, setInfoLoading] = useState(false)
+  const [lastPerfExercise, setLastPerfExercise] = useState<{ id: number; name: string } | null>(null)
+  const [lastPerfData, setLastPerfData] = useState<LastExercisePerformance | null>(null)
+  const [lastPerfLoading, setLastPerfLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   function handleAddExercise(ex: SlimExercise) {
@@ -92,6 +104,15 @@ export default function TemplateEditor({
     if (details) setInfoExercise(details as ExerciseDetails)
   }
 
+  async function handleLastPerfClick(exerciseId: number, exerciseName: string) {
+    setLastPerfExercise({ id: exerciseId, name: exerciseName })
+    setLastPerfData(null)
+    setLastPerfLoading(true)
+    const data = await fetchLastExercisePerformance(exerciseId)
+    setLastPerfData(data)
+    setLastPerfLoading(false)
+  }
+
   function handleSave() {
     if (!name.trim()) { setError('Give your workout a name'); return }
     setError(null)
@@ -114,6 +135,42 @@ export default function TemplateEditor({
         await saveTemplateExercises(created.id, name.trim(), payload)
       }
       router.push('/workouts')
+    })
+  }
+
+  function handleStartNow() {
+    if (!name.trim()) { setError('Give your workout a name'); return }
+    setError(null)
+
+    const payload: TemplateExercisePayload[] = items.map((item, i) => ({
+      exerciseId: item.exerciseId,
+      sets: item.sets,
+      reps: item.reps,
+      weight: item.weight,
+      order: i,
+    }))
+
+    startTransition(async () => {
+      let routineId: string | number
+      if (template) {
+        const result = await saveTemplateExercises(template.id, name.trim(), payload)
+        if ('error' in result) { setError(result.error ?? 'Save failed'); return }
+        routineId = template.id
+      } else {
+        const created = await createTemplate(name.trim())
+        if ('error' in created) { setError(created.error ?? 'Create failed'); return }
+        await saveTemplateExercises(created.id, name.trim(), payload)
+        routineId = created.id
+      }
+      if (workoutId) {
+        await startPlannedWorkout(workoutId)
+      } else if (isScheduling) {
+        const result = await scheduleWorkout(date!, String(routineId))
+        if ('error' in result) { setError(result.error ?? 'Schedule failed'); return }
+        router.push('/workouts')
+      } else {
+        await startWorkoutFromTemplate(routineId, date)
+      }
     })
   }
 
@@ -140,7 +197,7 @@ export default function TemplateEditor({
         <button
           onClick={handleSave}
           disabled={isPending}
-          className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 disabled:opacity-40"
+          className="rounded-full bg-zinc-800 dark:bg-zinc-700 hover:bg-zinc-700 px-4 py-2 text-xs font-bold uppercase tracking-wide text-white disabled:opacity-40 transition-colors"
         >
           {isPending ? '…' : 'Save'}
         </button>
@@ -184,6 +241,16 @@ export default function TemplateEditor({
                   className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-600 dark:hover:border-zinc-400 dark:hover:text-zinc-300 transition-colors text-xs font-medium flex items-center justify-center leading-none"
                 >
                   i
+                </button>
+                <button
+                  onClick={() => handleLastPerfClick(item.exerciseId, item.exerciseName)}
+                  title="Last session"
+                  className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
+                >
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="6" cy="6" r="5" />
+                    <path d="M6 3v3l1.5 1.5" />
+                  </svg>
                 </button>
               </div>
               <button
@@ -234,9 +301,18 @@ export default function TemplateEditor({
         {/* Add exercise */}
         <button
           onClick={() => setShowPicker(true)}
-          className="flex items-center justify-center gap-2 w-full rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 py-4 text-sm font-medium text-zinc-500 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+          className="flex items-center justify-center gap-2 w-full rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 py-4 text-sm font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 hover:border-orange-400 hover:text-orange-500 transition-colors"
         >
           + Add exercise
+        </button>
+
+        {/* Start now */}
+        <button
+          onClick={handleStartNow}
+          disabled={isPending}
+          className="w-full rounded-xl bg-orange-500 hover:bg-orange-600 py-3 text-sm font-bold uppercase tracking-wide text-white disabled:opacity-40 transition-colors shadow-md shadow-orange-200 dark:shadow-none"
+        >
+          {isPending ? '…' : isScheduling ? 'Schedule' : 'Start now'}
         </button>
 
         {/* Delete (edit mode only) */}
@@ -259,6 +335,14 @@ export default function TemplateEditor({
       )}
       {infoExercise && (
         <ExerciseInfoModal exercise={infoExercise} onClose={() => setInfoExercise(null)} />
+      )}
+      {lastPerfExercise && (
+        <LastPerfModal
+          exerciseName={lastPerfExercise.name}
+          data={lastPerfData}
+          loading={lastPerfLoading}
+          onClose={() => setLastPerfExercise(null)}
+        />
       )}
 
       {/* Exercise picker */}

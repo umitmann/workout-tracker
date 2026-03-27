@@ -21,7 +21,7 @@ export async function startWorkout() {
 
   const { data, error } = await supabase
     .from('workouts')
-    .insert({ user_id: user.id, date: today })
+    .insert({ user_id: user.id, date: today, status: 'in_progress' })
     .select('id')
     .single()
 
@@ -30,7 +30,113 @@ export async function startWorkout() {
   redirect(`/workout/${data.id}`)
 }
 
-export async function finishWorkout(workoutId: number, sets: SetPayload[]) {
+export async function startWorkoutFromTemplate(templateId: string | number, date?: string) {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/')
+
+  const workoutDate = date ?? new Date().toISOString().split('T')[0]
+
+  const { data: workout, error: workoutError } = await supabase
+    .from('workouts')
+    .insert({ user_id: user.id, date: workoutDate, status: 'in_progress', template_id: templateId })
+    .select('id')
+    .single()
+
+  if (workoutError || !workout) redirect('/dashboard')
+
+  redirect(`/workout/${workout.id}`)
+}
+
+// Creates an in_progress workout for any date (for logging in hindsight or today)
+export async function logWorkoutForDate(date: string, templateId?: string) {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/')
+
+  const { data: workout } = await supabase
+    .from('workouts')
+    .insert({ user_id: user.id, date, status: 'in_progress', template_id: templateId ?? null })
+    .select('id')
+    .single()
+
+  if (!workout) redirect('/workouts')
+
+  redirect(`/workout/${workout.id}`)
+}
+
+// Creates a planned workout for a future date
+export async function scheduleWorkout(date: string, templateId?: string) {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { data, error } = await supabase
+    .from('workouts')
+    .insert({ user_id: user.id, date, status: 'planned', template_id: templateId ?? null })
+    .select('id')
+    .single()
+
+  if (error || !data) return { error: error?.message ?? 'Failed to schedule' }
+  revalidatePath('/workouts')
+  return { id: data.id as number }
+}
+
+// Transitions a planned workout to in_progress, pre-populates sets, redirects to logger
+export async function startPlannedWorkout(workoutId: number) {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/')
+
+  const { data: workout } = await supabase
+    .from('workouts')
+    .select('id, template_id')
+    .eq('id', workoutId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!workout) redirect('/workouts')
+
+  await supabase.from('workouts').update({ status: 'in_progress' }).eq('id', workout.id)
+  redirect(`/workout/${workout.id}`)
+}
+
+// Saves sets without completing — stays in_progress, no redirect
+export async function saveWorkoutProgress(workoutId: number, sets: SetPayload[]) {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { data: workout } = await supabase
+    .from('workouts')
+    .select('id')
+    .eq('id', workoutId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!workout) return { error: 'Not found' }
+
+  await supabase.from('sets').delete().eq('workout_id', workoutId)
+
+  if (sets.length > 0) {
+    await supabase.from('sets').insert(
+      sets.map((s) => ({
+        workout_id: workoutId,
+        user_id: user.id,
+        exercise_id: s.exercise_id,
+        weight: s.weight,
+        reps: s.reps,
+        duration_minutes: s.duration_minutes ?? null,
+        distance: s.distance ?? null,
+      })),
+    )
+  }
+
+  return { success: true }
+}
+
+// Saves sets and marks workout as completed — updates exercise history, redirects to calendar
+export async function completeWorkout(workoutId: number, sets: SetPayload[]) {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
@@ -42,17 +148,16 @@ export async function finishWorkout(workoutId: number, sets: SetPayload[]) {
     .eq('user_id', user.id)
     .single()
 
-  if (!workout) redirect('/dashboard')
+  if (!workout) redirect('/workouts')
 
-  // Clear any previously saved sets, then bulk-insert current state
   await supabase.from('sets').delete().eq('workout_id', workoutId)
 
   if (sets.length > 0) {
     await supabase.from('sets').insert(
       sets.map((s) => ({
         workout_id: workoutId,
-        exercise_id: s.exercise_id,
         user_id: user.id,
+        exercise_id: s.exercise_id,
         weight: s.weight,
         reps: s.reps,
         duration_minutes: s.duration_minutes ?? null,
@@ -61,7 +166,9 @@ export async function finishWorkout(workoutId: number, sets: SetPayload[]) {
     )
   }
 
+  await supabase.from('workouts').update({ status: 'completed' }).eq('id', workout.id)
   revalidatePath('/dashboard')
+  revalidatePath('/workouts')
   redirect('/dashboard')
 }
 
@@ -77,5 +184,25 @@ export async function deleteWorkout(workoutId: number) {
     .eq('user_id', user.id)
 
   revalidatePath('/dashboard')
+  revalidatePath('/workouts')
   redirect('/dashboard')
+}
+
+export async function reopenWorkout(workoutId: number) {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/')
+
+  await supabase
+    .from('workouts')
+    .update({ status: 'in_progress' })
+    .eq('id', workoutId)
+    .eq('user_id', user.id)
+
+  redirect(`/workout/${workoutId}`)
+}
+
+// Legacy — kept for any remaining references; prefer completeWorkout
+export async function finishWorkout(workoutId: number, sets: SetPayload[]) {
+  return completeWorkout(workoutId, sets)
 }
