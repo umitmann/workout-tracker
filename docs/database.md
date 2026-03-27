@@ -11,9 +11,14 @@ All SQL here runs in **Supabase → SQL Editor → New query**.
 | `exercises` | ✅ | ✅ |
 | `workouts` | ✅ | ✅ |
 | `sets` | ✅ | ✅ |
-| `routines` | ⬜ | ⬜ |
-| `routine_exercises` | ⬜ | ⬜ |
-| `scheduled_workouts` | ⬜ | ⬜ |
+| `routines` | ✅ | ✅ |
+| `routine_exercises` | ✅ | ✅ |
+| `scheduled_workouts` | ✅ | ✅ |
+
+> **Notes from setup:**
+> - `exercises.id` and `workouts.id` are `bigint` (created via Table Editor). All foreign keys referencing them must use `bigint`, not `uuid`.
+> - `equipment` column was missing from `exercises` after initial Table Editor setup — added manually via `alter table exercises add column equipment text`.
+> - Schema cache may need a refresh after column changes: run `notify pgrst, 'reload schema';` in SQL Editor if Supabase can't find a column.
 
 ---
 
@@ -67,11 +72,26 @@ create table if not exists workouts (
 
 alter table workouts enable row level security;
 
-create policy "workouts: users manage their own"
-  on workouts for all
+create policy "workouts: users select their own"
+  on workouts for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "workouts: users insert their own"
+  on workouts for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "workouts: users update their own"
+  on workouts for update
   to authenticated
   using  (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+create policy "workouts: users delete their own"
+  on workouts for delete
+  to authenticated
+  using (auth.uid() = user_id);
 ```
 
 ---
@@ -95,16 +115,31 @@ create table if not exists sets (
 
 alter table sets enable row level security;
 
-create policy "sets: users manage their own"
-  on sets for all
+create policy "sets: users select their own"
+  on sets for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "sets: users insert their own"
+  on sets for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "sets: users update their own"
+  on sets for update
   to authenticated
   using  (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+create policy "sets: users delete their own"
+  on sets for delete
+  to authenticated
+  using (auth.uid() = user_id);
 ```
 
 ---
 
-## Phase 2 — Still To Create
+## Phase 3 — Scheduling Tables
 
 ### `routines`
 
@@ -128,10 +163,21 @@ create policy "routines: read presets and own"
   using (is_preset = true or auth.uid() = user_id);
 
 -- Users can only write their own routines (not presets)
-create policy "routines: users manage their own"
-  on routines for insert update delete
+create policy "routines: users insert their own"
+  on routines for insert
   to authenticated
   with check (auth.uid() = user_id);
+
+create policy "routines: users update their own"
+  on routines for update
+  to authenticated
+  using  (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "routines: users delete their own"
+  on routines for delete
+  to authenticated
+  using (auth.uid() = user_id);
 ```
 
 ---
@@ -144,7 +190,7 @@ The exercises inside a routine, in order.
 create table routine_exercises (
   id          uuid primary key default gen_random_uuid(),
   routine_id  uuid not null references routines on delete cascade,
-  exercise_id uuid not null references exercises on delete restrict,
+  exercise_id bigint not null references exercises on delete restrict,
   sets        integer not null,
   reps        integer not null,
   "order"     integer not null
@@ -159,14 +205,36 @@ create policy "routine_exercises: authenticated read"
   using (true);
 
 -- Users can only write routine_exercises that belong to their own routines
-create policy "routine_exercises: users manage their own"
-  on routine_exercises for insert update delete
+create policy "routine_exercises: users insert their own"
+  on routine_exercises for insert
   to authenticated
   with check (
     exists (
       select 1 from routines
       where id = routine_exercises.routine_id
-      and auth.uid() = user_id
+      and auth.uid() = routines.user_id
+    )
+  );
+
+create policy "routine_exercises: users update their own"
+  on routine_exercises for update
+  to authenticated
+  with check (
+    exists (
+      select 1 from routines
+      where id = routine_exercises.routine_id
+      and auth.uid() = routines.user_id
+    )
+  );
+
+create policy "routine_exercises: users delete their own"
+  on routine_exercises for delete
+  to authenticated
+  using (
+    exists (
+      select 1 from routines
+      where id = routine_exercises.routine_id
+      and auth.uid() = routines.user_id
     )
   );
 ```
@@ -184,17 +252,32 @@ create table scheduled_workouts (
   routine_id     uuid not null references routines on delete cascade,
   scheduled_date date not null,
   assigned_by    uuid references auth.users on delete set null, -- null = self-scheduled
-  workout_id     uuid references workouts on delete set null,   -- null = not yet done
+  workout_id     bigint references workouts on delete set null,  -- null = not yet done
   created_at     timestamptz default now()
 );
 
 alter table scheduled_workouts enable row level security;
 
-create policy "scheduled_workouts: users manage their own"
-  on scheduled_workouts for all
+create policy "scheduled_workouts: users select their own"
+  on scheduled_workouts for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "scheduled_workouts: users insert their own"
+  on scheduled_workouts for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "scheduled_workouts: users update their own"
+  on scheduled_workouts for update
   to authenticated
   using  (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+create policy "scheduled_workouts: users delete their own"
+  on scheduled_workouts for delete
+  to authenticated
+  using (auth.uid() = user_id);
 ```
 
 ---

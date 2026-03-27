@@ -8,75 +8,41 @@
 - Google SSO working via Supabase Auth
 - Auth callback route: `/auth/callback` → redirects to `/dashboard`
 
-## Phase 2 — In Progress
+## Phase 2 — Complete
 
-### Tables created
-- `workouts` — with RLS policy (users manage their own)
-- `sets` — with RLS policy (users manage their own)
-- `exercises` — with RLS policy (authenticated users can read)
+### Auth
+- `proxy.ts` protects `/dashboard` — unauthenticated users redirected to `/`
+- Authenticated users redirected away from `/` to `/dashboard`
+- Dashboard reads session server-side, shows avatar + name + sign-out button
+- Sign-out via Server Action
+- Registration gated by `REGISTRATION_ENABLED` env var (currently `false`)
+  - New signups blocked at `/auth/callback`, redirected with `?error=registration_disabled`
+  - Existing users unaffected
 
-### exercises table columns
-- `id` (uuid, primary key)
-- `created_at` (timestamp)
-- `name` (text, not null)
-- `category` (text)
-- `equipment` (text)
-- `muscles` (text[])
-- `muscles_secondary` (text[])
-- `images` (text[])
-- `instructions` (text[])
+### Tables — all created and verified
+- `exercises` — RLS: authenticated users can read; array columns confirmed as `text[]`
+- `workouts` — RLS: users manage their own
+- `sets` — RLS: users manage their own
+- `routines` — RLS: users read presets + their own; write only their own
+- `routine_exercises` — RLS: all authenticated users can read; users manage their own
+- `scheduled_workouts` — RLS: users manage their own
 
-Note: `muscle_group` was removed in favour of `muscles` and `muscles_secondary`.
+### Known gotcha — id types
+Tables created via Supabase Table Editor have `bigint` ids, not `uuid`.
+Foreign keys referencing them must match:
+- `exercises.id` → `bigint` — `routine_exercises.exercise_id` is `bigint`
+- `workouts.id` → `bigint` — `scheduled_workouts.workout_id` is `bigint`
+- `routines.id` → `uuid` (created via SQL)
 
-### Known Issues to Revisit
-- **Toggle confusion in Supabase Table Editor**: Primary key toggle was mistaken for nullable toggle.
-  Revisit exercises table columns to confirm:
-  - `muscles`, `muscles_secondary`, `images`, `instructions`, `equipment` are nullable
-  - None of them accidentally have primary key enabled
+## Phase 3 — Next Steps
 
-### Next Steps (Next Session)
+### 1. Exercises Seed — Complete
+- 873 exercises seeded from `yuhonas/free-exercise-db`
+- Data stored locally at `scripts/exercises.json` (committed to repo)
+- Seed script: `npx tsx scripts/seed-exercises.ts` (requires `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`)
+- Images stored as full GitHub raw URLs
 
-#### 1. Auth — Supabase Login Flow
-- Read session on `/dashboard` using `@supabase/ssr`
-- Protect `/dashboard` — redirect unauthenticated users to `/`
-- Display user info (name, avatar) on dashboard
-- Add sign out button
-
-#### 2. Finish Phase 2 — Exercises Seed
-- Confirm exercises table column settings are correct (nullable, no wrong toggles)
-- Write seed script to fetch from `yuhonas/free-exercise-db` and import into Supabase
-- Run seed script and verify data in Table Editor
-
-#### 3. Add Scheduling Tables to Supabase
-Create these tables (see `individual-user.md` and `admin-groups.md` for full schema):
-
-**`routines`**
-- `id` (uuid, primary key)
-- `user_id` (uuid, nullable — null means system/preset routine)
-- `name` (text)
-- `is_preset` (boolean, default false)
-- `created_at` (timestamp)
-
-**`routine_exercises`**
-- `id` (uuid, primary key)
-- `routine_id` (uuid, references routines)
-- `exercise_id` (uuid, references exercises)
-- `sets` (integer)
-- `reps` (integer)
-- `order` (integer)
-
-**`scheduled_workouts`**
-- `id` (uuid, primary key)
-- `user_id` (uuid, references auth.users)
-- `routine_id` (uuid, references routines)
-- `scheduled_date` (date)
-- `assigned_by` (uuid, nullable — trainer uid if trainer-assigned)
-- `workout_id` (uuid, nullable — filled in when completed)
-- `created_at` (timestamp)
-
-RLS for scheduling tables:
-- `routines`: users can read all presets + their own; write only their own
-- `routine_exercises`: readable by all authenticated users
-- `scheduled_workouts`: users manage their own rows
-
-#### 4. Move to Phase 3 — Core Features
+### 2. Core Features — Next
+- Dashboard calendar showing scheduled and completed workouts
+- Workout logging flow (start workout → log sets → complete)
+- Routine browser (preset + user-created)
