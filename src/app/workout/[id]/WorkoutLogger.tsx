@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { addSet, deleteSet } from '@/app/actions/sets'
-import { finishWorkout } from '@/app/actions/workouts'
+import { finishWorkout, deleteWorkout } from '@/app/actions/workouts'
 import { fetchExerciseDetails } from '@/app/actions/exercises'
 import ExerciseInfoModal from './ExerciseInfoModal'
 
@@ -134,6 +134,7 @@ export default function WorkoutLogger({
     : exercises
 
   const finishWithId = finishWorkout.bind(null, workout.id)
+  const deleteWithId = deleteWorkout.bind(null, workout.id)
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
@@ -151,14 +152,25 @@ export default function WorkoutLogger({
             day: 'numeric',
           })}
         </h1>
-        <form action={finishWithId}>
-          <button
-            type="submit"
-            className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900"
-          >
-            Finish
-          </button>
-        </form>
+        <div className="flex items-center gap-2">
+          <form action={deleteWithId}>
+            <button
+              type="submit"
+              title="Delete workout"
+              className="text-xs text-zinc-400 hover:text-red-500 dark:text-zinc-600 dark:hover:text-red-500 transition-colors"
+            >
+              Delete
+            </button>
+          </form>
+          <form action={finishWithId}>
+            <button
+              type="submit"
+              className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900"
+            >
+              Finish
+            </button>
+          </form>
+        </div>
       </header>
 
       <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-6">

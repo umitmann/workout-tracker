@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { signOut } from '@/app/actions/auth'
-import { startWorkout } from '@/app/actions/workouts'
+import { startWorkout, deleteWorkout } from '@/app/actions/workouts'
 import { getRecentWorkouts } from '@/lib/dal'
 
 export default async function Dashboard() {
@@ -73,10 +73,10 @@ export default async function Dashboard() {
           ) : (
             <ul className="flex flex-col gap-2">
               {recentWorkouts.map((w: any) => (
-                <li key={w.id}>
+                <li key={w.id} className="flex items-center gap-2">
                   <Link
                     href={`/workout/${w.id}`}
-                    className="flex items-center justify-between rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-4 py-3 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
+                    className="flex-1 flex items-center justify-between rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-4 py-3 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
                   >
                     <span className="text-sm font-medium text-zinc-900 dark:text-white">
                       {new Date(w.date + 'T00:00:00').toLocaleDateString('en-US', {
@@ -89,6 +89,15 @@ export default async function Dashboard() {
                       {w.sets?.length ?? 0} sets
                     </span>
                   </Link>
+                  <form action={deleteWorkout.bind(null, w.id)}>
+                    <button
+                      type="submit"
+                      title="Delete workout"
+                      className="flex items-center justify-center w-8 h-8 rounded-full text-zinc-300 dark:text-zinc-700 hover:text-red-500 dark:hover:text-red-500 transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </form>
                 </li>
               ))}
             </ul>
