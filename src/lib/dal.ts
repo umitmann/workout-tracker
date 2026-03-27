@@ -60,3 +60,15 @@ export async function getExercise(id: number) {
 
   return data
 }
+
+export async function getExerciseDetails(id: number) {
+  const supabase = await createServerSupabaseClient()
+
+  const { data } = await supabase
+    .from('exercises')
+    .select('id, name, category, equipment, muscles, muscles_secondary, images, instructions')
+    .eq('id', id)
+    .single()
+
+  return data
+}

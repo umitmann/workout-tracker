@@ -4,12 +4,27 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { addSet, deleteSet } from '@/app/actions/sets'
 import { finishWorkout } from '@/app/actions/workouts'
+import { fetchExerciseDetails } from '@/app/actions/exercises'
+import ExerciseInfoModal from './ExerciseInfoModal'
 
+// Slim type used for the picker list (initial page load)
 type Exercise = {
   id: number
   name: string
   category: string | null
   equipment: string | null
+}
+
+// Full type used only in the info modal (lazy-loaded)
+type ExerciseDetails = {
+  id: number
+  name: string
+  category: string | null
+  equipment: string | null
+  muscles: string[] | null
+  muscles_secondary: string[] | null
+  images: string[] | null
+  instructions: string[] | null
 }
 
 type SetRow = {
@@ -38,6 +53,8 @@ export default function WorkoutLogger({
   const [sets, setSets] = useState<SetRow[]>(workout.sets)
   const [showPicker, setShowPicker] = useState(false)
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
+  const [infoExercise, setInfoExercise] = useState<ExerciseDetails | null>(null)
+  const [infoLoading, setInfoLoading] = useState(false)
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
   const [search, setSearch] = useState('')
@@ -55,6 +72,13 @@ export default function WorkoutLogger({
     acc[s.exercise_id].sets.push(s)
     return acc
   }, {})
+
+  async function handleInfoClick(exerciseId: number) {
+    setInfoLoading(true)
+    const details = await fetchExerciseDetails(exerciseId)
+    setInfoLoading(false)
+    if (details) setInfoExercise(details as ExerciseDetails)
+  }
 
   function handleSelectExercise(ex: Exercise) {
     const previous = sets.filter((s) => s.exercise_id === ex.id).at(-1)
@@ -78,7 +102,7 @@ export default function WorkoutLogger({
     startTransition(async () => {
       const result = await addSet(workout.id, selectedExercise.id, data)
       if ('error' in result) {
-        setError(result.error)
+        setError(result.error ?? 'Unknown error')
         return
       }
       setSets((prev) => [
@@ -143,7 +167,16 @@ export default function WorkoutLogger({
         {Object.entries(grouped).map(([exerciseId, group]) => (
           <div key={exerciseId} className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">{group.name}</h2>
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="text-sm font-semibold text-zinc-900 dark:text-white truncate">{group.name}</h2>
+                <button
+                  onClick={() => handleInfoClick(Number(exerciseId))}
+                  title="Exercise info"
+                  className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-zinc-500 dark:hover:border-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors text-xs font-medium flex items-center justify-center leading-none"
+                >
+                  i
+                </button>
+              </div>
               <button
                 onClick={() => {
                   const ex = exercises.find((e) => e.id === Number(exerciseId))
@@ -234,6 +267,16 @@ export default function WorkoutLogger({
           </div>
         )}
       </main>
+
+      {/* Exercise info modal */}
+      {infoLoading && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="w-10 h-10 rounded-full border-2 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-white animate-spin" />
+        </div>
+      )}
+      {infoExercise && (
+        <ExerciseInfoModal exercise={infoExercise} onClose={() => setInfoExercise(null)} />
+      )}
 
       {/* Exercise picker */}
       {showPicker && (

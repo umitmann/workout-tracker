@@ -58,6 +58,13 @@
 - **Exercise browser** (`/routines`) — searchable, filterable by category, 873 exercises
 - **Exercise detail** (`/routines/[id]`) — image, category, equipment, primary/secondary muscles, step-by-step instructions
 - **Workout logging** (`/workout/[id]`) — start workout creates DB row, add sets (exercise + weight + reps), delete sets, finish returns to dashboard; resumable (pre-loads existing sets on page load)
+- **Exercise info modal** — small circular `i` button next to each exercise group header in the workout logger opens a modal with: image carousel, equipment, primary/secondary muscles as pills, and numbered step-by-step instructions
+
+### Architecture notes (Phase 3 additions)
+- `getAllExercises()` in `dal.ts` now fetches `muscles`, `muscles_secondary`, `images`, `instructions` — no extra query needed in the workout logger
+- `Exercise` type in `WorkoutLogger.tsx` extended to include these fields
+- `grouped` map now carries the full `exercise` object alongside the display name
+- New component: `src/app/workout/[id]/ExerciseInfoModal.tsx`
 
 ## Known Issues
 
