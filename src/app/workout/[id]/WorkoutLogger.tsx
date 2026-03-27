@@ -270,7 +270,7 @@ export default function WorkoutLogger({
 
       {/* Exercise info modal */}
       {infoLoading && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
           <div className="w-10 h-10 rounded-full border-2 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-white animate-spin" />
         </div>
       )}
@@ -300,15 +300,22 @@ export default function WorkoutLogger({
             </div>
             <ul className="overflow-y-auto flex-1">
               {filteredExercises.slice(0, 50).map((ex) => (
-                <li key={ex.id}>
+                <li key={ex.id} className="flex items-center border-b border-zinc-100 dark:border-zinc-800">
                   <button
                     onClick={() => handleSelectExercise(ex)}
-                    className="w-full text-left px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors border-b border-zinc-100 dark:border-zinc-800"
+                    className="flex-1 text-left px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                   >
                     <p className="text-sm font-medium text-zinc-900 dark:text-white">{ex.name}</p>
                     {ex.category && (
                       <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">{ex.category}</p>
                     )}
+                  </button>
+                  <button
+                    onClick={() => handleInfoClick(ex.id)}
+                    title="Exercise info"
+                    className="shrink-0 mx-3 w-6 h-6 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-zinc-500 dark:hover:border-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors text-xs font-medium flex items-center justify-center leading-none"
+                  >
+                    i
                   </button>
                 </li>
               ))}
