@@ -57,11 +57,12 @@ export default function WorkoutLogger({
   }, {})
 
   function handleSelectExercise(ex: Exercise) {
+    const previous = sets.filter((s) => s.exercise_id === ex.id).at(-1)
     setSelectedExercise(ex)
     setShowPicker(false)
     setSearch('')
-    setWeight('')
-    setReps('')
+    setWeight(previous?.weight != null ? String(previous.weight) : '')
+    setReps(previous?.reps != null ? String(previous.reps) : '')
     setError(null)
   }
 
@@ -141,7 +142,18 @@ export default function WorkoutLogger({
         {/* Exercises — vertical list, sets — horizontal chips */}
         {Object.entries(grouped).map(([exerciseId, group]) => (
           <div key={exerciseId} className="flex flex-col gap-2">
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">{group.name}</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">{group.name}</h2>
+              <button
+                onClick={() => {
+                  const ex = exercises.find((e) => e.id === Number(exerciseId))
+                  if (ex) handleSelectExercise(ex)
+                }}
+                className="flex items-center justify-center h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-900 hover:text-white dark:hover:bg-white dark:hover:text-zinc-900 transition-colors text-lg leading-none"
+              >
+                +
+              </button>
+            </div>
             <div className="flex flex-row flex-wrap gap-2">
               {group.sets.map((s, i) => (
                 <div
@@ -174,15 +186,25 @@ export default function WorkoutLogger({
         )}
 
         {/* Add set */}
-        <div className="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 flex flex-col gap-3">
+        {!selectedExercise ? (
           <button
             onClick={() => setShowPicker(true)}
-            className="text-left text-sm font-medium text-zinc-900 dark:text-white"
+            className="flex items-center justify-center gap-2 w-full rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 py-4 text-sm font-medium text-zinc-500 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
           >
-            {selectedExercise ? selectedExercise.name : 'Pick exercise →'}
+            + Add exercise
           </button>
-
-          {selectedExercise && (
+        ) : (
+          <div className="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Adding set for</p>
+              <button
+                onClick={() => setShowPicker(true)}
+                className="text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors underline underline-offset-2"
+              >
+                change
+              </button>
+            </div>
+            <p className="text-sm font-semibold text-zinc-900 dark:text-white">{selectedExercise.name}</p>
             <div className="flex gap-2">
               <input
                 type="number"
@@ -206,12 +228,11 @@ export default function WorkoutLogger({
                 {isPending ? '…' : 'Add'}
               </button>
             </div>
-          )}
-
-          {error && (
-            <p className="text-xs text-red-500">{error}</p>
-          )}
-        </div>
+            {error && (
+              <p className="text-xs text-red-500">{error}</p>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Exercise picker */}
