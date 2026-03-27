@@ -1,5 +1,14 @@
 import { unstable_cache } from 'next/cache'
+import { createClient } from '@supabase/supabase-js'
 import { createServerSupabaseClient } from './supabase-server'
+
+// Service-role client — no cookies, safe to use inside unstable_cache
+function createServiceSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+}
 
 export async function getRecentWorkouts(limit = 5) {
   const supabase = await createServerSupabaseClient()
@@ -41,7 +50,7 @@ export async function getWorkoutWithSets(workoutId: number) {
 
 export const getAllExercises = unstable_cache(
   async () => {
-    const supabase = await createServerSupabaseClient()
+    const supabase = createServiceSupabaseClient()
 
     const { data } = await supabase
       .from('exercises')
