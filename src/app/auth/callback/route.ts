@@ -24,7 +24,20 @@ export async function GET(request: NextRequest) {
         },
       }
     )
-    await supabase.auth.exchangeCodeForSession(code)
+
+    const { data } = await supabase.auth.exchangeCodeForSession(code)
+    const user = data.user
+
+    if (user) {
+      const registrationEnabled = process.env.REGISTRATION_ENABLED === 'true'
+      const createdAt = new Date(user.created_at).getTime()
+      const isNewUser = Date.now() - createdAt < 10_000
+
+      if (!registrationEnabled && isNewUser) {
+        await supabase.auth.signOut()
+        return NextResponse.redirect(`${origin}/?error=registration_disabled`)
+      }
+    }
   }
 
   return NextResponse.redirect(`${origin}/dashboard`)

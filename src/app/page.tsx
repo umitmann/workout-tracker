@@ -1,9 +1,12 @@
 'use client'
 
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 
 export default function Home() {
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const error = searchParams.get('error')
 
   async function signInWithGoogle() {
     await supabase.auth.signInWithOAuth({
@@ -18,6 +21,9 @@ export default function Home() {
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black">
       <div className="flex flex-col items-center gap-6">
         <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">Workout Tracker</h1>
+        {error === 'registration_disabled' && (
+          <p className="text-sm text-red-500">Registration is currently closed.</p>
+        )}
         <button
           onClick={signInWithGoogle}
           className="flex items-center gap-3 rounded-full bg-white px-6 py-3 text-sm font-medium text-zinc-800 shadow-md hover:shadow-lg transition-shadow border border-zinc-200"
