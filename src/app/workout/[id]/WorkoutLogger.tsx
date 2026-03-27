@@ -1,21 +1,23 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import Link from 'next/link'
-import { addSet, deleteSet } from '@/app/actions/sets'
-import { finishWorkout, deleteWorkout } from '@/app/actions/workouts'
+import { useState, useTransition, useEffect } from 'react'
+import { finishWorkout, deleteWorkout, SetPayload } from '@/app/actions/workouts'
 import { fetchExerciseDetails } from '@/app/actions/exercises'
+import { fetchUserTemplates } from '@/app/actions/templates'
+import { RoutineWithExercises } from '@/lib/dal'
+import ExercisePickerSheet, { SlimExercise } from './ExercisePickerSheet'
 import ExerciseInfoModal from './ExerciseInfoModal'
 
-// Slim type used for the picker list (initial page load)
-type Exercise = {
-  id: number
-  name: string
-  category: string | null
-  equipment: string | null
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type LocalSet = {
+  localId: string
+  exerciseId: number
+  exerciseName: string
+  weight: number | null
+  reps: number | null
 }
 
-// Full type used only in the info modal (lazy-loaded)
 type ExerciseDetails = {
   id: number
   name: string
@@ -27,51 +29,135 @@ type ExerciseDetails = {
   instructions: string[] | null
 }
 
-type SetRow = {
-  id: number
-  exercise_id: number
-  weight: number | null
-  reps: number | null
-  duration_minutes: number | null
-  distance: number | null
-  exercises: { name: string } | null
-}
-
 type Workout = {
   id: number
   date: string
-  sets: SetRow[]
+  sets: {
+    id: number
+    exercise_id: number
+    weight: number | null
+    reps: number | null
+    duration_minutes: number | null
+    distance: number | null
+    exercises: { name: string } | null
+  }[]
 }
+
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export default function WorkoutLogger({
   workout,
   exercises,
 }: {
   workout: Workout
-  exercises: Exercise[]
+  exercises: SlimExercise[]
 }) {
-  const [sets, setSets] = useState<SetRow[]>(workout.sets)
-  const [showPicker, setShowPicker] = useState(false)
-  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
-  const [infoExercise, setInfoExercise] = useState<ExerciseDetails | null>(null)
-  const [infoLoading, setInfoLoading] = useState(false)
-  const [weight, setWeight] = useState('')
-  const [reps, setReps] = useState('')
-  const [search, setSearch] = useState('')
-  const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  // exercises as vertical list, sets as horizontal chips per exercise
-  const grouped = sets.reduce<Record<number, { name: string; sets: SetRow[] }>>((acc, s) => {
-    if (!acc[s.exercise_id]) {
-      acc[s.exercise_id] = {
-        name: s.exercises?.name ?? String(s.exercise_id),
-        sets: [],
+  // All sets live in client state only — committed on Finish
+  const [localSets, setLocalSets] = useState<LocalSet[]>(() =>
+    workout.sets.map((s) => ({
+      localId: crypto.randomUUID(),
+      exerciseId: s.exercise_id,
+      exerciseName: s.exercises?.name ?? String(s.exercise_id),
+      weight: s.weight,
+      reps: s.reps,
+    })),
+  )
+
+  // Add-set form
+  const [selectedExercise, setSelectedExercise] = useState<SlimExercise | null>(null)
+  const [weight, setWeight] = useState('')
+  const [reps, setReps] = useState('')
+  const [addError, setAddError] = useState<string | null>(null)
+
+  // Inline set editing
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editWeight, setEditWeight] = useState('')
+  const [editReps, setEditReps] = useState('')
+
+  // Sheets & modals
+  const [showPicker, setShowPicker] = useState(false)
+  const [showImportPicker, setShowImportPicker] = useState(false)
+  const [showAbandonPrompt, setShowAbandonPrompt] = useState(false)
+  const [infoExercise, setInfoExercise] = useState<ExerciseDetails | null>(null)
+  const [infoLoading, setInfoLoading] = useState(false)
+
+  // Template import
+  const [templates, setTemplates] = useState<RoutineWithExercises[] | null>(null)
+  const [loadingTemplates, setLoadingTemplates] = useState(false)
+
+  // Warn on browser tab close / refresh
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (localSets.length > 0) {
+        e.preventDefault()
       }
     }
-    acc[s.exercise_id].sets.push(s)
-    return acc
-  }, {})
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [localSets.length])
+
+  // ─── Grouped view ──────────────────────────────────────────────────────────
+
+  const grouped = localSets.reduce<Record<number, { name: string; sets: LocalSet[] }>>(
+    (acc, s) => {
+      if (!acc[s.exerciseId]) acc[s.exerciseId] = { name: s.exerciseName, sets: [] }
+      acc[s.exerciseId].sets.push(s)
+      return acc
+    },
+    {},
+  )
+
+  // ─── Handlers ──────────────────────────────────────────────────────────────
+
+  function handleSelectExercise(ex: SlimExercise) {
+    const previous = [...localSets].reverse().find((s) => s.exerciseId === ex.id)
+    setSelectedExercise(ex)
+    setShowPicker(false)
+    setWeight(previous?.weight != null ? String(previous.weight) : '')
+    setReps(previous?.reps != null ? String(previous.reps) : '')
+    setAddError(null)
+  }
+
+  function handleAddSet() {
+    if (!selectedExercise) return
+    if (!weight && !reps) { setAddError('Enter weight or reps'); return }
+    setLocalSets((prev) => [
+      ...prev,
+      {
+        localId: crypto.randomUUID(),
+        exerciseId: selectedExercise.id,
+        exerciseName: selectedExercise.name,
+        weight: weight ? Number(weight) : null,
+        reps: reps ? Number(reps) : null,
+      },
+    ])
+    setWeight('')
+    setReps('')
+    setAddError(null)
+  }
+
+  function handleDeleteSet(localId: string) {
+    setLocalSets((prev) => prev.filter((s) => s.localId !== localId))
+  }
+
+  function startEditSet(s: LocalSet) {
+    setEditingId(s.localId)
+    setEditWeight(s.weight != null ? String(s.weight) : '')
+    setEditReps(s.reps != null ? String(s.reps) : '')
+  }
+
+  function saveEditSet(localId: string) {
+    setLocalSets((prev) =>
+      prev.map((s) =>
+        s.localId === localId
+          ? { ...s, weight: editWeight ? Number(editWeight) : null, reps: editReps ? Number(editReps) : null }
+          : s,
+      ),
+    )
+    setEditingId(null)
+  }
 
   async function handleInfoClick(exerciseId: number) {
     setInfoLoading(true)
@@ -80,102 +166,87 @@ export default function WorkoutLogger({
     if (details) setInfoExercise(details as ExerciseDetails)
   }
 
-  function handleSelectExercise(ex: Exercise) {
-    const previous = sets.filter((s) => s.exercise_id === ex.id).at(-1)
-    setSelectedExercise(ex)
-    setShowPicker(false)
-    setSearch('')
-    setWeight(previous?.weight != null ? String(previous.weight) : '')
-    setReps(previous?.reps != null ? String(previous.reps) : '')
-    setError(null)
-  }
-
-  function handleAddSet() {
-    if (!selectedExercise) return
-    setError(null)
-
-    const data = {
-      weight: weight ? Number(weight) : null,
-      reps: reps ? Number(reps) : null,
+  async function handleOpenImport() {
+    setShowImportPicker(true)
+    if (templates === null) {
+      setLoadingTemplates(true)
+      const data = await fetchUserTemplates()
+      setTemplates(data)
+      setLoadingTemplates(false)
     }
+  }
 
-    startTransition(async () => {
-      const result = await addSet(workout.id, selectedExercise.id, data)
-      if ('error' in result) {
-        setError(result.error ?? 'Unknown error')
-        return
+  function handleImportTemplate(template: RoutineWithExercises) {
+    const newSets: LocalSet[] = []
+    const sorted = [...template.routine_exercises].sort((a, b) => a.order - b.order)
+    for (const ex of sorted) {
+      const name = ex.exercises?.name ?? String(ex.exercise_id)
+      for (let i = 0; i < (ex.sets || 1); i++) {
+        newSets.push({
+          localId: crypto.randomUUID(),
+          exerciseId: ex.exercise_id,
+          exerciseName: name,
+          weight: ex.weight,
+          reps: ex.reps,
+        })
       }
-      setSets((prev) => [
-        ...prev,
-        {
-          id: result.id as number,
-          exercise_id: selectedExercise.id,
-          weight: data.weight,
-          reps: data.reps,
-          duration_minutes: null,
-          distance: null,
-          exercises: { name: selectedExercise.name },
-        },
-      ])
-      setWeight('')
-      setReps('')
-    })
+    }
+    setLocalSets(newSets)
+    setShowImportPicker(false)
   }
 
-  function handleDeleteSet(setId: number) {
+  function handleBack() {
+    if (localSets.length > 0) {
+      setShowAbandonPrompt(true)
+    } else {
+      startTransition(async () => {
+        await deleteWorkout(workout.id)
+      })
+    }
+  }
+
+  function handleFinish() {
+    const payload: SetPayload[] = localSets.map((s) => ({
+      exercise_id: s.exerciseId,
+      weight: s.weight,
+      reps: s.reps,
+    }))
     startTransition(async () => {
-      await deleteSet(setId)
-      setSets((prev) => prev.filter((s) => s.id !== setId))
+      await finishWorkout(workout.id, payload)
     })
   }
 
-  const filteredExercises = search
-    ? exercises.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()))
-    : exercises
+  // ─── Render ────────────────────────────────────────────────────────────────
 
-  const finishWithId = finishWorkout.bind(null, workout.id)
-  const deleteWithId = deleteWorkout.bind(null, workout.id)
+  const dateLabel = new Date(workout.date + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+  })
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
+      {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
-        <Link
-          href="/dashboard"
+        <button
+          onClick={handleBack}
           className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"
         >
           ← Dashboard
-        </Link>
-        <h1 className="text-sm font-medium text-zinc-900 dark:text-white">
-          {new Date(workout.date + 'T00:00:00').toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-          })}
-        </h1>
+        </button>
+        <h1 className="text-sm font-medium text-zinc-900 dark:text-white">{dateLabel}</h1>
         <div className="flex items-center gap-2">
-          <form action={deleteWithId}>
-            <button
-              type="submit"
-              title="Delete workout"
-              className="text-xs text-zinc-400 hover:text-red-500 dark:text-zinc-600 dark:hover:text-red-500 transition-colors"
-            >
-              Delete
-            </button>
-          </form>
-          <form action={finishWithId}>
-            <button
-              type="submit"
-              className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900"
-            >
-              Finish
-            </button>
-          </form>
+          <button
+            onClick={handleFinish}
+            disabled={isPending}
+            className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 disabled:opacity-40"
+          >
+            {isPending ? '…' : 'Finish'}
+          </button>
         </div>
       </header>
 
       <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-6">
 
-        {/* Exercises — vertical list, sets — horizontal chips */}
+        {/* Exercise groups */}
         {Object.entries(grouped).map(([exerciseId, group]) => (
           <div key={exerciseId} className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
@@ -199,38 +270,86 @@ export default function WorkoutLogger({
                 +
               </button>
             </div>
+
             <div className="flex flex-row flex-wrap gap-2">
-              {group.sets.map((s, i) => (
-                <div
-                  key={s.id}
-                  className="flex items-center gap-1.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3 py-1.5"
-                >
-                  <span className="text-xs text-zinc-400 dark:text-zinc-600">#{i + 1}</span>
-                  <span className="text-xs font-medium text-zinc-900 dark:text-white">
-                    {s.weight != null ? `${s.weight}kg` : '—'}
-                    {s.reps != null ? ` × ${s.reps}` : ''}
-                    {s.duration_minutes != null ? ` ${s.duration_minutes}min` : ''}
-                  </span>
-                  <button
-                    onClick={() => handleDeleteSet(s.id)}
-                    disabled={isPending}
-                    className="text-zinc-300 hover:text-red-500 dark:text-zinc-700 dark:hover:text-red-500 transition-colors leading-none"
+              {group.sets.map((s, i) =>
+                editingId === s.localId ? (
+                  // Inline edit mode
+                  <div
+                    key={s.localId}
+                    className="flex items-center gap-1.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-400 dark:border-zinc-500 px-2 py-1"
                   >
-                    ✕
-                  </button>
-                </div>
-              ))}
+                    <span className="text-xs text-zinc-400 dark:text-zinc-600">#{i + 1}</span>
+                    <input
+                      type="number"
+                      value={editWeight}
+                      onChange={(e) => setEditWeight(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && saveEditSet(s.localId)}
+                      placeholder="kg"
+                      className="w-12 text-xs bg-transparent outline-none text-zinc-900 dark:text-white"
+                    />
+                    <span className="text-xs text-zinc-400">×</span>
+                    <input
+                      type="number"
+                      value={editReps}
+                      onChange={(e) => setEditReps(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && saveEditSet(s.localId)}
+                      placeholder="reps"
+                      className="w-10 text-xs bg-transparent outline-none text-zinc-900 dark:text-white"
+                    />
+                    <button
+                      onClick={() => saveEditSet(s.localId)}
+                      className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors text-xs"
+                    >
+                      ✓
+                    </button>
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="text-zinc-300 dark:text-zinc-700 hover:text-red-500 transition-colors text-xs"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  // Display mode — tap body to edit, tap ✕ to delete
+                  <div
+                    key={s.localId}
+                    className="flex items-center gap-1.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 cursor-pointer hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors"
+                    onClick={() => startEditSet(s)}
+                  >
+                    <span className="text-xs text-zinc-400 dark:text-zinc-600">#{i + 1}</span>
+                    <span className="text-xs font-medium text-zinc-900 dark:text-white">
+                      {s.weight != null ? `${s.weight}kg` : '—'}
+                      {s.reps != null ? ` × ${s.reps}` : ''}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteSet(s.localId) }}
+                      className="text-zinc-300 hover:text-red-500 dark:text-zinc-700 dark:hover:text-red-500 transition-colors leading-none"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ),
+              )}
             </div>
           </div>
         ))}
 
-        {sets.length === 0 && (
+        {localSets.length === 0 && (
           <p className="text-sm text-zinc-400 dark:text-zinc-600">
-            No sets yet. Pick an exercise to get started.
+            No sets yet. Pick an exercise or load a template.
           </p>
         )}
 
-        {/* Add set */}
+        {/* Load template button */}
+        <button
+          onClick={handleOpenImport}
+          className="flex items-center justify-center gap-2 w-full rounded-xl border border-zinc-200 dark:border-zinc-700 py-3 text-sm text-zinc-500 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+        >
+          ↓ Load template
+        </button>
+
+        {/* Add set form */}
         {!selectedExercise ? (
           <button
             onClick={() => setShowPicker(true)}
@@ -267,20 +386,17 @@ export default function WorkoutLogger({
               />
               <button
                 onClick={handleAddSet}
-                disabled={isPending || (!weight && !reps)}
-                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-zinc-900 disabled:opacity-40"
+                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-zinc-900"
               >
-                {isPending ? '…' : 'Add'}
+                Add
               </button>
             </div>
-            {error && (
-              <p className="text-xs text-red-500">{error}</p>
-            )}
+            {addError && <p className="text-xs text-red-500">{addError}</p>}
           </div>
         )}
       </main>
 
-      {/* Exercise info modal */}
+      {/* Exercise info spinner + modal */}
       {infoLoading && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
           <div className="w-10 h-10 rounded-full border-2 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-white animate-spin" />
@@ -292,46 +408,81 @@ export default function WorkoutLogger({
 
       {/* Exercise picker */}
       {showPicker && (
+        <ExercisePickerSheet
+          exercises={exercises}
+          onSelect={handleSelectExercise}
+          onInfoClick={handleInfoClick}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
+
+      {/* Template import picker */}
+      {showImportPicker && (
         <div
           className="fixed inset-0 bg-black/50 flex items-end z-50"
-          onClick={() => setShowPicker(false)}
+          onClick={() => setShowImportPicker(false)}
         >
           <div
-            className="w-full bg-white dark:bg-zinc-900 rounded-t-2xl max-h-[80vh] flex flex-col"
+            className="w-full bg-white dark:bg-zinc-900 rounded-t-2xl max-h-[70vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
-              <input
-                autoFocus
-                type="text"
-                placeholder="Search exercises..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-3 text-sm outline-none"
-              />
+            <div className="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800">
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">Load template</h2>
             </div>
             <ul className="overflow-y-auto flex-1">
-              {filteredExercises.slice(0, 50).map((ex) => (
-                <li key={ex.id} className="flex items-center border-b border-zinc-100 dark:border-zinc-800">
+              {loadingTemplates && (
+                <li className="flex items-center justify-center py-10">
+                  <div className="w-8 h-8 rounded-full border-2 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-white animate-spin" />
+                </li>
+              )}
+              {!loadingTemplates && templates?.length === 0 && (
+                <li className="px-5 py-6 text-sm text-zinc-400 dark:text-zinc-600">
+                  No templates yet. Create one in Workouts.
+                </li>
+              )}
+              {templates?.map((t) => (
+                <li key={t.id}>
                   <button
-                    onClick={() => handleSelectExercise(ex)}
-                    className="flex-1 text-left px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    onClick={() => handleImportTemplate(t)}
+                    className="w-full text-left px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors border-b border-zinc-100 dark:border-zinc-800"
                   >
-                    <p className="text-sm font-medium text-zinc-900 dark:text-white">{ex.name}</p>
-                    {ex.category && (
-                      <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">{ex.category}</p>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleInfoClick(ex.id)}
-                    title="Exercise info"
-                    className="shrink-0 mx-3 w-6 h-6 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-zinc-500 dark:hover:border-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors text-xs font-medium flex items-center justify-center leading-none"
-                  >
-                    i
+                    <p className="text-sm font-medium text-zinc-900 dark:text-white">{t.name}</p>
+                    <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">
+                      {t.routine_exercises.length} exercise{t.routine_exercises.length !== 1 ? 's' : ''}
+                    </p>
                   </button>
                 </li>
               ))}
             </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Abandon workout prompt */}
+      {showAbandonPrompt && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70] px-4">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4">
+            <div>
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">Abandon workout?</h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                Your sets will not be saved.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowAbandonPrompt(false)}
+                className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              >
+                Keep going
+              </button>
+              <button
+                onClick={() => startTransition(async () => { await deleteWorkout(workout.id) })}
+                disabled={isPending}
+                className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-medium text-white hover:bg-red-600 transition-colors disabled:opacity-40"
+              >
+                Abandon
+              </button>
+            </div>
           </div>
         </div>
       )}

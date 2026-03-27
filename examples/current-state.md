@@ -54,17 +54,48 @@
 | `/workout/[id]` | Server + Client | Active workout logger |
 
 ### Core features implemented
-- **Dashboard** — shows today's date, last 5 workouts with set counts, Start Workout + Browse Exercises buttons
+- **Dashboard** — shows today's date, last 5 workouts with set counts, Start Workout + Workouts + Browse Exercises buttons
 - **Exercise browser** (`/routines`) — searchable, filterable by category, 873 exercises
 - **Exercise detail** (`/routines/[id]`) — image, category, equipment, primary/secondary muscles, step-by-step instructions
-- **Workout logging** (`/workout/[id]`) — start workout creates DB row, add sets (exercise + weight + reps), delete sets, finish returns to dashboard; resumable (pre-loads existing sets on page load)
-- **Exercise info modal** — small circular `i` button next to each exercise group header in the workout logger opens a modal with: image carousel, equipment, primary/secondary muscles as pills, and numbered step-by-step instructions
+- **Workout logging** (`/workout/[id]`) — sets held client-side until Finish (bulk-inserted on save); add/edit/delete sets inline; load template to pre-populate; abandon prompt on back navigation; `i` info button per exercise
+- **Workout templates** (`/workouts`) — create/edit/delete named templates with planned exercises, sets, reps, and weight; import into active workout via "Load template"
+- **Exercise info modal** — `i` button in workout logger and template editor opens modal with image carousel, muscles pills, and numbered instructions
 
 ### Architecture notes (Phase 3 additions)
-- `getAllExercises()` in `dal.ts` now fetches `muscles`, `muscles_secondary`, `images`, `instructions` — no extra query needed in the workout logger
-- `Exercise` type in `WorkoutLogger.tsx` extended to include these fields
-- `grouped` map now carries the full `exercise` object alongside the display name
-- New component: `src/app/workout/[id]/ExerciseInfoModal.tsx`
+- `getAllExercises()` cached with `unstable_cache` (service-role client, revalidate: false) — DB hit once per server lifetime
+- Exercise info fetched lazily per-click via `getExerciseDetails(id)` server action
+- New shared component: `ExercisePickerSheet.tsx` — used by both WorkoutLogger and TemplateEditor
+- New component: `ExerciseInfoModal.tsx`
+
+### Phase 4 — Workout templates + deferred persistence (complete)
+
+**Schema change required (run once in Supabase SQL editor):**
+```sql
+ALTER TABLE routine_exercises ADD COLUMN weight numeric;
+NOTIFY pgrst, 'reload schema';
+```
+
+**Routes added:**
+| Route | Type | Description |
+|---|---|---|
+| `/workouts` | Server | List user's workout templates |
+| `/workouts/new` | Server + Client | Create new template |
+| `/workouts/[id]` | Server + Client | Edit existing template |
+
+**New files:**
+- `src/app/workouts/page.tsx` — template list with delete
+- `src/app/workouts/new/page.tsx` — thin server shell → TemplateEditor
+- `src/app/workouts/[id]/page.tsx` — loads template + exercises → TemplateEditor
+- `src/app/workouts/[id]/TemplateEditor.tsx` — client component; exercise picker, sets/reps/weight inputs per exercise, save/delete
+- `src/app/workout/[id]/ExercisePickerSheet.tsx` — extracted picker shared by logger + editor
+- `src/app/actions/templates.ts` — createTemplate, saveTemplateExercises, deleteTemplate, fetchUserTemplates
+
+**Key architectural decisions:**
+- Sets are no longer saved immediately to DB; `WorkoutLogger` holds them in `LocalSet[]` state
+- `finishWorkout(workoutId, sets[])` bulk-inserts all sets at once, then redirects
+- Back navigation in the logger shows an "Abandon workout?" prompt; confirming calls `deleteWorkout` to clean up the empty workout row
+- Inline set editing: clicking a set chip enters edit mode (weight/reps inputs + confirm/cancel)
+- Template import: "Load template" button fetches user templates lazily, then expands each `routine_exercise` into N `LocalSet` entries (N = planned sets count)
 
 ## Known Issues
 

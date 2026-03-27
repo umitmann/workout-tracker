@@ -86,3 +86,49 @@ export async function getExerciseDetails(id: number) {
 
   return data
 }
+
+export async function getUserTemplates() {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data } = await supabase
+    .from('routines')
+    .select('id, name, created_at, routine_exercises(id, exercise_id, sets, reps, weight, order, exercises(id, name, category))')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+
+  return (data ?? []) as unknown as RoutineWithExercises[]
+}
+
+export async function getTemplate(routineId: number) {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data } = await supabase
+    .from('routines')
+    .select('id, name, created_at, routine_exercises(id, exercise_id, sets, reps, weight, order, exercises(id, name, category))')
+    .eq('id', routineId)
+    .eq('user_id', user.id)
+    .single()
+
+  return data as unknown as RoutineWithExercises | null
+}
+
+export type RoutineExerciseRow = {
+  id: number
+  exercise_id: number
+  sets: number
+  reps: number
+  weight: number | null
+  order: number
+  exercises: { id: number; name: string; category: string | null }
+}
+
+export type RoutineWithExercises = {
+  id: number
+  name: string
+  created_at: string
+  routine_exercises: RoutineExerciseRow[]
+}
