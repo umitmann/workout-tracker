@@ -50,23 +50,19 @@ export default function LastPerfModal({
         ) : data ? (
           <>
             <p className="text-xs text-zinc-400 dark:text-zinc-600">{fmtDate(data.date)}</p>
-            <div className="flex gap-6">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-1">
-                  Weight
-                </p>
-                <p className="text-2xl font-bold text-zinc-900 dark:text-white">
-                  {data.maxWeight != null ? `${data.maxWeight} kg` : '—'}
-                </p>
+            <div className="flex flex-col gap-1">
+              <div className="grid grid-cols-3 gap-2 text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 pb-1 border-b border-zinc-100 dark:border-zinc-800">
+                <span>Set</span>
+                <span>Weight</span>
+                <span>Reps</span>
               </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-1">
-                  Max reps
-                </p>
-                <p className="text-2xl font-bold text-zinc-900 dark:text-white">
-                  {data.maxReps != null ? data.maxReps : '—'}
-                </p>
-              </div>
+              {data.sets.map((s, i) => (
+                <div key={i} className="grid grid-cols-3 gap-2 text-sm text-zinc-900 dark:text-white py-1">
+                  <span className="text-zinc-400 dark:text-zinc-600">{i + 1}</span>
+                  <span>{s.weight != null ? `${s.weight} kg` : '—'}</span>
+                  <span>{s.reps != null ? s.reps : '—'}</span>
+                </div>
+              ))}
             </div>
           </>
         ) : (

@@ -162,8 +162,7 @@ export async function getMonthWorkouts(year: number, month: number): Promise<Wor
 
 export type LastExercisePerformance = {
   date: string
-  maxWeight: number | null
-  maxReps: number | null
+  sets: { weight: number | null; reps: number | null }[]
 }
 
 export async function getLastExercisePerformance(exerciseId: number): Promise<LastExercisePerformance | null> {
@@ -189,26 +188,23 @@ export async function getLastExercisePerformance(exerciseId: number): Promise<La
     .select('workout_id, weight, reps')
     .eq('exercise_id', exerciseId)
     .in('workout_id', workoutIds)
+    .order('id', { ascending: true })
 
   if (!sets?.length) return null
 
-  // Group sets by workout
+  // Group sets by workout, preserving insertion order
   const setsByWorkout = new Map<number, { weight: number | null; reps: number | null }[]>()
   for (const s of sets as any[]) {
     if (!setsByWorkout.has(s.workout_id)) setsByWorkout.set(s.workout_id, [])
     setsByWorkout.get(s.workout_id)!.push({ weight: s.weight, reps: s.reps })
   }
 
-  // Return data from the most recent completed workout that has this exercise
+  // Return all sets from the most recent completed workout that has this exercise
   for (const w of completedWorkouts) {
     if (setsByWorkout.has(w.id)) {
-      const setsInWorkout = setsByWorkout.get(w.id)!
-      const weights = setsInWorkout.map((s) => s.weight).filter((v): v is number => v != null)
-      const repsArr = setsInWorkout.map((s) => s.reps).filter((v): v is number => v != null)
       return {
         date: w.date,
-        maxWeight: weights.length > 0 ? Math.max(...weights) : null,
-        maxReps: repsArr.length > 0 ? Math.max(...repsArr) : null,
+        sets: setsByWorkout.get(w.id)!,
       }
     }
   }

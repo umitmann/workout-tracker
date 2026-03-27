@@ -122,10 +122,10 @@ Run through this list manually after any change to routing, workout actions, dat
 | 7.1 | View exercise row in WorkoutLogger (active or completed) | Clock icon button appears next to the `i` button in the exercise header |
 | 7.2 | View exercise row in TemplateEditor | Clock icon button appears next to the `i` button in the exercise card |
 | 7.3 | Tap clock icon | Loading spinner shown in modal immediately |
-| 7.4 | Data found | Modal shows exercise name, date of last completed workout, max weight (kg), max reps |
+| 7.4 | Data found | Modal shows exercise name, date of last completed workout, and a set table (Set / Weight / Reps) with one row per set |
 | 7.5 | No previous completed workouts | Modal shows "No completed workouts with this exercise yet." |
-| 7.6 | Weight is null in last session | Displays `—` for weight |
-| 7.7 | Reps is null in last session | Displays `—` for max reps |
+| 7.6 | Weight is null for a set in last session | Displays `—` in the Weight column for that set |
+| 7.7 | Reps is null for a set in last session | Displays `—` in the Reps column for that set |
 | 7.8 | Tap outside modal or ✕ | Modal closes |
 | 7.9 | Save (not complete) a workout | Last-session data does **not** update — only completed workouts count |
 
