@@ -2,22 +2,30 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { signOut } from '@/app/actions/auth'
-import { startWorkout, deleteWorkout } from '@/app/actions/workouts'
-import { getRecentWorkouts } from '@/lib/dal'
+import { startWorkout } from '@/app/actions/workouts'
+import { getMonthWorkouts } from '@/lib/dal'
+import CalendarView from '@/app/workouts/CalendarView'
 
-export default async function Dashboard() {
+export default async function Dashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ y?: string; m?: string }>
+}) {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  const recentWorkouts = await getRecentWorkouts(5)
+  const { y, m } = await searchParams
+  const now = new Date()
+  const year = y ? Number(y) : now.getFullYear()
+  const month = m ? Number(m) : now.getMonth() + 1
+
+  const [workouts] = await Promise.all([
+    getMonthWorkouts(year, month),
+  ])
+
   const name = user.user_metadata?.full_name ?? user.email
   const avatar = user.user_metadata?.avatar_url as string | undefined
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  })
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
@@ -39,76 +47,31 @@ export default async function Dashboard() {
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-6 py-8 flex flex-col gap-8">
-        <div>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">{today}</p>
-          <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mt-1">Dashboard</h2>
-        </div>
-
+      <main className="max-w-lg mx-auto px-6 py-8 flex flex-col gap-6">
         <div className="flex flex-wrap gap-3">
           <form action={startWorkout}>
             <button
               type="submit"
-              className="rounded-full bg-zinc-900 px-6 py-3 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors"
+              className="rounded-full bg-orange-500 hover:bg-orange-600 px-6 py-3 text-sm font-bold uppercase tracking-wide text-white transition-colors shadow-md shadow-orange-200 dark:shadow-none"
             >
               Start workout
             </button>
           </form>
           <Link
             href="/workouts"
-            className="rounded-full border border-zinc-200 dark:border-zinc-700 px-6 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+            className="rounded-full border border-zinc-200 dark:border-zinc-700 px-6 py-3 text-sm font-bold uppercase tracking-wide text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
           >
-            Workouts
+            Templates
           </Link>
           <Link
             href="/routines"
-            className="rounded-full border border-zinc-200 dark:border-zinc-700 px-6 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+            className="rounded-full border border-zinc-200 dark:border-zinc-700 px-6 py-3 text-sm font-bold uppercase tracking-wide text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
           >
-            Browse exercises
+            Exercises
           </Link>
         </div>
 
-        <div>
-          <h3 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-3">
-            Recent workouts
-          </h3>
-          {recentWorkouts.length === 0 ? (
-            <p className="text-sm text-zinc-400 dark:text-zinc-600">
-              No workouts yet. Start your first one!
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {recentWorkouts.map((w: any) => (
-                <li key={w.id} className="flex items-center gap-2">
-                  <Link
-                    href={`/workout/${w.id}`}
-                    className="flex-1 flex items-center justify-between rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-4 py-3 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
-                  >
-                    <span className="text-sm font-medium text-zinc-900 dark:text-white">
-                      {new Date(w.date + 'T00:00:00').toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </span>
-                    <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                      {w.sets?.length ?? 0} sets
-                    </span>
-                  </Link>
-                  <form action={deleteWorkout.bind(null, w.id)}>
-                    <button
-                      type="submit"
-                      title="Delete workout"
-                      className="flex items-center justify-center w-8 h-8 rounded-full text-zinc-300 dark:text-zinc-700 hover:text-red-500 dark:hover:text-red-500 transition-colors"
-                    >
-                      ✕
-                    </button>
-                  </form>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <CalendarView year={year} month={month} workouts={workouts} basePath="/dashboard" />
       </main>
     </div>
   )

@@ -23,7 +23,7 @@ export default async function WorkoutsPage() {
         <h1 className="text-sm font-medium text-zinc-900 dark:text-white">My Workouts</h1>
         <Link
           href="/workouts/new"
-          className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900"
+          className="rounded-full bg-orange-500 hover:bg-orange-600 px-4 py-2 text-xs font-bold uppercase tracking-wide text-white transition-colors"
         >
           New
         </Link>
@@ -37,10 +37,7 @@ export default async function WorkoutsPage() {
         )}
 
         {templates.map((t) => (
-          <div
-            key={t.id}
-            className="flex items-center gap-2"
-          >
+          <div key={t.id} className="flex items-center gap-2">
             <Link
               href={`/workouts/${t.id}`}
               className="flex-1 flex items-center justify-between rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-4 py-3 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
