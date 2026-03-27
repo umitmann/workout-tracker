@@ -28,7 +28,10 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  if (!user && pathname.startsWith('/dashboard')) {
+  const protectedPrefixes = ['/dashboard', '/routines', '/workout']
+  const isProtected = protectedPrefixes.some((p) => pathname.startsWith(p))
+
+  if (!user && isProtected) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
@@ -40,5 +43,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/dashboard/:path*'],
+  matcher: ['/', '/dashboard/:path*', '/routines/:path*', '/workout/:path*'],
 }

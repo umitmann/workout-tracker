@@ -1,0 +1,62 @@
+import { createServerSupabaseClient } from './supabase-server'
+
+export async function getRecentWorkouts(limit = 5) {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data } = await supabase
+    .from('workouts')
+    .select('id, date, sets(id)')
+    .eq('user_id', user.id)
+    .order('date', { ascending: false })
+    .limit(limit)
+
+  return data ?? []
+}
+
+export async function getWorkoutWithSets(workoutId: number) {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: workout } = await supabase
+    .from('workouts')
+    .select('id, date')
+    .eq('id', workoutId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!workout) return null
+
+  const { data: sets } = await supabase
+    .from('sets')
+    .select('id, exercise_id, weight, reps, duration_minutes, distance, exercises(name)')
+    .eq('workout_id', workoutId)
+    .order('created_at', { ascending: true })
+
+  return { ...workout, sets: sets ?? [] }
+}
+
+export async function getAllExercises() {
+  const supabase = await createServerSupabaseClient()
+
+  const { data } = await supabase
+    .from('exercises')
+    .select('id, name, category, equipment')
+    .order('name', { ascending: true })
+
+  return data ?? []
+}
+
+export async function getExercise(id: number) {
+  const supabase = await createServerSupabaseClient()
+
+  const { data } = await supabase
+    .from('exercises')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  return data
+}
