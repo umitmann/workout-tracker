@@ -47,13 +47,19 @@ function HistoryChart({ points }: { points: ExerciseHistoryPoint[] }) {
   const maxW = wVals.length ? Math.max(...wVals) : 0
   const minW = wVals.length ? Math.min(...wVals) : 0
   const rangeW = maxW - minW
-  const yW = (v: number) => rangeW === 0 ? MT + IH / 2 : MT + (1 - (v - minW) / rangeW) * IH
 
   const rVals = points.map((p) => p.maxReps).filter((v): v is number => v != null)
   const maxR = rVals.length ? Math.max(...rVals) : 0
   const minR = rVals.length ? Math.min(...rVals) : 0
   const rangeR = maxR - minR
-  const yR = (v: number) => rangeR === 0 ? MT + IH / 2 : MT + (1 - (v - minR) / rangeR) * IH
+
+  const bothFlat = rangeW === 0 && rangeR === 0
+  const yW = (v: number) => rangeW === 0
+    ? MT + IH * (bothFlat ? 0.33 : 0.5)
+    : MT + (1 - (v - minW) / rangeW) * IH
+  const yR = (v: number) => rangeR === 0
+    ? MT + IH * (bothFlat ? 0.67 : 0.5)
+    : MT + (1 - (v - minR) / rangeR) * IH
 
   const wPolyline = points.flatMap((p, i) => p.maxWeight != null ? [`${xFor(i).toFixed(1)},${yW(p.maxWeight).toFixed(1)}`] : []).join(' ')
   const rPolyline = points.flatMap((p, i) => p.maxReps != null ? [`${xFor(i).toFixed(1)},${yR(p.maxReps).toFixed(1)}`] : []).join(' ')
