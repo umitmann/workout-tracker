@@ -46,14 +46,14 @@ function HistoryChart({ points }: { points: ExerciseHistoryPoint[] }) {
   const wVals = points.map((p) => p.maxWeight).filter((v): v is number => v != null)
   const maxW = wVals.length ? Math.max(...wVals) : 0
   const minW = wVals.length ? Math.min(...wVals) : 0
-  const rangeW = maxW - minW || 1
-  const yW = (v: number) => MT + (1 - (v - minW) / rangeW) * IH
+  const rangeW = maxW - minW
+  const yW = (v: number) => rangeW === 0 ? MT + IH / 2 : MT + (1 - (v - minW) / rangeW) * IH
 
   const rVals = points.map((p) => p.maxReps).filter((v): v is number => v != null)
   const maxR = rVals.length ? Math.max(...rVals) : 0
   const minR = rVals.length ? Math.min(...rVals) : 0
-  const rangeR = maxR - minR || 1
-  const yR = (v: number) => MT + (1 - (v - minR) / rangeR) * IH
+  const rangeR = maxR - minR
+  const yR = (v: number) => rangeR === 0 ? MT + IH / 2 : MT + (1 - (v - minR) / rangeR) * IH
 
   const wPolyline = points.flatMap((p, i) => p.maxWeight != null ? [`${xFor(i).toFixed(1)},${yW(p.maxWeight).toFixed(1)}`] : []).join(' ')
   const rPolyline = points.flatMap((p, i) => p.maxReps != null ? [`${xFor(i).toFixed(1)},${yR(p.maxReps).toFixed(1)}`] : []).join(' ')
@@ -62,6 +62,15 @@ function HistoryChart({ points }: { points: ExerciseHistoryPoint[] }) {
   const lastWIdx = points.reduce((acc, p, i) => (p.maxWeight != null ? i : acc), -1)
   const firstRIdx = points.findIndex((p) => p.maxReps != null)
   const lastRIdx = points.reduce((acc, p, i) => (p.maxReps != null ? i : acc), -1)
+
+  const LABEL_GAP = 11
+  function nudge(primary: number | null, secondary: number): number {
+    if (primary == null) return secondary
+    const diff = secondary - primary
+    return Math.abs(diff) < LABEL_GAP ? primary + (diff >= 0 ? LABEL_GAP : -LABEL_GAP) : secondary
+  }
+  const rFirstY = firstRIdx >= 0 ? nudge(firstWIdx >= 0 ? yW(points[firstWIdx].maxWeight!) : null, yR(points[firstRIdx]?.maxReps!)) : 0
+  const rLastY = lastRIdx >= 0 ? nudge(lastWIdx >= 0 ? yW(points[lastWIdx].maxWeight!) : null, yR(points[lastRIdx]?.maxReps!)) : 0
 
   return (
     <div className="flex flex-col gap-3">
@@ -99,12 +108,12 @@ function HistoryChart({ points }: { points: ExerciseHistoryPoint[] }) {
           </text>
         )}
         {firstRIdx >= 0 && (
-          <text x={xFor(firstRIdx) - 8} y={yR(points[firstRIdx].maxReps!) + 4} textAnchor="end" fontSize="9" fill="#71717a">
+          <text x={xFor(firstRIdx) - 8} y={rFirstY + 4} textAnchor="end" fontSize="9" fill="#71717a">
             {points[firstRIdx].maxReps}
           </text>
         )}
         {lastRIdx >= 0 && lastRIdx !== firstRIdx && (
-          <text x={xFor(lastRIdx) + 8} y={yR(points[lastRIdx].maxReps!) + 4} textAnchor="start" fontSize="9" fill="#71717a">
+          <text x={xFor(lastRIdx) + 8} y={rLastY + 4} textAnchor="start" fontSize="9" fill="#71717a">
             {points[lastRIdx].maxReps}
           </text>
         )}
