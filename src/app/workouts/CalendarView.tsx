@@ -5,7 +5,8 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { WorkoutCalendarEntry, RoutineWithExercises } from '@/lib/dal'
 import { fetchUserTemplates } from '@/app/actions/templates'
-import { scheduleWorkout, logWorkoutForDate, startPlannedWorkout, deleteWorkout } from '@/app/actions/workouts'
+import { scheduleWorkout, logWorkoutForDate, startPlannedWorkout, deleteWorkout, fetchWorkoutPreview, WorkoutPreviewExercise } from '@/app/actions/workouts'
+import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -34,11 +35,15 @@ export default function CalendarView({
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const { copy: copyToClipboard } = useWorkoutClipboard()
+  const [popupCopied, setPopupCopied] = useState(false)
 
   const [sheet, setSheet] = useState<DaySheet | null>(null)
   const [templates, setTemplates] = useState<RoutineWithExercises[] | null>(null)
   const [loadingTemplates, setLoadingTemplates] = useState(false)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>(undefined)
+  const [workoutPreview, setWorkoutPreview] = useState<WorkoutPreviewExercise[] | null>(null)
+  const [loadingPreview, setLoadingPreview] = useState(false)
 
   // ── Calendar grid helpers ──────────────────────────────────────────────────
 
@@ -68,6 +73,8 @@ export default function CalendarView({
     const isPast = dateStr < today
 
     setSelectedTemplateId(undefined)
+    setWorkoutPreview(null)
+    setPopupCopied(false)
     setSheet({ date: dateStr, isPast, isFuture, workout })
 
     if (templates === null) {
@@ -77,10 +84,34 @@ export default function CalendarView({
         setLoadingTemplates(false)
       })
     }
+
+    if (workout && workout.status !== 'planned') {
+      setLoadingPreview(true)
+      fetchWorkoutPreview(workout.id).then((data) => {
+        setWorkoutPreview(data)
+        setLoadingPreview(false)
+      })
+    }
   }
 
   function closeSheet() {
     setSheet(null)
+  }
+
+  function handlePopupCopy(date: string) {
+    if (!workoutPreview) return
+    copyToClipboard({
+      entries: workoutPreview.map((ex) => ({
+        exerciseId: ex.exerciseId,
+        exerciseName: ex.exerciseName,
+        setCount: ex.setCount,
+        reps: ex.firstSetReps,
+        weight: ex.firstSetWeight,
+      })),
+      sourceDate: date,
+    })
+    setPopupCopied(true)
+    setTimeout(() => setPopupCopied(false), 2000)
   }
 
   function handleSchedule() {
@@ -236,12 +267,30 @@ export default function CalendarView({
                   })}
                 </h2>
               </div>
-              <button
-                onClick={closeSheet}
-                className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors text-lg leading-none"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                {sheet.workout && sheet.workout.status !== 'planned' && workoutPreview && workoutPreview.length > 0 && (
+                  <button
+                    onClick={() => handlePopupCopy(sheet.date)}
+                    title="Copy workout"
+                    className={`w-7 h-7 flex items-center justify-center rounded-full border transition-colors ${
+                      popupCopied
+                        ? 'border-orange-400 text-orange-500'
+                        : 'border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500'
+                    }`}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <rect x="5" y="1" width="9" height="11" rx="1.5" />
+                      <path d="M2 4v10a1.5 1.5 0 0 0 1.5 1.5H11" />
+                    </svg>
+                  </button>
+                )}
+                <button
+                  onClick={closeSheet}
+                  className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors text-lg leading-none"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             <div className="overflow-y-auto flex-1 px-5 py-4 flex flex-col gap-4">
@@ -275,11 +324,28 @@ export default function CalendarView({
                   <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
                     {sheet.workout.status === 'completed' ? 'Completed' : 'In progress'}
                   </p>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    {sheet.workout.status === 'completed'
-                      ? `${sheet.workout.set_count} set${sheet.workout.set_count !== 1 ? 's' : ''} logged`
-                      : 'Workout in progress'}
-                  </p>
+
+                  {/* Exercise overview */}
+                  {loadingPreview && (
+                    <div className="flex justify-center py-3">
+                      <div className="w-5 h-5 rounded-full border-2 border-zinc-300 border-t-orange-500 animate-spin" />
+                    </div>
+                  )}
+                  {!loadingPreview && workoutPreview !== null && (
+                    workoutPreview.length === 0
+                      ? <p className="text-sm text-zinc-400 dark:text-zinc-600">No sets logged.</p>
+                      : <ul className="flex flex-col gap-1">
+                          {workoutPreview.map((ex) => (
+                            <li key={ex.exerciseId} className="flex items-center justify-between text-sm">
+                              <span className="font-medium text-zinc-900 dark:text-white truncate">{ex.exerciseName}</span>
+                              <span className="text-xs text-zinc-400 dark:text-zinc-600 shrink-0 ml-2">
+                                {ex.setCount} set{ex.setCount !== 1 ? 's' : ''}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                  )}
+
                   <div className="flex gap-2">
                     <a
                       href={`/workout/${sheet.workout.id}`}

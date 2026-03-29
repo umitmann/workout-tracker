@@ -212,6 +212,74 @@ export async function getLastExercisePerformance(exerciseId: number): Promise<La
   return null
 }
 
+export async function getBestExercisePerformance(exerciseId: number, limitDays?: number): Promise<LastExercisePerformance | null> {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  let query = supabase
+    .from('workouts')
+    .select('id, date')
+    .eq('user_id', user.id)
+    .eq('status', 'completed')
+    .order('date', { ascending: false })
+
+  if (limitDays != null) {
+    const since = new Date()
+    since.setDate(since.getDate() - limitDays)
+    query = (query as any).gte('date', since.toISOString().split('T')[0])
+  }
+
+  const { data: completedWorkouts } = await query
+  if (!completedWorkouts?.length) return null
+
+  const workoutIds = completedWorkouts.map((w: any) => w.id)
+  const dateById = new Map(completedWorkouts.map((w: any) => [w.id, w.date as string]))
+
+  const { data: sets } = await supabase
+    .from('sets')
+    .select('workout_id, weight, reps')
+    .eq('exercise_id', exerciseId)
+    .in('workout_id', workoutIds)
+
+  if (!sets?.length) return null
+
+  // Find the workout with the highest single-set weight
+  let bestWorkoutId: number | null = null
+  let bestWeight = -Infinity
+  for (const s of sets as any[]) {
+    if (s.weight != null && s.weight > bestWeight) {
+      bestWeight = s.weight
+      bestWorkoutId = s.workout_id
+    }
+  }
+
+  // Fallback: if no weight data, use most recent workout that has this exercise
+  if (bestWorkoutId == null) {
+    const setsByWorkout = new Map<number, { weight: number | null; reps: number | null }[]>()
+    for (const s of sets as any[]) {
+      if (!setsByWorkout.has(s.workout_id)) setsByWorkout.set(s.workout_id, [])
+      setsByWorkout.get(s.workout_id)!.push({ weight: s.weight, reps: s.reps })
+    }
+    for (const w of completedWorkouts as any[]) {
+      if (setsByWorkout.has(w.id)) return { date: w.date, sets: setsByWorkout.get(w.id)! }
+    }
+    return null
+  }
+
+  const { data: bestSets } = await supabase
+    .from('sets')
+    .select('weight, reps')
+    .eq('exercise_id', exerciseId)
+    .eq('workout_id', bestWorkoutId)
+    .order('id', { ascending: true })
+
+  return {
+    date: dateById.get(bestWorkoutId)!,
+    sets: (bestSets ?? []).map((s: any) => ({ weight: s.weight, reps: s.reps })),
+  }
+}
+
 export async function getExerciseHistory(exerciseId: number, limitDays = 90): Promise<ExerciseHistoryPoint[]> {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()

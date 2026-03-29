@@ -1,8 +1,39 @@
 'use server'
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { getWorkoutWithSets } from '@/lib/dal'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+
+export type WorkoutPreviewExercise = {
+  exerciseId: number
+  exerciseName: string
+  setCount: number
+  firstSetReps: number | null
+  firstSetWeight: number | null
+}
+
+export async function fetchWorkoutPreview(workoutId: number): Promise<WorkoutPreviewExercise[]> {
+  const workout = await getWorkoutWithSets(workoutId)
+  if (!workout) return []
+
+  const grouped = new Map<number, WorkoutPreviewExercise>()
+  for (const s of workout.sets) {
+    const existing = grouped.get(s.exercise_id)
+    if (!existing) {
+      grouped.set(s.exercise_id, {
+        exerciseId: s.exercise_id,
+        exerciseName: (s.exercises as { name: string } | null)?.name ?? String(s.exercise_id),
+        setCount: 1,
+        firstSetReps: s.reps,
+        firstSetWeight: s.weight,
+      })
+    } else {
+      existing.setCount++
+    }
+  }
+  return Array.from(grouped.values())
+}
 
 export type SetPayload = {
   exercise_id: number

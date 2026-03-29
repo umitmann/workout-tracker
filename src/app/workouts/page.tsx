@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getUserTemplates } from '@/lib/dal'
 import { deleteTemplate } from '@/app/actions/templates'
+import PasteTemplateButton from './PasteTemplateButton'
 
 export default async function WorkoutsPage() {
   const supabase = await createServerSupabaseClient()
@@ -30,6 +31,7 @@ export default async function WorkoutsPage() {
       </header>
 
       <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-3">
+        <PasteTemplateButton />
         {templates.length === 0 && (
           <p className="text-sm text-zinc-400 dark:text-zinc-600 py-4">
             No workout templates yet. Create one to get started.
