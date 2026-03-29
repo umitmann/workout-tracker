@@ -22,6 +22,40 @@ Send a reminder email to the user on the morning of a scheduled (planned) workou
 
 ---
 
+### Banded weights — research spike
+
+Resistance bands add a variable load on top of (or instead of) bar/dumbbell weight. Need to research how to represent this in the data model and UI before any implementation.
+
+**Questions to answer:**
+- How do users typically log banded exercises? Common conventions:
+  - `bar weight + band tension` logged as two separate values
+  - A "band modifier" field (e.g. light / medium / heavy / X-heavy band) stored alongside weight
+  - Free-text note per set
+- Should band tension be a fixed lookup (band colour/resistance kg range) or a free numeric field?
+- How does banded weight factor into the history chart and best-session query? (Max weight with a band is not directly comparable to max weight without.)
+- Do we need a new column on `sets`, or can this live in a `metadata jsonb` column to avoid a migration for every new set type?
+
+**Prior art to review:** Strong app, Hevy, and Jefit all handle this differently.
+
+---
+
+### Seconds instead of reps — research spike
+
+Some exercises (planks, wall sits, L-sits) are measured in time rather than rep count. Currently the logger only supports `reps` (integer).
+
+**Questions to answer:**
+- `duration_minutes` already exists on `sets` — is that sufficient, or do users expect a `seconds` field to avoid decimals (e.g. 45 s = 0.75 min)?
+- Should the logger show a different input UI (stopwatch / numeric seconds field) when an exercise is tagged as time-based?
+- Where is the "time-based" flag stored — on `exercises` (global) or as a per-set choice by the user?
+- History chart: time-based sets have no weight axis. Does the chart need a third mode, or just show duration on the existing Y-axis with the weight line hidden?
+- Best-session query: for time-based exercises, "best" = longest duration, not highest weight. The `getBestExercisePerformance` function needs a mode switch.
+
+**Open questions:**
+- Should a single workout be able to mix time-based and rep-based sets for the same exercise (e.g. a superset)?
+- Input UX: free numeric entry (type `45`) vs a tap-to-start timer?
+
+---
+
 ## Personal Trainer use-case
 
 Enable a *trainer* role that can manage workouts for one or more client users.
