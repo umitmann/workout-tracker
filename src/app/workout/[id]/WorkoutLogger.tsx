@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useEffect } from 'react'
-import { saveWorkoutProgress, completeWorkout, reopenWorkout, SetPayload } from '@/app/actions/workouts'
+import { saveWorkoutProgress, completeWorkout, SetPayload } from '@/app/actions/workouts'
 import { fetchExerciseDetails, fetchLastExercisePerformance, fetchBestExercisePerformance, fetchBestExercisePerformance60Days } from '@/app/actions/exercises'
 import { fetchUserTemplates } from '@/app/actions/templates'
 import { LastExercisePerformance, RoutineWithExercises } from '@/lib/dal'
@@ -62,6 +62,7 @@ export default function WorkoutLogger({
   const { clipboard, copy: copyToClipboard } = useWorkoutClipboard()
   const [copied, setCopied] = useState(false)
   const [showPasteConfirm, setShowPasteConfirm] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
 
   // All sets live in client state only — committed on Finish
   const [localSets, setLocalSets] = useState<LocalSet[]>(() => {
@@ -133,13 +134,19 @@ export default function WorkoutLogger({
 
   // ─── Grouped view ──────────────────────────────────────────────────────────
 
-  const grouped = localSets.reduce<Record<number, { name: string; sets: LocalSet[] }>>(
+  const { grouped, exerciseOrder } = localSets.reduce<{
+    grouped: Record<number, { name: string; sets: LocalSet[] }>
+    exerciseOrder: number[]
+  }>(
     (acc, s) => {
-      if (!acc[s.exerciseId]) acc[s.exerciseId] = { name: s.exerciseName, sets: [] }
-      acc[s.exerciseId].sets.push(s)
+      if (!acc.grouped[s.exerciseId]) {
+        acc.grouped[s.exerciseId] = { name: s.exerciseName, sets: [] }
+        acc.exerciseOrder.push(s.exerciseId)
+      }
+      acc.grouped[s.exerciseId].sets.push(s)
       return acc
     },
-    {},
+    { grouped: {}, exerciseOrder: [] },
   )
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -242,6 +249,7 @@ export default function WorkoutLogger({
 
   function handleBack() {
     if (workout.status === 'completed') {
+      if (isEditing) { setIsEditing(false); return }
       window.location.href = '/dashboard'
       return
     }
@@ -308,16 +316,31 @@ export default function WorkoutLogger({
   }
 
   function handleCopy() {
-    const entries = Object.entries(grouped).map(([exerciseId, group]) => ({
-      exerciseId: Number(exerciseId),
-      exerciseName: group.name,
-      setCount: group.sets.length,
-      reps: group.sets[0]?.reps ?? null,
-      weight: group.sets[0]?.weight ?? null,
+    const entries = exerciseOrder.map((exerciseId) => ({
+      exerciseId,
+      exerciseName: grouped[exerciseId].name,
+      setCount: grouped[exerciseId].sets.length,
+      reps: grouped[exerciseId].sets[0]?.reps ?? null,
+      weight: grouped[exerciseId].sets[0]?.weight ?? null,
     }))
     copyToClipboard({ entries, sourceDate: workout.date })
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  function moveExercise(exerciseId: number, direction: 'up' | 'down') {
+    setLocalSets((prev) => {
+      const order: number[] = []
+      for (const s of prev) {
+        if (!order.includes(s.exerciseId)) order.push(s.exerciseId)
+      }
+      const idx = order.indexOf(exerciseId)
+      const newIdx = direction === 'up' ? idx - 1 : idx + 1
+      if (newIdx < 0 || newIdx >= order.length) return prev
+      const next = [...order]
+      ;[next[idx], next[newIdx]] = [next[newIdx], next[idx]]
+      return next.flatMap((id) => prev.filter((s) => s.exerciseId === id))
+    })
   }
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -327,7 +350,7 @@ export default function WorkoutLogger({
   })
 
   // ── Completed: read-only summary ─────────────────────────────────────────
-  if (workout.status === 'completed') {
+  if (workout.status === 'completed' && !isEditing) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-black">
         <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
@@ -350,9 +373,8 @@ export default function WorkoutLogger({
               {copied ? 'Copied!' : 'Copy'}
             </button>
             <button
-              onClick={() => startTransition(async () => { await reopenWorkout(workout.id) })}
-              disabled={isPending}
-              className="rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 disabled:opacity-40 transition-colors"
+              onClick={() => setIsEditing(true)}
+              className="rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
             >
               Edit
             </button>
@@ -363,19 +385,21 @@ export default function WorkoutLogger({
           {localSets.length === 0 && (
             <p className="text-sm text-zinc-400 dark:text-zinc-600">No sets were logged.</p>
           )}
-          {Object.entries(grouped).map(([exerciseId, group]) => (
+          {exerciseOrder.map((exerciseId) => {
+            const group = grouped[exerciseId]
+            return (
             <div key={exerciseId} className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-bold uppercase tracking-wide text-zinc-900 dark:text-white">{group.name}</h2>
                 <button
-                  onClick={() => handleInfoClick(Number(exerciseId))}
+                  onClick={() => handleInfoClick(exerciseId)}
                   title="Exercise info"
                   className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
                 >
                   i
                 </button>
                 <button
-                  onClick={() => handlePerfClick(Number(exerciseId), group.name, 'last')}
+                  onClick={() => handlePerfClick(exerciseId, group.name, 'last')}
                   title="Last session"
                   className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
                 >
@@ -385,7 +409,7 @@ export default function WorkoutLogger({
                   </svg>
                 </button>
                 <button
-                  onClick={() => handlePerfClick(Number(exerciseId), group.name, 'best')}
+                  onClick={() => handlePerfClick(exerciseId, group.name, 'best')}
                   title="Best session"
                   className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
                 >
@@ -398,7 +422,7 @@ export default function WorkoutLogger({
                   </svg>
                 </button>
                 <button
-                  onClick={() => handlePerfClick(Number(exerciseId), group.name, 'best60')}
+                  onClick={() => handlePerfClick(exerciseId, group.name, 'best60')}
                   title="Best · 60 days"
                   className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
                 >
@@ -430,7 +454,7 @@ export default function WorkoutLogger({
                 ))}
               </div>
             </div>
-          ))}
+          )})}
         </main>
 
         {infoLoading && (
@@ -477,6 +501,7 @@ export default function WorkoutLogger({
               {copied ? 'Copied!' : 'Copy'}
             </button>
           )}
+
           <button
             onClick={handleSaveProgress}
             disabled={isPending}
@@ -497,20 +522,22 @@ export default function WorkoutLogger({
       <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-6">
 
         {/* Exercise groups */}
-        {Object.entries(grouped).map(([exerciseId, group]) => (
+        {exerciseOrder.map((exerciseId, exIdx) => {
+          const group = grouped[exerciseId]
+          return (
           <div key={exerciseId} className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <h2 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wide truncate">{group.name}</h2>
                 <button
-                  onClick={() => handleInfoClick(Number(exerciseId))}
+                  onClick={() => handleInfoClick(exerciseId)}
                   title="Exercise info"
                   className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
                 >
                   i
                 </button>
                 <button
-                  onClick={() => handlePerfClick(Number(exerciseId), group.name, 'last')}
+                  onClick={() => handlePerfClick(exerciseId, group.name, 'last')}
                   title="Last session"
                   className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
                 >
@@ -520,7 +547,7 @@ export default function WorkoutLogger({
                   </svg>
                 </button>
                 <button
-                  onClick={() => handlePerfClick(Number(exerciseId), group.name, 'best')}
+                  onClick={() => handlePerfClick(exerciseId, group.name, 'best')}
                   title="Best session"
                   className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
                 >
@@ -533,7 +560,7 @@ export default function WorkoutLogger({
                   </svg>
                 </button>
                 <button
-                  onClick={() => handlePerfClick(Number(exerciseId), group.name, 'best60')}
+                  onClick={() => handlePerfClick(exerciseId, group.name, 'best60')}
                   title="Best · 60 days"
                   className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
                 >
@@ -542,15 +569,35 @@ export default function WorkoutLogger({
                   </svg>
                 </button>
               </div>
-              <button
-                onClick={() => {
-                  const ex = exercises.find((e) => e.id === Number(exerciseId))
-                  if (ex) handleSelectExercise(ex)
-                }}
-                className="flex items-center justify-center h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-orange-500 hover:text-white transition-colors text-lg leading-none"
-              >
-                +
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                {exerciseOrder.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => moveExercise(exerciseId, 'up')}
+                      disabled={exIdx === 0}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition-colors text-base leading-none"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={() => moveExercise(exerciseId, 'down')}
+                      disabled={exIdx === exerciseOrder.length - 1}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition-colors text-base leading-none"
+                    >
+                      ↓
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => {
+                    const ex = exercises.find((e) => e.id === exerciseId)
+                    if (ex) handleSelectExercise(ex)
+                  }}
+                  className="flex items-center justify-center h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-orange-500 hover:text-white transition-colors text-lg leading-none"
+                >
+                  +
+                </button>
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -622,7 +669,7 @@ export default function WorkoutLogger({
               )}
             </div>
           </div>
-        ))}
+        )})}
 
         {localSets.length === 0 && (
           <p className="text-sm font-medium text-zinc-400 dark:text-zinc-600">
@@ -671,21 +718,21 @@ export default function WorkoutLogger({
             <div className="flex gap-2">
               <input
                 type="number"
-                placeholder="Weight (kg)"
+                placeholder="kg"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
-                className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
+                className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
               />
               <input
                 type="number"
                 placeholder="Reps"
                 value={reps}
                 onChange={(e) => setReps(e.target.value)}
-                className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
+                className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
               />
               <button
                 onClick={handleAddSet}
-                className="rounded-lg bg-orange-500 hover:bg-orange-600 px-4 py-2 text-sm font-bold text-white transition-colors"
+                className="shrink-0 rounded-lg bg-orange-500 hover:bg-orange-600 px-4 py-2 text-sm font-bold text-white transition-colors"
               >
                 Add
               </button>

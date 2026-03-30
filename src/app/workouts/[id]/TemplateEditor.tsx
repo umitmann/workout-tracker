@@ -99,6 +99,17 @@ export default function TemplateEditor({
     setItems((prev) => prev.filter((i) => i.localId !== localId))
   }
 
+  function moveItem(localId: string, direction: 'up' | 'down') {
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i.localId === localId)
+      const newIdx = direction === 'up' ? idx - 1 : idx + 1
+      if (newIdx < 0 || newIdx >= prev.length) return prev
+      const next = [...prev]
+      ;[next[idx], next[newIdx]] = [next[newIdx], next[idx]]
+      return next
+    })
+  }
+
   function updateItem(localId: string, patch: Partial<Pick<TemplateExercise, 'sets' | 'reps' | 'weight'>>) {
     setItems((prev) => prev.map((i) => (i.localId === localId ? { ...i, ...patch } : i)))
   }
@@ -288,7 +299,7 @@ export default function TemplateEditor({
           </p>
         )}
 
-        {items.map((item) => (
+        {items.map((item, itemIdx) => (
           <div
             key={item.localId}
             className="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 flex flex-col gap-3"
@@ -341,12 +352,32 @@ export default function TemplateEditor({
                   </svg>
                 </button>
               </div>
-              <button
-                onClick={() => handleRemove(item.localId)}
-                className="shrink-0 text-zinc-300 hover:text-red-500 dark:text-zinc-700 dark:hover:text-red-500 transition-colors leading-none text-lg"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                {items.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => moveItem(item.localId, 'up')}
+                      disabled={itemIdx === 0}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition-colors text-base leading-none"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={() => moveItem(item.localId, 'down')}
+                      disabled={itemIdx === items.length - 1}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition-colors text-base leading-none"
+                    >
+                      ↓
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => handleRemove(item.localId)}
+                  className="shrink-0 text-zinc-300 hover:text-red-500 dark:text-zinc-700 dark:hover:text-red-500 transition-colors leading-none text-lg"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Sets / Reps / Weight inputs */}

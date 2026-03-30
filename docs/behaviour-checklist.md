@@ -17,9 +17,12 @@ Run through this list manually after any change to routing, workout actions, dat
 | 1.7 | Tap "← Back" with no sets (in_progress) | Workout deleted, redirects to `/dashboard` |
 | 1.8 | Tap "← Back" with sets (in_progress) | Abandon prompt appears |
 | 1.9 | Confirm "Abandon" | Workout deleted, redirects to `/dashboard` |
-| 1.10 | Tap "← Back" on a **completed** workout | Navigates to `/dashboard`, workout is **not** deleted |
+| 1.10 | Tap "← Back" on a **completed** workout (read-only view) | Navigates to `/dashboard`, workout is **not** deleted |
 | 1.11 | Navigate away from a completed workout | **No** browser "You may lose data" prompt |
 | 1.12 | Navigate away from an in-progress workout with sets | Browser shows "You may lose data" prompt |
+| 1.13 | Tap "Edit" on a completed workout | Switches to editable mode — **no DB write**, status stays `completed` |
+| 1.14 | Tap "← Back" while editing a completed workout | Returns to read-only completed view — status unchanged, no abandon prompt |
+| 1.15 | Tap "Done" while editing a completed workout | Saves new sets, status remains `completed`, redirects to `/dashboard` |
 
 ---
 
@@ -76,6 +79,12 @@ Run through this list manually after any change to routing, workout actions, dat
 | 4.6 | View a set row (completed workout) | Same labeled row layout but no ✕ button and not tappable |
 | 4.7 | Set with null weight | Displays `—` for weight |
 | 4.8 | Set with null reps | Displays `—` for reps |
+| 4.9 | Add exercises one by one in workout logger | Exercises appear in the order added — **not** alphabetically |
+| 4.10 | Add exercises one by one in template editor | Same — insertion order preserved |
+| 4.11 | Workout or template with 2+ exercises | ↑ / ↓ buttons visible on each exercise header; first item's ↑ and last item's ↓ are disabled |
+| 4.12 | Tap ↑ on an exercise | Exercise moves up one position (all its sets move with it) |
+| 4.13 | Tap ↓ on an exercise | Exercise moves down one position |
+| 4.14 | Single exercise in workout or template | No ↑ / ↓ buttons shown |
 
 ---
 
@@ -205,5 +214,8 @@ Session-only clipboard (cleared on page refresh). Copy is available on completed
 - Template sets are **never pre-populated into the `sets` table** when starting a workout. They live in WorkoutLogger client state only until the user saves/completes.
 - `getWorkoutWithSets` returns `template_id` — used by the page to fetch `initialTemplate` only when the workout is in-progress and has no sets yet.
 - The `beforeunload` guard is intentionally skipped for `status = 'completed'` workouts to avoid false browser warnings.
+- "Edit" on a completed workout **does not** set `status = 'in_progress'` in the DB. It flips a local `isEditing` flag. Only tapping "Done" writes to the DB.
+- Exercise order in WorkoutLogger is tracked via a separate `exerciseOrder: number[]` array derived alongside the `grouped` object. `Object.entries` is **not** used for rendering (JS sorts numeric keys, breaking insertion order).
+- ↑/↓ reorder buttons are always visible when 2+ exercises exist — there is no separate "reorder mode" toggle.
 - `TemplateEditor` receives optional `date` and `workoutId` search params. `date > today` → "Schedule" mode (planned workout). `workoutId` → transition existing planned workout.
 - When routing to the template editor from the calendar, the workout is **not created** until the user taps "Start now" / "Schedule" in the editor.
