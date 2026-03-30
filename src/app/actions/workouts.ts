@@ -23,7 +23,7 @@ export async function fetchWorkoutPreview(workoutId: number): Promise<WorkoutPre
     if (!existing) {
       grouped.set(s.exercise_id, {
         exerciseId: s.exercise_id,
-        exerciseName: (s.exercises as { name: string } | null)?.name ?? String(s.exercise_id),
+        exerciseName: (s.exercises as unknown as { name: string } | null)?.name ?? String(s.exercise_id),
         setCount: 1,
         firstSetReps: s.reps,
         firstSetWeight: s.weight,
