@@ -1,4 +1,5 @@
 import { unstable_cache } from 'next/cache'
+import { cache } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { createServerSupabaseClient } from './supabase-server'
 
@@ -10,9 +11,15 @@ function createServiceSupabaseClient() {
   )
 }
 
-export async function getRecentWorkouts(limit = 5) {
+// Memoised per-request — multiple DAL calls on the same page share one getUser() round-trip
+const getAuthContext = cache(async () => {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
+  return { supabase, user }
+})
+
+export async function getRecentWorkouts(limit = 5) {
+  const { supabase, user } = await getAuthContext()
   if (!user) return []
 
   const { data } = await supabase
@@ -26,25 +33,24 @@ export async function getRecentWorkouts(limit = 5) {
 }
 
 export async function getWorkoutWithSets(workoutId: number) {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, user } = await getAuthContext()
   if (!user) return null
 
-  const { data: workout } = await supabase
-    .from('workouts')
-    .select('id, date, status, template_id')
-    .eq('id', workoutId)
-    .eq('user_id', user.id)
-    .single()
+  const [{ data: workout }, { data: sets }] = await Promise.all([
+    supabase
+      .from('workouts')
+      .select('id, date, status, template_id')
+      .eq('id', workoutId)
+      .eq('user_id', user.id)
+      .single(),
+    supabase
+      .from('sets')
+      .select('id, exercise_id, weight, reps, duration_minutes, distance, exercises(name)')
+      .eq('workout_id', workoutId)
+      .order('created_at', { ascending: true }),
+  ])
 
   if (!workout) return null
-
-  const { data: sets } = await supabase
-    .from('sets')
-    .select('id, exercise_id, weight, reps, duration_minutes, distance, exercises(name)')
-    .eq('workout_id', workoutId)
-    .order('created_at', { ascending: true })
-
   return { ...workout, sets: sets ?? [] }
 }
 
@@ -88,8 +94,7 @@ export async function getExerciseDetails(id: number) {
 }
 
 export async function getUserTemplates() {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, user } = await getAuthContext()
   if (!user) return []
 
   const { data } = await supabase
@@ -102,8 +107,7 @@ export async function getUserTemplates() {
 }
 
 export async function getTemplate(routineId: string | number) {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, user } = await getAuthContext()
   if (!user) return null
 
   const { data } = await supabase
@@ -135,8 +139,7 @@ export type ExerciseHistoryPoint = {
 }
 
 export async function getMonthWorkouts(year: number, month: number): Promise<WorkoutCalendarEntry[]> {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, user } = await getAuthContext()
   if (!user) return []
 
   const from = `${year}-${String(month).padStart(2, '0')}-01`
@@ -166,8 +169,7 @@ export type LastExercisePerformance = {
 }
 
 export async function getLastExercisePerformance(exerciseId: number): Promise<LastExercisePerformance | null> {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, user } = await getAuthContext()
   if (!user) return null
 
   // Get recent completed workouts (desc) for this user
@@ -213,8 +215,7 @@ export async function getLastExercisePerformance(exerciseId: number): Promise<La
 }
 
 export async function getBestExercisePerformance(exerciseId: number, limitDays?: number): Promise<LastExercisePerformance | null> {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, user } = await getAuthContext()
   if (!user) return null
 
   let query = supabase
@@ -238,9 +239,10 @@ export async function getBestExercisePerformance(exerciseId: number, limitDays?:
 
   const { data: sets } = await supabase
     .from('sets')
-    .select('workout_id, weight, reps')
+    .select('id, workout_id, weight, reps')
     .eq('exercise_id', exerciseId)
     .in('workout_id', workoutIds)
+    .order('id', { ascending: true })
 
   if (!sets?.length) return null
 
@@ -267,22 +269,16 @@ export async function getBestExercisePerformance(exerciseId: number, limitDays?:
     return null
   }
 
-  const { data: bestSets } = await supabase
-    .from('sets')
-    .select('weight, reps')
-    .eq('exercise_id', exerciseId)
-    .eq('workout_id', bestWorkoutId)
-    .order('id', { ascending: true })
-
   return {
     date: dateById.get(bestWorkoutId)!,
-    sets: (bestSets ?? []).map((s: any) => ({ weight: s.weight, reps: s.reps })),
+    sets: (sets as any[])
+      .filter((s) => s.workout_id === bestWorkoutId)
+      .map((s) => ({ weight: s.weight, reps: s.reps })),
   }
 }
 
 export async function getExerciseHistory(exerciseId: number, limitDays = 90): Promise<ExerciseHistoryPoint[]> {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, user } = await getAuthContext()
   if (!user) return []
 
   const since = new Date()
