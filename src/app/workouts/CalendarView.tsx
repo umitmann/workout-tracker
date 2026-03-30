@@ -27,11 +27,13 @@ export default function CalendarView({
   month,
   workouts,
   basePath = '/workouts',
+  initialTemplates,
 }: {
   year: number
   month: number
   workouts: WorkoutCalendarEntry[]
   basePath?: string
+  initialTemplates?: RoutineWithExercises[]
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -39,7 +41,7 @@ export default function CalendarView({
   const [popupCopied, setPopupCopied] = useState(false)
 
   const [sheet, setSheet] = useState<DaySheet | null>(null)
-  const [templates, setTemplates] = useState<RoutineWithExercises[] | null>(null)
+  const [templates, setTemplates] = useState<RoutineWithExercises[] | null>(initialTemplates ?? null)
   const [loadingTemplates, setLoadingTemplates] = useState(false)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>(undefined)
   const [workoutPreview, setWorkoutPreview] = useState<WorkoutPreviewExercise[] | null>(null)

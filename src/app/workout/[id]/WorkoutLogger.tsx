@@ -106,6 +106,7 @@ export default function WorkoutLogger({
   const [showPicker, setShowPicker] = useState(false)
   const [showImportPicker, setShowImportPicker] = useState(false)
   const [showAbandonPrompt, setShowAbandonPrompt] = useState(false)
+  const [showDiscardEditsPrompt, setShowDiscardEditsPrompt] = useState(false)
   const [showSaveWarning, setShowSaveWarning] = useState(false)
   const [savedOnce, setSavedOnce] = useState(false)
   const [infoExercise, setInfoExercise] = useState<ExerciseDetails | null>(null)
@@ -249,7 +250,7 @@ export default function WorkoutLogger({
 
   function handleBack() {
     if (workout.status === 'completed') {
-      if (isEditing) { setIsEditing(false); return }
+      if (isEditing) { setShowDiscardEditsPrompt(true); return }
       window.location.href = '/dashboard'
       return
     }
@@ -866,6 +867,35 @@ export default function WorkoutLogger({
                 className="flex-1 rounded-xl bg-orange-500 hover:bg-orange-600 py-2.5 text-sm font-bold text-white transition-colors"
               >
                 Replace
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Discard edits prompt (editing a completed workout) */}
+      {showDiscardEditsPrompt && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] px-4">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-red-500 mb-1">Warning</p>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">Discard changes?</h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                Your edits will not be saved.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowDiscardEditsPrompt(false)}
+                className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-2.5 text-sm font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              >
+                Keep editing
+              </button>
+              <button
+                onClick={() => { setShowDiscardEditsPrompt(false); setIsEditing(false) }}
+                className="flex-1 rounded-xl bg-red-500 hover:bg-red-600 py-2.5 text-sm font-bold text-white transition-colors"
+              >
+                Discard
               </button>
             </div>
           </div>

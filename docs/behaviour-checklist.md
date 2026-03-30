@@ -21,7 +21,7 @@ Run through this list manually after any change to routing, workout actions, dat
 | 1.11 | Navigate away from a completed workout | **No** browser "You may lose data" prompt |
 | 1.12 | Navigate away from an in-progress workout with sets | Browser shows "You may lose data" prompt |
 | 1.13 | Tap "Edit" on a completed workout | Switches to editable mode — **no DB write**, status stays `completed` |
-| 1.14 | Tap "← Back" while editing a completed workout | Returns to read-only completed view — status unchanged, no abandon prompt |
+| 1.14 | Tap "← Back" while editing a completed workout | "Discard changes?" prompt appears — "Keep editing" cancels, "Discard" returns to read-only view with no DB changes |
 | 1.15 | Tap "Done" while editing a completed workout | Saves new sets, status remains `completed`, redirects to `/dashboard` |
 
 ---
@@ -47,7 +47,7 @@ Run through this list manually after any change to routing, workout actions, dat
 |---|--------|----------------|
 | 3.1 | Open dashboard | Current month calendar shown, today highlighted with orange ring |
 | 3.2 | Tap prev/next month arrow | Calendar navigates, URL updates to `?y=...&m=...` |
-| 3.3 | Tap empty **past or today** cell | Sheet: "Log a workout", template picker, "Start workout" button |
+| 3.3 | Tap empty **past or today** cell | Sheet opens immediately with template list already populated (no loading spinner) — shows "Log a workout", template picker, "Start workout" button |
 | 3.4 | Select **no template** and tap "Start workout" | Creates `in_progress` blank workout for that date, navigates to logger |
 | 3.5 | Select **a template** and tap "Start workout" | Navigates to template editor `/workouts/[id]?date=...` — **does not create workout yet** |
 | 3.6 | Tap empty **future** cell | Sheet: "Schedule a workout", template picker, "Schedule" button |
@@ -215,6 +215,8 @@ Session-only clipboard (cleared on page refresh). Copy is available on completed
 - `getWorkoutWithSets` returns `template_id` — used by the page to fetch `initialTemplate` only when the workout is in-progress and has no sets yet.
 - The `beforeunload` guard is intentionally skipped for `status = 'completed'` workouts to avoid false browser warnings.
 - "Edit" on a completed workout **does not** set `status = 'in_progress'` in the DB. It flips a local `isEditing` flag. Only tapping "Done" writes to the DB.
+- Tapping "← Back" while in `isEditing` mode shows a "Discard changes?" prompt — "Discard" calls `setIsEditing(false)` (no DB write), "Keep editing" dismisses the prompt.
+- CalendarView receives templates server-side as `initialTemplates` prop so the template picker is instant on first day click — no client-side fetch needed.
 - Exercise order in WorkoutLogger is tracked via a separate `exerciseOrder: number[]` array derived alongside the `grouped` object. `Object.entries` is **not** used for rendering (JS sorts numeric keys, breaking insertion order).
 - ↑/↓ reorder buttons are always visible when 2+ exercises exist — there is no separate "reorder mode" toggle.
 - `TemplateEditor` receives optional `date` and `workoutId` search params. `date > today` → "Schedule" mode (planned workout). `workoutId` → transition existing planned workout.
