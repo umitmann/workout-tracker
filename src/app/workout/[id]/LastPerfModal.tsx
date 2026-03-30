@@ -13,11 +13,13 @@ export default function LastPerfModal({
   data,
   loading,
   onClose,
+  title = 'Last session',
 }: {
   exerciseName: string
   data: LastExercisePerformance | null
   loading: boolean
   onClose: () => void
+  title?: string
 }) {
   return (
     <div
@@ -31,7 +33,7 @@ export default function LastPerfModal({
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-0.5">
-              Last session
+              {title}
             </p>
             <h2 className="text-sm font-bold text-zinc-900 dark:text-white">{exerciseName}</h2>
           </div>

@@ -4,11 +4,12 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createTemplate, saveTemplateExercises, deleteTemplate, TemplateExercisePayload } from '@/app/actions/templates'
 import { startWorkoutFromTemplate, startPlannedWorkout, scheduleWorkout } from '@/app/actions/workouts'
-import { fetchExerciseDetails, fetchLastExercisePerformance } from '@/app/actions/exercises'
+import { fetchExerciseDetails, fetchLastExercisePerformance, fetchBestExercisePerformance, fetchBestExercisePerformance60Days } from '@/app/actions/exercises'
 import { LastExercisePerformance, RoutineWithExercises } from '@/lib/dal'
 import ExercisePickerSheet, { SlimExercise } from '@/app/workout/[id]/ExercisePickerSheet'
 import ExerciseInfoModal from '@/app/workout/[id]/ExerciseInfoModal'
 import LastPerfModal from '@/app/workout/[id]/LastPerfModal'
+import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 
 type TemplateExercise = {
   localId: string
@@ -44,6 +45,9 @@ export default function TemplateEditor({
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const { clipboard, copy: copyToClipboard } = useWorkoutClipboard()
+  const [copied, setCopied] = useState(false)
+  const [showPasteConfirm, setShowPasteConfirm] = useState(false)
 
   const today = new Date().toISOString().split('T')[0]
   const isScheduling = !!date && date > today
@@ -68,9 +72,11 @@ export default function TemplateEditor({
   const [showPicker, setShowPicker] = useState(false)
   const [infoExercise, setInfoExercise] = useState<ExerciseDetails | null>(null)
   const [infoLoading, setInfoLoading] = useState(false)
-  const [lastPerfExercise, setLastPerfExercise] = useState<{ id: number; name: string } | null>(null)
-  const [lastPerfData, setLastPerfData] = useState<LastExercisePerformance | null>(null)
-  const [lastPerfLoading, setLastPerfLoading] = useState(false)
+  type PerfMode = 'last' | 'best' | 'best60'
+  const PERF_TITLE: Record<PerfMode, string> = { last: 'Last session', best: 'Best session', best60: 'Best · 60 days' }
+  const [perfModal, setPerfModal] = useState<{ id: number; name: string; mode: PerfMode } | null>(null)
+  const [perfData, setPerfData] = useState<LastExercisePerformance | null>(null)
+  const [perfLoading, setPerfLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   function handleAddExercise(ex: SlimExercise) {
@@ -93,6 +99,17 @@ export default function TemplateEditor({
     setItems((prev) => prev.filter((i) => i.localId !== localId))
   }
 
+  function moveItem(localId: string, direction: 'up' | 'down') {
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i.localId === localId)
+      const newIdx = direction === 'up' ? idx - 1 : idx + 1
+      if (newIdx < 0 || newIdx >= prev.length) return prev
+      const next = [...prev]
+      ;[next[idx], next[newIdx]] = [next[newIdx], next[idx]]
+      return next
+    })
+  }
+
   function updateItem(localId: string, patch: Partial<Pick<TemplateExercise, 'sets' | 'reps' | 'weight'>>) {
     setItems((prev) => prev.map((i) => (i.localId === localId ? { ...i, ...patch } : i)))
   }
@@ -104,13 +121,55 @@ export default function TemplateEditor({
     if (details) setInfoExercise(details as ExerciseDetails)
   }
 
-  async function handleLastPerfClick(exerciseId: number, exerciseName: string) {
-    setLastPerfExercise({ id: exerciseId, name: exerciseName })
-    setLastPerfData(null)
-    setLastPerfLoading(true)
-    const data = await fetchLastExercisePerformance(exerciseId)
-    setLastPerfData(data)
-    setLastPerfLoading(false)
+  async function handlePerfClick(exerciseId: number, exerciseName: string, mode: PerfMode) {
+    setPerfModal({ id: exerciseId, name: exerciseName, mode })
+    setPerfData(null)
+    setPerfLoading(true)
+    let data: LastExercisePerformance | null = null
+    if (mode === 'last') data = await fetchLastExercisePerformance(exerciseId)
+    else if (mode === 'best') data = await fetchBestExercisePerformance(exerciseId)
+    else data = await fetchBestExercisePerformance60Days(exerciseId)
+    setPerfData(data)
+    setPerfLoading(false)
+  }
+
+  function handleCopy() {
+    copyToClipboard({
+      entries: items.map((item) => ({
+        exerciseId: item.exerciseId,
+        exerciseName: item.exerciseName,
+        setCount: item.sets,
+        reps: item.reps,
+        weight: item.weight,
+      })),
+      sourceDate: today,
+    })
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  function handlePasteRequest() {
+    if (items.length > 0) {
+      setShowPasteConfirm(true)
+    } else {
+      applyPaste()
+    }
+  }
+
+  function applyPaste() {
+    if (!clipboard) return
+    setItems(
+      clipboard.entries.map((entry) => ({
+        localId: crypto.randomUUID(),
+        exerciseId: entry.exerciseId,
+        exerciseName: entry.exerciseName,
+        exerciseCategory: null,
+        sets: entry.setCount,
+        reps: entry.reps ?? 0,
+        weight: entry.weight,
+      })),
+    )
+    setShowPasteConfirm(false)
   }
 
   function handleSave() {
@@ -194,13 +253,31 @@ export default function TemplateEditor({
         <h1 className="text-sm font-medium text-zinc-900 dark:text-white">
           {template ? 'Edit template' : 'New template'}
         </h1>
-        <button
-          onClick={handleSave}
-          disabled={isPending}
-          className="rounded-full bg-zinc-800 dark:bg-zinc-700 hover:bg-zinc-700 px-4 py-2 text-xs font-bold uppercase tracking-wide text-white disabled:opacity-40 transition-colors"
-        >
-          {isPending ? '…' : 'Save'}
-        </button>
+        <div className="flex items-center gap-2">
+          {items.length > 0 && (
+            <button
+              onClick={handleCopy}
+              className="rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          )}
+          {clipboard && (
+            <button
+              onClick={handlePasteRequest}
+              className="rounded-full border border-orange-400 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-colors"
+            >
+              Paste
+            </button>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={isPending}
+            className="rounded-full bg-zinc-800 dark:bg-zinc-700 hover:bg-zinc-700 px-4 py-2 text-xs font-bold uppercase tracking-wide text-white disabled:opacity-40 transition-colors"
+          >
+            {isPending ? '…' : 'Save'}
+          </button>
+        </div>
       </header>
 
       <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-6">
@@ -222,7 +299,7 @@ export default function TemplateEditor({
           </p>
         )}
 
-        {items.map((item) => (
+        {items.map((item, itemIdx) => (
           <div
             key={item.localId}
             className="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 flex flex-col gap-3"
@@ -243,7 +320,7 @@ export default function TemplateEditor({
                   i
                 </button>
                 <button
-                  onClick={() => handleLastPerfClick(item.exerciseId, item.exerciseName)}
+                  onClick={() => handlePerfClick(item.exerciseId, item.exerciseName, 'last')}
                   title="Last session"
                   className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
                 >
@@ -252,13 +329,55 @@ export default function TemplateEditor({
                     <path d="M6 3v3l1.5 1.5" />
                   </svg>
                 </button>
+                <button
+                  onClick={() => handlePerfClick(item.exerciseId, item.exerciseName, 'best')}
+                  title="Best session"
+                  className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
+                >
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3.5 1.5h5v3.5a2.5 2.5 0 0 1-5 0V1.5z" />
+                    <path d="M6 7v1.5" />
+                    <path d="M4 9h4" />
+                    <path d="M1.5 2.5h2" />
+                    <path d="M8.5 2.5h2" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => handlePerfClick(item.exerciseId, item.exerciseName, 'best60')}
+                  title="Best · 60 days"
+                  className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
+                >
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M7 1.5L3.5 6.5H6.5L5 10.5" />
+                  </svg>
+                </button>
               </div>
-              <button
-                onClick={() => handleRemove(item.localId)}
-                className="shrink-0 text-zinc-300 hover:text-red-500 dark:text-zinc-700 dark:hover:text-red-500 transition-colors leading-none text-lg"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                {items.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => moveItem(item.localId, 'up')}
+                      disabled={itemIdx === 0}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition-colors text-base leading-none"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={() => moveItem(item.localId, 'down')}
+                      disabled={itemIdx === items.length - 1}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition-colors text-base leading-none"
+                    >
+                      ↓
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => handleRemove(item.localId)}
+                  className="shrink-0 text-zinc-300 hover:text-red-500 dark:text-zinc-700 dark:hover:text-red-500 transition-colors leading-none text-lg"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Sets / Reps / Weight inputs */}
@@ -336,12 +455,13 @@ export default function TemplateEditor({
       {infoExercise && (
         <ExerciseInfoModal exercise={infoExercise} onClose={() => setInfoExercise(null)} />
       )}
-      {lastPerfExercise && (
+      {perfModal && (
         <LastPerfModal
-          exerciseName={lastPerfExercise.name}
-          data={lastPerfData}
-          loading={lastPerfLoading}
-          onClose={() => setLastPerfExercise(null)}
+          exerciseName={perfModal.name}
+          title={PERF_TITLE[perfModal.mode]}
+          data={perfData}
+          loading={perfLoading}
+          onClose={() => setPerfModal(null)}
         />
       )}
 
@@ -353,6 +473,35 @@ export default function TemplateEditor({
           onInfoClick={handleInfoClick}
           onClose={() => setShowPicker(false)}
         />
+      )}
+
+      {/* Paste overwrite confirmation */}
+      {showPasteConfirm && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] px-4">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-1">Overwrite?</p>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">Replace current exercises?</h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                Your current exercise list will be replaced with the clipboard content.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowPasteConfirm(false)}
+                className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-2.5 text-sm font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={applyPaste}
+                className="flex-1 rounded-xl bg-orange-500 hover:bg-orange-600 py-2.5 text-sm font-bold text-white transition-colors"
+              >
+                Replace
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

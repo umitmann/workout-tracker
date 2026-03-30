@@ -123,7 +123,14 @@ create policy "sets: users select their own"
 create policy "sets: users insert their own"
   on sets for insert
   to authenticated
-  with check (auth.uid() = user_id);
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from workouts
+      where workouts.id = sets.workout_id
+      and workouts.user_id = auth.uid()
+    )
+  );
 
 create policy "sets: users update their own"
   on sets for update
@@ -198,11 +205,17 @@ create table routine_exercises (
 
 alter table routine_exercises enable row level security;
 
--- All authenticated users can read (needed to view preset routines)
-create policy "routine_exercises: authenticated read"
+-- Users can read routine_exercises belonging to their own routines or presets
+create policy "routine_exercises: read own and presets"
   on routine_exercises for select
   to authenticated
-  using (true);
+  using (
+    exists (
+      select 1 from routines
+      where routines.id = routine_exercises.routine_id
+      and (routines.is_preset = true or routines.user_id = auth.uid())
+    )
+  );
 
 -- Users can only write routine_exercises that belong to their own routines
 create policy "routine_exercises: users insert their own"

@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useTransition, useEffect } from 'react'
-import { saveWorkoutProgress, completeWorkout, reopenWorkout, SetPayload } from '@/app/actions/workouts'
-import { fetchExerciseDetails, fetchLastExercisePerformance } from '@/app/actions/exercises'
+import { saveWorkoutProgress, completeWorkout, SetPayload } from '@/app/actions/workouts'
+import { fetchExerciseDetails, fetchLastExercisePerformance, fetchBestExercisePerformance, fetchBestExercisePerformance60Days } from '@/app/actions/exercises'
 import { fetchUserTemplates } from '@/app/actions/templates'
 import { LastExercisePerformance, RoutineWithExercises } from '@/lib/dal'
 import ExercisePickerSheet, { SlimExercise } from './ExercisePickerSheet'
 import ExerciseInfoModal from './ExerciseInfoModal'
 import LastPerfModal from './LastPerfModal'
+import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,10 @@ export default function WorkoutLogger({
   initialTemplate?: RoutineWithExercises | null
 }) {
   const [isPending, startTransition] = useTransition()
+  const { clipboard, copy: copyToClipboard } = useWorkoutClipboard()
+  const [copied, setCopied] = useState(false)
+  const [showPasteConfirm, setShowPasteConfirm] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
 
   // All sets live in client state only — committed on Finish
   const [localSets, setLocalSets] = useState<LocalSet[]>(() => {
@@ -105,9 +110,11 @@ export default function WorkoutLogger({
   const [savedOnce, setSavedOnce] = useState(false)
   const [infoExercise, setInfoExercise] = useState<ExerciseDetails | null>(null)
   const [infoLoading, setInfoLoading] = useState(false)
-  const [lastPerfExercise, setLastPerfExercise] = useState<{ id: number; name: string } | null>(null)
-  const [lastPerfData, setLastPerfData] = useState<LastExercisePerformance | null>(null)
-  const [lastPerfLoading, setLastPerfLoading] = useState(false)
+  type PerfMode = 'last' | 'best' | 'best60'
+  const PERF_TITLE: Record<PerfMode, string> = { last: 'Last session', best: 'Best session', best60: 'Best · 60 days' }
+  const [perfModal, setPerfModal] = useState<{ id: number; name: string; mode: PerfMode } | null>(null)
+  const [perfData, setPerfData] = useState<LastExercisePerformance | null>(null)
+  const [perfLoading, setPerfLoading] = useState(false)
 
   // Template import
   const [templates, setTemplates] = useState<RoutineWithExercises[] | null>(null)
@@ -127,13 +134,19 @@ export default function WorkoutLogger({
 
   // ─── Grouped view ──────────────────────────────────────────────────────────
 
-  const grouped = localSets.reduce<Record<number, { name: string; sets: LocalSet[] }>>(
+  const { grouped, exerciseOrder } = localSets.reduce<{
+    grouped: Record<number, { name: string; sets: LocalSet[] }>
+    exerciseOrder: number[]
+  }>(
     (acc, s) => {
-      if (!acc[s.exerciseId]) acc[s.exerciseId] = { name: s.exerciseName, sets: [] }
-      acc[s.exerciseId].sets.push(s)
+      if (!acc.grouped[s.exerciseId]) {
+        acc.grouped[s.exerciseId] = { name: s.exerciseName, sets: [] }
+        acc.exerciseOrder.push(s.exerciseId)
+      }
+      acc.grouped[s.exerciseId].sets.push(s)
       return acc
     },
-    {},
+    { grouped: {}, exerciseOrder: [] },
   )
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -193,13 +206,16 @@ export default function WorkoutLogger({
     if (details) setInfoExercise(details as ExerciseDetails)
   }
 
-  async function handleLastPerfClick(exerciseId: number, exerciseName: string) {
-    setLastPerfExercise({ id: exerciseId, name: exerciseName })
-    setLastPerfData(null)
-    setLastPerfLoading(true)
-    const data = await fetchLastExercisePerformance(exerciseId)
-    setLastPerfData(data)
-    setLastPerfLoading(false)
+  async function handlePerfClick(exerciseId: number, exerciseName: string, mode: PerfMode) {
+    setPerfModal({ id: exerciseId, name: exerciseName, mode })
+    setPerfData(null)
+    setPerfLoading(true)
+    let data: LastExercisePerformance | null = null
+    if (mode === 'last') data = await fetchLastExercisePerformance(exerciseId)
+    else if (mode === 'best') data = await fetchBestExercisePerformance(exerciseId)
+    else data = await fetchBestExercisePerformance60Days(exerciseId)
+    setPerfData(data)
+    setPerfLoading(false)
   }
 
   async function handleOpenImport() {
@@ -233,6 +249,7 @@ export default function WorkoutLogger({
 
   function handleBack() {
     if (workout.status === 'completed') {
+      if (isEditing) { setIsEditing(false); return }
       window.location.href = '/dashboard'
       return
     }
@@ -275,6 +292,57 @@ export default function WorkoutLogger({
     })
   }
 
+  function handlePasteRequest() {
+    if (localSets.length > 0) {
+      setShowPasteConfirm(true)
+    } else {
+      applyPaste()
+    }
+  }
+
+  function applyPaste() {
+    if (!clipboard) return
+    const newSets: LocalSet[] = clipboard.entries.flatMap((entry) =>
+      Array.from({ length: entry.setCount }, () => ({
+        localId: crypto.randomUUID(),
+        exerciseId: entry.exerciseId,
+        exerciseName: entry.exerciseName,
+        weight: entry.weight,
+        reps: entry.reps,
+      })),
+    )
+    setLocalSets(newSets)
+    setShowPasteConfirm(false)
+  }
+
+  function handleCopy() {
+    const entries = exerciseOrder.map((exerciseId) => ({
+      exerciseId,
+      exerciseName: grouped[exerciseId].name,
+      setCount: grouped[exerciseId].sets.length,
+      reps: grouped[exerciseId].sets[0]?.reps ?? null,
+      weight: grouped[exerciseId].sets[0]?.weight ?? null,
+    }))
+    copyToClipboard({ entries, sourceDate: workout.date })
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  function moveExercise(exerciseId: number, direction: 'up' | 'down') {
+    setLocalSets((prev) => {
+      const order: number[] = []
+      for (const s of prev) {
+        if (!order.includes(s.exerciseId)) order.push(s.exerciseId)
+      }
+      const idx = order.indexOf(exerciseId)
+      const newIdx = direction === 'up' ? idx - 1 : idx + 1
+      if (newIdx < 0 || newIdx >= order.length) return prev
+      const next = [...order]
+      ;[next[idx], next[newIdx]] = [next[newIdx], next[idx]]
+      return next.flatMap((id) => prev.filter((s) => s.exerciseId === id))
+    })
+  }
+
   // ─── Render ────────────────────────────────────────────────────────────────
 
   const dateLabel = new Date(workout.date + 'T00:00:00').toLocaleDateString('en-US', {
@@ -282,7 +350,7 @@ export default function WorkoutLogger({
   })
 
   // ── Completed: read-only summary ─────────────────────────────────────────
-  if (workout.status === 'completed') {
+  if (workout.status === 'completed' && !isEditing) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-black">
         <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
@@ -296,38 +364,70 @@ export default function WorkoutLogger({
             <p className="text-xs font-bold uppercase tracking-widest text-emerald-500">Completed</p>
             <h1 className="text-sm font-bold text-zinc-900 dark:text-white">{dateLabel}</h1>
           </div>
-          <button
-            onClick={() => startTransition(async () => { await reopenWorkout(workout.id) })}
-            disabled={isPending}
-            className="rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 disabled:opacity-40 transition-colors"
-          >
-            Edit
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopy}
+              disabled={localSets.length === 0}
+              className="rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 disabled:opacity-40 transition-colors"
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+            <button
+              onClick={() => setIsEditing(true)}
+              className="rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+            >
+              Edit
+            </button>
+          </div>
         </header>
 
         <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-6">
           {localSets.length === 0 && (
             <p className="text-sm text-zinc-400 dark:text-zinc-600">No sets were logged.</p>
           )}
-          {Object.entries(grouped).map(([exerciseId, group]) => (
+          {exerciseOrder.map((exerciseId) => {
+            const group = grouped[exerciseId]
+            return (
             <div key={exerciseId} className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-bold uppercase tracking-wide text-zinc-900 dark:text-white">{group.name}</h2>
                 <button
-                  onClick={() => handleInfoClick(Number(exerciseId))}
+                  onClick={() => handleInfoClick(exerciseId)}
                   title="Exercise info"
                   className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
                 >
                   i
                 </button>
                 <button
-                  onClick={() => handleLastPerfClick(Number(exerciseId), group.name)}
+                  onClick={() => handlePerfClick(exerciseId, group.name, 'last')}
                   title="Last session"
                   className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
                 >
                   <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <circle cx="6" cy="6" r="5" />
                     <path d="M6 3v3l1.5 1.5" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => handlePerfClick(exerciseId, group.name, 'best')}
+                  title="Best session"
+                  className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
+                >
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3.5 1.5h5v3.5a2.5 2.5 0 0 1-5 0V1.5z" />
+                    <path d="M6 7v1.5" />
+                    <path d="M4 9h4" />
+                    <path d="M1.5 2.5h2" />
+                    <path d="M8.5 2.5h2" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => handlePerfClick(exerciseId, group.name, 'best60')}
+                  title="Best · 60 days"
+                  className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
+                >
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M7 1.5L3.5 6.5H6.5L5 10.5" />
                   </svg>
                 </button>
               </div>
@@ -354,7 +454,7 @@ export default function WorkoutLogger({
                 ))}
               </div>
             </div>
-          ))}
+          )})}
         </main>
 
         {infoLoading && (
@@ -365,12 +465,13 @@ export default function WorkoutLogger({
         {infoExercise && (
           <ExerciseInfoModal exercise={infoExercise} onClose={() => setInfoExercise(null)} />
         )}
-        {lastPerfExercise && (
+        {perfModal && (
           <LastPerfModal
-            exerciseName={lastPerfExercise.name}
-            data={lastPerfData}
-            loading={lastPerfLoading}
-            onClose={() => setLastPerfExercise(null)}
+            exerciseName={perfModal.name}
+            title={PERF_TITLE[perfModal.mode]}
+            data={perfData}
+            loading={perfLoading}
+            onClose={() => setPerfModal(null)}
           />
         )}
       </div>
@@ -392,6 +493,15 @@ export default function WorkoutLogger({
           <h1 className="text-sm font-bold text-zinc-900 dark:text-white">{dateLabel}</h1>
         </div>
         <div className="flex items-center gap-2">
+          {localSets.length > 0 && (
+            <button
+              onClick={handleCopy}
+              className="rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          )}
+
           <button
             onClick={handleSaveProgress}
             disabled={isPending}
@@ -412,20 +522,22 @@ export default function WorkoutLogger({
       <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-6">
 
         {/* Exercise groups */}
-        {Object.entries(grouped).map(([exerciseId, group]) => (
+        {exerciseOrder.map((exerciseId, exIdx) => {
+          const group = grouped[exerciseId]
+          return (
           <div key={exerciseId} className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <h2 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wide truncate">{group.name}</h2>
                 <button
-                  onClick={() => handleInfoClick(Number(exerciseId))}
+                  onClick={() => handleInfoClick(exerciseId)}
                   title="Exercise info"
                   className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
                 >
                   i
                 </button>
                 <button
-                  onClick={() => handleLastPerfClick(Number(exerciseId), group.name)}
+                  onClick={() => handlePerfClick(exerciseId, group.name, 'last')}
                   title="Last session"
                   className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
                 >
@@ -434,16 +546,58 @@ export default function WorkoutLogger({
                     <path d="M6 3v3l1.5 1.5" />
                   </svg>
                 </button>
+                <button
+                  onClick={() => handlePerfClick(exerciseId, group.name, 'best')}
+                  title="Best session"
+                  className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
+                >
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3.5 1.5h5v3.5a2.5 2.5 0 0 1-5 0V1.5z" />
+                    <path d="M6 7v1.5" />
+                    <path d="M4 9h4" />
+                    <path d="M1.5 2.5h2" />
+                    <path d="M8.5 2.5h2" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => handlePerfClick(exerciseId, group.name, 'best60')}
+                  title="Best · 60 days"
+                  className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
+                >
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M7 1.5L3.5 6.5H6.5L5 10.5" />
+                  </svg>
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  const ex = exercises.find((e) => e.id === Number(exerciseId))
-                  if (ex) handleSelectExercise(ex)
-                }}
-                className="flex items-center justify-center h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-orange-500 hover:text-white transition-colors text-lg leading-none"
-              >
-                +
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                {exerciseOrder.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => moveExercise(exerciseId, 'up')}
+                      disabled={exIdx === 0}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition-colors text-base leading-none"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={() => moveExercise(exerciseId, 'down')}
+                      disabled={exIdx === exerciseOrder.length - 1}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition-colors text-base leading-none"
+                    >
+                      ↓
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => {
+                    const ex = exercises.find((e) => e.id === exerciseId)
+                    if (ex) handleSelectExercise(ex)
+                  }}
+                  className="flex items-center justify-center h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-orange-500 hover:text-white transition-colors text-lg leading-none"
+                >
+                  +
+                </button>
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -515,7 +669,7 @@ export default function WorkoutLogger({
               )}
             </div>
           </div>
-        ))}
+        )})}
 
         {localSets.length === 0 && (
           <p className="text-sm font-medium text-zinc-400 dark:text-zinc-600">
@@ -523,13 +677,23 @@ export default function WorkoutLogger({
           </p>
         )}
 
-        {/* Load template button */}
-        <button
-          onClick={handleOpenImport}
-          className="flex items-center justify-center gap-2 w-full rounded-xl border border-zinc-200 dark:border-zinc-700 py-3 text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
-        >
-          ↓ Load template
-        </button>
+        {/* Load template + Paste buttons */}
+        <div className="flex gap-2">
+          <button
+            onClick={handleOpenImport}
+            className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-zinc-200 dark:border-zinc-700 py-3 text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+          >
+            ↓ Load template
+          </button>
+          {clipboard && (
+            <button
+              onClick={handlePasteRequest}
+              className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-orange-400 py-3 text-xs font-bold uppercase tracking-widest text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-colors"
+            >
+              ⎘ Paste
+            </button>
+          )}
+        </div>
 
         {/* Add set form */}
         {!selectedExercise ? (
@@ -554,21 +718,21 @@ export default function WorkoutLogger({
             <div className="flex gap-2">
               <input
                 type="number"
-                placeholder="Weight (kg)"
+                placeholder="kg"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
-                className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
+                className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
               />
               <input
                 type="number"
                 placeholder="Reps"
                 value={reps}
                 onChange={(e) => setReps(e.target.value)}
-                className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
+                className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
               />
               <button
                 onClick={handleAddSet}
-                className="rounded-lg bg-orange-500 hover:bg-orange-600 px-4 py-2 text-sm font-bold text-white transition-colors"
+                className="shrink-0 rounded-lg bg-orange-500 hover:bg-orange-600 px-4 py-2 text-sm font-bold text-white transition-colors"
               >
                 Add
               </button>
@@ -587,12 +751,13 @@ export default function WorkoutLogger({
       {infoExercise && (
         <ExerciseInfoModal exercise={infoExercise} onClose={() => setInfoExercise(null)} />
       )}
-      {lastPerfExercise && (
+      {perfModal && (
         <LastPerfModal
-          exerciseName={lastPerfExercise.name}
-          data={lastPerfData}
-          loading={lastPerfLoading}
-          onClose={() => setLastPerfExercise(null)}
+          exerciseName={perfModal.name}
+          title={PERF_TITLE[perfModal.mode]}
+          data={perfData}
+          loading={perfLoading}
+          onClose={() => setPerfModal(null)}
         />
       )}
 
@@ -672,6 +837,35 @@ export default function WorkoutLogger({
                 className="flex-1 rounded-xl bg-zinc-800 dark:bg-zinc-700 py-2.5 text-sm font-bold text-white hover:bg-zinc-700 transition-colors disabled:opacity-40"
               >
                 Save anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Paste overwrite confirmation */}
+      {showPasteConfirm && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] px-4">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-1">Overwrite?</p>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">Replace current sets?</h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                Your current sets will be replaced with the clipboard content.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowPasteConfirm(false)}
+                className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-2.5 text-sm font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={applyPaste}
+                className="flex-1 rounded-xl bg-orange-500 hover:bg-orange-600 py-2.5 text-sm font-bold text-white transition-colors"
+              >
+                Replace
               </button>
             </div>
           </div>
