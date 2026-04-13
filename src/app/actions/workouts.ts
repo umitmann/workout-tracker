@@ -219,6 +219,24 @@ export async function deleteWorkout(workoutId: number) {
   redirect('/dashboard')
 }
 
+// Soft-delete — no redirect, caller patches local UI state
+export async function deleteWorkoutSoft(workoutId: number): Promise<{ error?: string }> {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { error } = await supabase
+    .from('workouts')
+    .delete()
+    .eq('id', workoutId)
+    .eq('user_id', user.id)
+
+  if (error) return { error: error.message }
+  revalidatePath('/dashboard')
+  revalidatePath('/workouts')
+  return {}
+}
+
 export async function reopenWorkout(workoutId: number) {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
