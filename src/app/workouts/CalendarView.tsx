@@ -93,6 +93,21 @@ export default function CalendarView({
   // ── Prefetch adjacent months silently ─────────────────────────────────────
 
   useEffect(() => {
+    // If any current-month workouts have sets but are missing from previewCache,
+    // initialPreviews didn't cover them — fetch now as a fallback
+    const hasMissingPreviews = viewWorkouts.some(
+      (w) => w.status !== 'planned' && w.set_count > 0 && !previewCache.current.has(w.id)
+    )
+    if (hasMissingPreviews) {
+      fetchMonthWorkoutsWithPreviews(viewYear, viewMonth).then(({ entries, previews }) => {
+        monthCache.current.set(monthKey(viewYear, viewMonth), entries)
+        for (const [id, p] of Object.entries(previews)) {
+          previewCache.current.set(Number(id), p)
+        }
+      })
+    }
+
+    // Prefetch adjacent months
     for (const delta of [-2, -1, 1, 2]) {
       const d = new Date(viewYear, viewMonth - 1 + delta, 1)
       const y = d.getFullYear()
@@ -163,6 +178,13 @@ export default function CalendarView({
       })
     }
 
+    // Workouts with no sets need no fetch — seed empty preview immediately
+    for (const w of dayWorkouts) {
+      if (w.status !== 'planned' && w.set_count === 0 && !previewCache.current.has(w.id)) {
+        previewCache.current.set(w.id, [])
+      }
+    }
+
     // Seed from cache immediately — no spinner for workouts already prefetched
     const cached = new Map<number, WorkoutPreviewExercise[]>()
     for (const w of dayWorkouts) {
@@ -170,8 +192,10 @@ export default function CalendarView({
     }
     if (cached.size > 0) setWorkoutPreviews(cached)
 
-    // Only fetch what's genuinely missing (e.g. a workout completed after last prefetch)
-    const toFetch = dayWorkouts.filter((w) => w.status !== 'planned' && !previewCache.current.has(w.id))
+    // Only fetch workouts that have sets and aren't cached yet
+    const toFetch = dayWorkouts.filter(
+      (w) => w.status !== 'planned' && w.set_count > 0 && !previewCache.current.has(w.id)
+    )
     if (toFetch.length > 0) {
       setLoadingPreviews(true)
       Promise.all(
