@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { signOut } from '@/app/actions/auth'
 import { startWorkout } from '@/app/actions/workouts'
-import { getMonthWorkouts, getUserTemplates } from '@/lib/dal'
+import { getMonthWorkoutsWithPreviews, getUserTemplates } from '@/lib/dal'
 import CalendarView from '@/app/workouts/CalendarView'
 
 export default async function Dashboard({
@@ -20,8 +20,8 @@ export default async function Dashboard({
   const year = y ? Number(y) : now.getFullYear()
   const month = m ? Number(m) : now.getMonth() + 1
 
-  const [workouts, templates] = await Promise.all([
-    getMonthWorkouts(year, month),
+  const [{ entries: workouts, previews: initialPreviews }, templates] = await Promise.all([
+    getMonthWorkoutsWithPreviews(year, month),
     getUserTemplates(),
   ])
 
@@ -72,7 +72,7 @@ export default async function Dashboard({
           </Link>
         </div>
 
-        <CalendarView year={year} month={month} workouts={workouts} basePath="/dashboard" initialTemplates={templates} />
+        <CalendarView year={year} month={month} workouts={workouts} initialPreviews={initialPreviews} basePath="/dashboard" initialTemplates={templates} />
       </main>
     </div>
   )

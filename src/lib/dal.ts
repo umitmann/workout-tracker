@@ -130,6 +130,19 @@ export type WorkoutCalendarEntry = {
   set_count: number
 }
 
+export type WorkoutPreviewExercise = {
+  exerciseId: number
+  exerciseName: string
+  setCount: number
+  firstSetReps: number | null
+  firstSetWeight: number | null
+}
+
+export type MonthWorkoutsWithPreviews = {
+  entries: WorkoutCalendarEntry[]
+  previews: Record<number, WorkoutPreviewExercise[]>
+}
+
 export type ExerciseHistoryPoint = {
   date: string
   maxWeight: number | null
@@ -161,6 +174,60 @@ export async function getMonthWorkouts(year: number, month: number): Promise<Wor
     template_id: w.template_id ?? null,
     set_count: w.sets?.length ?? 0,
   }))
+}
+
+export async function getMonthWorkoutsWithPreviews(
+  year: number,
+  month: number,
+): Promise<MonthWorkoutsWithPreviews> {
+  const { supabase, user } = await getAuthContext()
+  if (!user) return { entries: [], previews: {} }
+
+  const from = `${year}-${String(month).padStart(2, '0')}-01`
+  const lastDay = new Date(year, month, 0).getDate()
+  const to = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+
+  const { data } = await supabase
+    .from('workouts')
+    .select('id, date, status, template_id, sets(id, exercise_id, weight, reps, exercises(name))')
+    .eq('user_id', user.id)
+    .gte('date', from)
+    .lte('date', to)
+    .order('date', { ascending: true })
+
+  const entries: WorkoutCalendarEntry[] = []
+  const previews: Record<number, WorkoutPreviewExercise[]> = {}
+
+  for (const w of (data ?? []) as any[]) {
+    entries.push({
+      id: w.id,
+      date: w.date,
+      status: w.status as WorkoutStatus,
+      template_id: w.template_id ?? null,
+      set_count: w.sets?.length ?? 0,
+    })
+
+    if (w.status !== 'planned' && w.sets?.length > 0) {
+      const grouped = new Map<number, WorkoutPreviewExercise>()
+      for (const s of w.sets) {
+        const existing = grouped.get(s.exercise_id)
+        if (!existing) {
+          grouped.set(s.exercise_id, {
+            exerciseId: s.exercise_id,
+            exerciseName: s.exercises?.name ?? String(s.exercise_id),
+            setCount: 1,
+            firstSetReps: s.reps,
+            firstSetWeight: s.weight,
+          })
+        } else {
+          existing.setCount++
+        }
+      }
+      previews[w.id] = Array.from(grouped.values())
+    }
+  }
+
+  return { entries, previews }
 }
 
 export type LastExercisePerformance = {

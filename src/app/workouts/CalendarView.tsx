@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { WorkoutCalendarEntry, RoutineWithExercises } from '@/lib/dal'
 import { fetchUserTemplates } from '@/app/actions/templates'
-import { scheduleWorkout, logWorkoutForDate, startPlannedWorkout, deleteWorkoutSoft, fetchWorkoutPreview, fetchMonthWorkouts, WorkoutPreviewExercise } from '@/app/actions/workouts'
+import { scheduleWorkout, logWorkoutForDate, startPlannedWorkout, deleteWorkoutSoft, fetchWorkoutPreview, fetchMonthWorkoutsWithPreviews, WorkoutPreviewExercise } from '@/app/actions/workouts'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 import { useSwipe } from '@/lib/useSwipe'
 
@@ -36,11 +36,13 @@ export default function CalendarView({
   year: initialYear,
   month: initialMonth,
   workouts: initialWorkouts,
+  initialPreviews,
   initialTemplates,
 }: {
   year: number
   month: number
   workouts: WorkoutCalendarEntry[]
+  initialPreviews?: Record<number, WorkoutPreviewExercise[]>
   basePath?: string
   initialTemplates?: RoutineWithExercises[]
 }) {
@@ -51,6 +53,11 @@ export default function CalendarView({
   // Month cache — keyed by "YYYY-MM", seeded with the server-rendered month
   const monthCache = useRef<Map<string, WorkoutCalendarEntry[]>>(
     new Map([[monthKey(initialYear, initialMonth), initialWorkouts]])
+  )
+
+  // Preview cache — keyed by workout id, seeded from SSR data
+  const previewCache = useRef<Map<number, WorkoutPreviewExercise[]>>(
+    new Map(Object.entries(initialPreviews ?? {}).map(([k, v]) => [Number(k), v]))
   )
 
   // View state — all navigation stays in client state, no router.push
@@ -92,8 +99,11 @@ export default function CalendarView({
       const m = d.getMonth() + 1
       const key = monthKey(y, m)
       if (!monthCache.current.has(key)) {
-        fetchMonthWorkouts(y, m).then((data) => {
-          monthCache.current.set(key, data)
+        fetchMonthWorkoutsWithPreviews(y, m).then(({ entries, previews }) => {
+          monthCache.current.set(key, entries)
+          for (const [id, p] of Object.entries(previews)) {
+            previewCache.current.set(Number(id), p)
+          }
         })
       }
     }
@@ -113,11 +123,14 @@ export default function CalendarView({
       setViewWorkouts(monthCache.current.get(key)!)
     } else {
       setLoadingMonth(true)
-      const data = await fetchMonthWorkouts(y, m)
-      monthCache.current.set(key, data)
+      const { entries, previews } = await fetchMonthWorkoutsWithPreviews(y, m)
+      monthCache.current.set(key, entries)
+      for (const [id, p] of Object.entries(previews)) {
+        previewCache.current.set(Number(id), p)
+      }
       setViewYear(y)
       setViewMonth(m)
-      setViewWorkouts(data)
+      setViewWorkouts(entries)
       setLoadingMonth(false)
     }
   }
@@ -150,15 +163,26 @@ export default function CalendarView({
       })
     }
 
-    const toPreview = dayWorkouts.filter((w) => w.status !== 'planned')
-    if (toPreview.length > 0) {
+    // Seed from cache immediately — no spinner for workouts already prefetched
+    const cached = new Map<number, WorkoutPreviewExercise[]>()
+    for (const w of dayWorkouts) {
+      if (previewCache.current.has(w.id)) cached.set(w.id, previewCache.current.get(w.id)!)
+    }
+    if (cached.size > 0) setWorkoutPreviews(cached)
+
+    // Only fetch what's genuinely missing (e.g. a workout completed after last prefetch)
+    const toFetch = dayWorkouts.filter((w) => w.status !== 'planned' && !previewCache.current.has(w.id))
+    if (toFetch.length > 0) {
       setLoadingPreviews(true)
       Promise.all(
-        toPreview.map((w) => fetchWorkoutPreview(w.id).then((data) => ({ id: w.id, data })))
+        toFetch.map((w) => fetchWorkoutPreview(w.id).then((data) => ({ id: w.id, data })))
       ).then((results) => {
-        const map = new Map<number, WorkoutPreviewExercise[]>()
-        for (const r of results) map.set(r.id, r.data)
-        setWorkoutPreviews(map)
+        for (const r of results) previewCache.current.set(r.id, r.data)
+        setWorkoutPreviews((prev) => {
+          const next = new Map(prev)
+          for (const r of results) next.set(r.id, r.data)
+          return next
+        })
         setLoadingPreviews(false)
       })
     }
@@ -194,10 +218,12 @@ export default function CalendarView({
     } else if (sheet.isFuture) {
       startTransition(async () => {
         await scheduleWorkout(sheet.date)
-        // Invalidate cached month so new planned dot shows on revisit
-        monthCache.current.delete(monthKey(viewYear, viewMonth))
-        const fresh = await fetchMonthWorkouts(viewYear, viewMonth)
+        // Refresh month cache after scheduling so the new dot appears
+        const { entries: fresh, previews } = await fetchMonthWorkoutsWithPreviews(viewYear, viewMonth)
         monthCache.current.set(monthKey(viewYear, viewMonth), fresh)
+        for (const [id, p] of Object.entries(previews)) {
+          previewCache.current.set(Number(id), p)
+        }
         setViewWorkouts(fresh)
         closeSheet()
       })
@@ -224,6 +250,7 @@ export default function CalendarView({
     setDeletingId(workoutId)
     await deleteWorkoutSoft(workoutId)
     setDeletingId(null)
+    previewCache.current.delete(workoutId)
     const updated = viewWorkouts.filter((w) => w.id !== workoutId)
     setViewWorkouts(updated)
     monthCache.current.set(monthKey(viewYear, viewMonth), updated)

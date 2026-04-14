@@ -1,17 +1,12 @@
 'use server'
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { getWorkoutWithSets, getMonthWorkouts, WorkoutCalendarEntry } from '@/lib/dal'
+import { getWorkoutWithSets, getMonthWorkouts, getMonthWorkoutsWithPreviews, WorkoutCalendarEntry, WorkoutPreviewExercise, MonthWorkoutsWithPreviews } from '@/lib/dal'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-export type WorkoutPreviewExercise = {
-  exerciseId: number
-  exerciseName: string
-  setCount: number
-  firstSetReps: number | null
-  firstSetWeight: number | null
-}
+// Type lives in dal.ts — re-exported here so existing imports keep working
+export type { WorkoutPreviewExercise, MonthWorkoutsWithPreviews } from '@/lib/dal'
 
 export async function fetchWorkoutPreview(workoutId: number): Promise<WorkoutPreviewExercise[]> {
   const workout = await getWorkoutWithSets(workoutId)
@@ -222,6 +217,10 @@ export async function deleteWorkout(workoutId: number) {
 // Thin client-callable wrapper so CalendarView can fetch months without router.push
 export async function fetchMonthWorkouts(year: number, month: number): Promise<WorkoutCalendarEntry[]> {
   return getMonthWorkouts(year, month)
+}
+
+export async function fetchMonthWorkoutsWithPreviews(year: number, month: number): Promise<MonthWorkoutsWithPreviews> {
+  return getMonthWorkoutsWithPreviews(year, month)
 }
 
 // Soft-delete — no redirect, caller patches local UI state
