@@ -1,7 +1,7 @@
 'use server'
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { getWorkoutWithSets } from '@/lib/dal'
+import { getWorkoutWithSets, getMonthWorkouts, WorkoutCalendarEntry } from '@/lib/dal'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -217,6 +217,11 @@ export async function deleteWorkout(workoutId: number) {
   revalidatePath('/dashboard')
   revalidatePath('/workouts')
   redirect('/dashboard')
+}
+
+// Thin client-callable wrapper so CalendarView can fetch months without router.push
+export async function fetchMonthWorkouts(year: number, month: number): Promise<WorkoutCalendarEntry[]> {
+  return getMonthWorkouts(year, month)
 }
 
 // Soft-delete — no redirect, caller patches local UI state

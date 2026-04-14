@@ -1,11 +1,12 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect, useRef } from 'react'
 import { WorkoutCalendarEntry, RoutineWithExercises } from '@/lib/dal'
 import { fetchUserTemplates } from '@/app/actions/templates'
-import { scheduleWorkout, logWorkoutForDate, startPlannedWorkout, deleteWorkoutSoft, fetchWorkoutPreview, WorkoutPreviewExercise } from '@/app/actions/workouts'
+import { scheduleWorkout, logWorkoutForDate, startPlannedWorkout, deleteWorkoutSoft, fetchWorkoutPreview, fetchMonthWorkouts, WorkoutPreviewExercise } from '@/app/actions/workouts'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
+import { useSwipe } from '@/lib/useSwipe'
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -21,6 +22,10 @@ type DaySheet = {
   workouts: WorkoutCalendarEntry[]
 }
 
+function monthKey(y: number, m: number) {
+  return `${y}-${String(m).padStart(2, '0')}`
+}
+
 function statusDotColor(status: WorkoutCalendarEntry['status']) {
   if (status === 'completed') return 'bg-emerald-500'
   if (status === 'in_progress') return 'bg-orange-400'
@@ -28,10 +33,9 @@ function statusDotColor(status: WorkoutCalendarEntry['status']) {
 }
 
 export default function CalendarView({
-  year,
-  month,
-  workouts,
-  basePath = '/workouts',
+  year: initialYear,
+  month: initialMonth,
+  workouts: initialWorkouts,
   initialTemplates,
 }: {
   year: number
@@ -44,7 +48,17 @@ export default function CalendarView({
   const [isPending, startTransition] = useTransition()
   const { copy: copyToClipboard } = useWorkoutClipboard()
 
-  const [localWorkouts, setLocalWorkouts] = useState<WorkoutCalendarEntry[]>(workouts)
+  // Month cache — keyed by "YYYY-MM", seeded with the server-rendered month
+  const monthCache = useRef<Map<string, WorkoutCalendarEntry[]>>(
+    new Map([[monthKey(initialYear, initialMonth), initialWorkouts]])
+  )
+
+  // View state — all navigation stays in client state, no router.push
+  const [viewYear, setViewYear] = useState(initialYear)
+  const [viewMonth, setViewMonth] = useState(initialMonth)
+  const [viewWorkouts, setViewWorkouts] = useState<WorkoutCalendarEntry[]>(initialWorkouts)
+  const [loadingMonth, setLoadingMonth] = useState(false)
+
   const [sheet, setSheet] = useState<DaySheet | null>(null)
   const [templates, setTemplates] = useState<RoutineWithExercises[] | null>(initialTemplates ?? null)
   const [loadingTemplates, setLoadingTemplates] = useState(false)
@@ -57,29 +71,67 @@ export default function CalendarView({
 
   // ── Calendar grid helpers ──────────────────────────────────────────────────
 
-  const firstDow = new Date(year, month - 1, 1).getDay()
+  const firstDow = new Date(viewYear, viewMonth - 1, 1).getDay()
   const startOffset = (firstDow + 6) % 7
-  const daysInMonth = new Date(year, month, 0).getDate()
+  const daysInMonth = new Date(viewYear, viewMonth, 0).getDate()
   const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7
   const today = new Date().toISOString().split('T')[0]
 
   const workoutsByDate = new Map<string, WorkoutCalendarEntry[]>()
-  for (const w of localWorkouts) {
+  for (const w of viewWorkouts) {
     if (!workoutsByDate.has(w.date)) workoutsByDate.set(w.date, [])
     workoutsByDate.get(w.date)!.push(w)
   }
 
-  function navMonth(delta: number) {
-    let y = year
-    let m = month + delta
-    if (m < 1) { m = 12; y-- }
-    if (m > 12) { m = 1; y++ }
-    router.push(`${basePath}?y=${y}&m=${m}`)
+  // ── Prefetch adjacent months silently ─────────────────────────────────────
+
+  useEffect(() => {
+    for (const delta of [-2, -1, 1, 2]) {
+      const d = new Date(viewYear, viewMonth - 1 + delta, 1)
+      const y = d.getFullYear()
+      const m = d.getMonth() + 1
+      const key = monthKey(y, m)
+      if (!monthCache.current.has(key)) {
+        fetchMonthWorkouts(y, m).then((data) => {
+          monthCache.current.set(key, data)
+        })
+      }
+    }
+  }, [viewYear, viewMonth])
+
+  // ── Navigation ─────────────────────────────────────────────────────────────
+
+  async function navMonth(delta: number) {
+    const d = new Date(viewYear, viewMonth - 1 + delta, 1)
+    const y = d.getFullYear()
+    const m = d.getMonth() + 1
+    const key = monthKey(y, m)
+
+    if (monthCache.current.has(key)) {
+      setViewYear(y)
+      setViewMonth(m)
+      setViewWorkouts(monthCache.current.get(key)!)
+    } else {
+      setLoadingMonth(true)
+      const data = await fetchMonthWorkouts(y, m)
+      monthCache.current.set(key, data)
+      setViewYear(y)
+      setViewMonth(m)
+      setViewWorkouts(data)
+      setLoadingMonth(false)
+    }
   }
+
+  const swipeHandlers = useSwipe({
+    onSwipeLeft: () => navMonth(1),
+    onSwipeRight: () => navMonth(-1),
+  })
+
+  // ── Day sheet ──────────────────────────────────────────────────────────────
 
   function openSheet(dayNum: number) {
     const d = String(dayNum).padStart(2, '0')
-    const dateStr = `${year}-${String(month).padStart(2, '0')}-${d}`
+    const dateStr = `${viewYear}-${String(viewMonth).padStart(2, '0')}-${d}`
     const dayWorkouts = workoutsByDate.get(dateStr) ?? []
     const isFuture = dateStr > today
     const isPast = dateStr < today
@@ -142,7 +194,11 @@ export default function CalendarView({
     } else if (sheet.isFuture) {
       startTransition(async () => {
         await scheduleWorkout(sheet.date)
-        router.refresh()
+        // Invalidate cached month so new planned dot shows on revisit
+        monthCache.current.delete(monthKey(viewYear, viewMonth))
+        const fresh = await fetchMonthWorkouts(viewYear, viewMonth)
+        monthCache.current.set(monthKey(viewYear, viewMonth), fresh)
+        setViewWorkouts(fresh)
         closeSheet()
       })
     } else {
@@ -168,7 +224,9 @@ export default function CalendarView({
     setDeletingId(workoutId)
     await deleteWorkoutSoft(workoutId)
     setDeletingId(null)
-    setLocalWorkouts((prev) => prev.filter((w) => w.id !== workoutId))
+    const updated = viewWorkouts.filter((w) => w.id !== workoutId)
+    setViewWorkouts(updated)
+    monthCache.current.set(monthKey(viewYear, viewMonth), updated)
     setSheet((prev) => {
       if (!prev) return null
       return { ...prev, workouts: prev.workouts.filter((w) => w.id !== workoutId) }
@@ -187,9 +245,14 @@ export default function CalendarView({
         >
           ‹
         </button>
-        <span className="text-sm font-semibold text-zinc-900 dark:text-white">
-          {MONTH_NAMES[month - 1]} {year}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-zinc-900 dark:text-white">
+            {MONTH_NAMES[viewMonth - 1]} {viewYear}
+          </span>
+          {loadingMonth && (
+            <div className="w-3 h-3 rounded-full border-2 border-zinc-300 border-t-orange-500 animate-spin" />
+          )}
+        </div>
         <button
           onClick={() => navMonth(1)}
           className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors text-zinc-600 dark:text-zinc-400"
@@ -198,53 +261,56 @@ export default function CalendarView({
         </button>
       </div>
 
-      {/* Day name headers */}
-      <div className="grid grid-cols-7 mb-1">
-        {DAY_NAMES.map((d) => (
-          <div key={d} className="text-center text-xs font-medium text-zinc-400 dark:text-zinc-600 py-1">
-            {d}
-          </div>
-        ))}
-      </div>
+      {/* Swipeable calendar area */}
+      <div {...swipeHandlers} className="touch-pan-y select-none">
+        {/* Day name headers */}
+        <div className="grid grid-cols-7 mb-1">
+          {DAY_NAMES.map((d) => (
+            <div key={d} className="text-center text-xs font-medium text-zinc-400 dark:text-zinc-600 py-1">
+              {d}
+            </div>
+          ))}
+        </div>
 
-      {/* Day cells */}
-      <div className="grid grid-cols-7 gap-y-1">
-        {Array.from({ length: totalCells }, (_, i) => {
-          const dayNum = i - startOffset + 1
-          if (dayNum < 1 || dayNum > daysInMonth) {
-            return <div key={i} />
-          }
-          const d = String(dayNum).padStart(2, '0')
-          const dateStr = `${year}-${String(month).padStart(2, '0')}-${d}`
-          const dayWorkouts = workoutsByDate.get(dateStr) ?? []
-          const isToday = dateStr === today
+        {/* Day cells */}
+        <div className="grid grid-cols-7 gap-y-1">
+          {Array.from({ length: totalCells }, (_, i) => {
+            const dayNum = i - startOffset + 1
+            if (dayNum < 1 || dayNum > daysInMonth) {
+              return <div key={i} />
+            }
+            const d = String(dayNum).padStart(2, '0')
+            const dateStr = `${viewYear}-${String(viewMonth).padStart(2, '0')}-${d}`
+            const dayWorkouts = workoutsByDate.get(dateStr) ?? []
+            const isToday = dateStr === today
 
-          return (
-            <button
-              key={i}
-              onClick={() => openSheet(dayNum)}
-              className={`relative flex flex-col items-center py-2 rounded-xl transition-colors hover:bg-orange-50 dark:hover:bg-zinc-900 ${
-                isToday ? 'ring-2 ring-orange-500 ring-offset-1 dark:ring-offset-black' : ''
-              }`}
-            >
-              <span className={`text-sm font-bold ${
-                isToday ? 'text-orange-500' : 'text-zinc-700 dark:text-zinc-300'
-              }`}>
-                {dayNum}
-              </span>
-              {dayWorkouts.length > 0 && (
-                <div className="flex gap-0.5 mt-1">
-                  {dayWorkouts.slice(0, 4).map((w) => (
-                    <span
-                      key={w.id}
-                      className={`w-1.5 h-1.5 rounded-full ${statusDotColor(w.status)}`}
-                    />
-                  ))}
-                </div>
-              )}
-            </button>
-          )
-        })}
+            return (
+              <button
+                key={i}
+                onClick={() => openSheet(dayNum)}
+                className={`relative flex flex-col items-center py-2 rounded-xl transition-colors hover:bg-orange-50 dark:hover:bg-zinc-900 ${
+                  isToday ? 'ring-2 ring-orange-500 ring-offset-1 dark:ring-offset-black' : ''
+                }`}
+              >
+                <span className={`text-sm font-bold ${
+                  isToday ? 'text-orange-500' : 'text-zinc-700 dark:text-zinc-300'
+                }`}>
+                  {dayNum}
+                </span>
+                {dayWorkouts.length > 0 && (
+                  <div className="flex gap-0.5 mt-1">
+                    {dayWorkouts.slice(0, 4).map((w) => (
+                      <span
+                        key={w.id}
+                        className={`w-1.5 h-1.5 rounded-full ${statusDotColor(w.status)}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* Legend */}
