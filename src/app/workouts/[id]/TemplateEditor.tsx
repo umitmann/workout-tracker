@@ -70,6 +70,8 @@ export default function TemplateEditor({
   )
 
   const [showPicker, setShowPicker] = useState(false)
+  const [pickerActiveMuscles, setPickerActiveMuscles] = useState<string[]>([])
+  const [pickerActiveCategories, setPickerActiveCategories] = useState<string[]>([])
   const [infoExercise, setInfoExercise] = useState<ExerciseDetails | null>(null)
   const [infoLoading, setInfoLoading] = useState(false)
   type PerfMode = 'last' | 'best' | 'best60'
@@ -453,7 +455,14 @@ export default function TemplateEditor({
         </div>
       )}
       {infoExercise && (
-        <ExerciseInfoModal exercise={infoExercise} onClose={() => setInfoExercise(null)} />
+        <ExerciseInfoModal
+          exercise={infoExercise}
+          onClose={() => setInfoExercise(null)}
+          onMuscleClick={showPicker ? (m) => {
+            setPickerActiveMuscles((prev) => [...new Set([...prev, m])])
+            setInfoExercise(null)
+          } : undefined}
+        />
       )}
       {perfModal && (
         <LastPerfModal
@@ -469,10 +478,18 @@ export default function TemplateEditor({
       {showPicker && (
         <ExercisePickerSheet
           exercises={exercises}
+          activeMuscles={pickerActiveMuscles}
+          onMusclesChange={setPickerActiveMuscles}
+          activeCategories={pickerActiveCategories}
+          onCategoriesChange={setPickerActiveCategories}
           onSelect={handleAddExercise}
           onInfoClick={handleInfoClick}
           onPerfClick={handlePerfClick}
-          onClose={() => setShowPicker(false)}
+          onClose={() => {
+            setShowPicker(false)
+            setPickerActiveMuscles([])
+            setPickerActiveCategories([])
+          }}
         />
       )}
 

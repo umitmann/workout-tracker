@@ -318,6 +318,26 @@ The four icon buttons (i, clock, trophy, bolt) must be reachable while the user 
 
 ---
 
+## 18. Exercise picker muscle & category filter
+
+| # | Scenario | Expected result |
+|---|----------|----------------|
+| 18.1 | Open exercise picker | Muscle chip row and category chip row appear below the search input; all chips inactive; full exercise list shown |
+| 18.2 | Tap one muscle chip (e.g. "chest") | Chip turns orange/active; list narrows to exercises where `muscles` contains "chest" |
+| 18.3 | Tap a second muscle chip (e.g. "triceps") | List shows exercises that target chest **or** triceps (union, not intersection) |
+| 18.4 | Tap an active chip again | Chip deactivates; list expands back accordingly |
+| 18.5 | Tap a category chip (e.g. "strength") while muscle chips are active | List narrows further — must satisfy muscle OR **and** category OR **and** text |
+| 18.6 | Type in search box with muscle + category chips active | All three constraints apply simultaneously with AND logic |
+| 18.7 | Combination that matches zero exercises | "No exercises match your filters." message + "Clear filters" button |
+| 18.8 | Tap "Clear filters" | All chips deactivate, text cleared, full list restored |
+| 18.9 | Exercise with `muscles = null` | Never appears when any muscle chip is active |
+| 18.10 | Close picker and reopen | Chip selections are reset — starts clean |
+| 18.11 | Picker used from template editor | Same filter behaviour as from workout logger |
+| 18.12 | Open exercise info modal from within the picker; tap a primary muscle chip in the modal | Info modal closes; that muscle chip is now active in the picker; scroll position is restored (see §13) |
+| 18.13 | Open exercise info modal from workout logger (not from picker); tap a primary muscle chip | Chip is display-only — no filter side-effect; behaviour unchanged from today |
+
+---
+
 ## Known gotchas to recheck after schema changes
 
 - `routines.id` is **UUID** — never pass through `Number()`. Use `string | number` in DAL functions.

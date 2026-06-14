@@ -60,7 +60,7 @@ export const getAllExercises = unstable_cache(
 
     const { data } = await supabase
       .from('exercises')
-      .select('id, name, category, equipment')
+      .select('id, name, category, equipment, muscles')
       .order('name', { ascending: true })
 
     return data ?? []

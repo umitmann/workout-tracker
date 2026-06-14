@@ -102,6 +102,10 @@ export default function WorkoutLogger({
   const [editWeight, setEditWeight] = useState('')
   const [editReps, setEditReps] = useState('')
 
+  // Exercise picker filter state
+  const [pickerActiveMuscles, setPickerActiveMuscles] = useState<string[]>([])
+  const [pickerActiveCategories, setPickerActiveCategories] = useState<string[]>([])
+
   // Sheets & modals
   const [showPicker, setShowPicker] = useState(false)
   const [showImportPicker, setShowImportPicker] = useState(false)
@@ -554,7 +558,14 @@ export default function WorkoutLogger({
           </div>
         )}
         {infoExercise && (
-          <ExerciseInfoModal exercise={infoExercise} onClose={() => setInfoExercise(null)} />
+          <ExerciseInfoModal
+            exercise={infoExercise}
+            onClose={() => setInfoExercise(null)}
+            onMuscleClick={showPicker ? (m) => {
+              setPickerActiveMuscles((prev) => [...new Set([...prev, m])])
+              setInfoExercise(null)
+            } : undefined}
+          />
         )}
         {perfModal && (
           <LastPerfModal
@@ -808,7 +819,14 @@ export default function WorkoutLogger({
         </div>
       )}
       {infoExercise && (
-        <ExerciseInfoModal exercise={infoExercise} onClose={() => setInfoExercise(null)} />
+        <ExerciseInfoModal
+          exercise={infoExercise}
+          onClose={() => setInfoExercise(null)}
+          onMuscleClick={showPicker ? (m) => {
+            setPickerActiveMuscles((prev) => [...new Set([...prev, m])])
+            setInfoExercise(null)
+          } : undefined}
+        />
       )}
       {perfModal && (
         <LastPerfModal
@@ -824,10 +842,18 @@ export default function WorkoutLogger({
       {showPicker && (
         <ExercisePickerSheet
           exercises={exercises}
+          activeMuscles={pickerActiveMuscles}
+          onMusclesChange={setPickerActiveMuscles}
+          activeCategories={pickerActiveCategories}
+          onCategoriesChange={setPickerActiveCategories}
           onSelect={handleSelectExercise}
           onInfoClick={handleInfoClick}
           onPerfClick={handlePerfClick}
-          onClose={() => setShowPicker(false)}
+          onClose={() => {
+            setShowPicker(false)
+            setPickerActiveMuscles([])
+            setPickerActiveCategories([])
+          }}
         />
       )}
 

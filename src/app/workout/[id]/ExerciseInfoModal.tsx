@@ -23,9 +23,11 @@ type Tab = 'info' | 'history'
 export default function ExerciseInfoModal({
   exercise,
   onClose,
+  onMuscleClick,
 }: {
   exercise: Exercise
   onClose: () => void
+  onMuscleClick?: (muscle: string) => void
 }) {
   const [imgIndex, setImgIndex] = useState(0)
   const [tab, setTab] = useState<Tab>('info')
@@ -144,14 +146,24 @@ export default function ExerciseInfoModal({
                       Primary Muscles
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {muscles.map((m) => (
-                        <span
-                          key={m}
-                          className="rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-2.5 py-0.5 text-xs capitalize"
-                        >
-                          {m}
-                        </span>
-                      ))}
+                      {muscles.map((m) =>
+                        onMuscleClick ? (
+                          <button
+                            key={m}
+                            onClick={() => onMuscleClick(m)}
+                            className="rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-2.5 py-0.5 text-xs capitalize hover:bg-orange-500 dark:hover:bg-orange-500 dark:hover:text-white transition-colors"
+                          >
+                            {m}
+                          </button>
+                        ) : (
+                          <span
+                            key={m}
+                            className="rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-2.5 py-0.5 text-xs capitalize"
+                          >
+                            {m}
+                          </span>
+                        ),
+                      )}
                     </div>
                   </div>
                 )}
