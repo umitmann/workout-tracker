@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { filterExercises } from '@/lib/filterExercises'
 
 export type SlimExercise = {
@@ -35,6 +35,19 @@ export default function ExercisePickerSheet({
   onClose: () => void
 }) {
   const [search, setSearch] = useState('')
+  const [openFilter, setOpenFilter] = useState<'muscle' | 'category' | null>(null)
+  const filterBarRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!openFilter) return
+    function handleClick(e: MouseEvent) {
+      if (filterBarRef.current && !filterBarRef.current.contains(e.target as Node)) {
+        setOpenFilter(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [openFilter])
 
   const allMuscles = useMemo(() => {
     const set = new Set<string>()
@@ -100,40 +113,103 @@ export default function ExercisePickerSheet({
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-3 text-sm outline-none focus:border-orange-400 dark:focus:border-orange-500 transition-colors"
           />
-          {allMuscles.length > 0 && (
-            <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
-              {allMuscles.map((m) => (
+          {/* Filter type buttons + dropdowns */}
+          <div ref={filterBarRef} className="relative">
+            <div className="flex items-center gap-2">
+              {allMuscles.length > 0 && (
                 <button
-                  key={m}
-                  onClick={() => toggleMuscle(m)}
-                  className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium capitalize transition-colors ${
-                    activeMuscles.includes(m)
+                  onClick={() => setOpenFilter(openFilter === 'muscle' ? null : 'muscle')}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide transition-colors ${
+                    activeMuscles.length > 0
                       ? 'bg-orange-500 text-white'
-                      : 'border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500'
+                      : openFilter === 'muscle'
+                      ? 'border border-orange-400 text-orange-500 dark:border-orange-500'
+                      : 'border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400'
                   }`}
                 >
-                  {m}
+                  Muscle
+                  {activeMuscles.length > 0 && (
+                    <span className="ml-0.5 bg-white/30 rounded-full px-1">{activeMuscles.length}</span>
+                  )}
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className={`transition-transform ${openFilter === 'muscle' ? 'rotate-180' : ''}`}>
+                    <path d="M1 2.5l3 3 3-3" />
+                  </svg>
                 </button>
-              ))}
-            </div>
-          )}
-          {allCategories.length > 0 && (
-            <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
-              {allCategories.map((c) => (
+              )}
+              {allCategories.length > 0 && (
                 <button
-                  key={c}
-                  onClick={() => toggleCategory(c)}
-                  className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium capitalize transition-colors ${
-                    activeCategories.includes(c)
+                  onClick={() => setOpenFilter(openFilter === 'category' ? null : 'category')}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide transition-colors ${
+                    activeCategories.length > 0
                       ? 'bg-orange-500 text-white'
-                      : 'border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500'
+                      : openFilter === 'category'
+                      ? 'border border-orange-400 text-orange-500 dark:border-orange-500'
+                      : 'border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400'
                   }`}
                 >
-                  {c}
+                  Category
+                  {activeCategories.length > 0 && (
+                    <span className="ml-0.5 bg-white/30 rounded-full px-1">{activeCategories.length}</span>
+                  )}
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className={`transition-transform ${openFilter === 'category' ? 'rotate-180' : ''}`}>
+                    <path d="M1 2.5l3 3 3-3" />
+                  </svg>
                 </button>
-              ))}
+              )}
+              {hasFilters && (
+                <button
+                  onClick={() => { clearFilters(); setOpenFilter(null) }}
+                  className="ml-auto text-xs font-semibold uppercase tracking-wide text-zinc-400 hover:text-orange-500 transition-colors"
+                >
+                  Clear
+                </button>
+              )}
             </div>
-          )}
+
+            {/* Muscle dropdown */}
+            {openFilter === 'muscle' && (
+              <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-lg z-10 overflow-y-auto max-h-56 py-1">
+                {allMuscles.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => toggleMuscle(m)}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-sm capitalize transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 ${
+                      activeMuscles.includes(m) ? 'text-orange-500 font-semibold' : 'text-zinc-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    {m}
+                    {activeMuscles.includes(m) && (
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <path d="M2 6l3 3 5-5" />
+                      </svg>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Category dropdown */}
+            {openFilter === 'category' && (
+              <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-lg z-10 overflow-y-auto max-h-56 py-1">
+                {allCategories.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => toggleCategory(c)}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-sm capitalize transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 ${
+                      activeCategories.includes(c) ? 'text-orange-500 font-semibold' : 'text-zinc-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    {c}
+                    {activeCategories.includes(c) && (
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <path d="M2 6l3 3 5-5" />
+                      </svg>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <ul className="overflow-y-auto flex-1 min-h-0">
           {filtered.length === 0 && hasFilters ? (
