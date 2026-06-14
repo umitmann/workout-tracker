@@ -16,8 +16,11 @@ type LocalSet = {
   localId: string
   exerciseId: number
   exerciseName: string
+  exerciseCategory: string | null
   weight: number | null
   reps: number | null
+  duration_minutes: number | null
+  distance: number | null
 }
 
 type ExerciseDetails = {
@@ -43,7 +46,7 @@ type Workout = {
     reps: number | null
     duration_minutes: number | null
     distance: number | null
-    exercises: { name: string } | null
+    exercises: { name: string; category: string | null } | null
   }[]
 }
 
@@ -71,8 +74,11 @@ export default function WorkoutLogger({
         localId: crypto.randomUUID(),
         exerciseId: s.exercise_id,
         exerciseName: s.exercises?.name ?? String(s.exercise_id),
+        exerciseCategory: s.exercises?.category ?? null,
         weight: s.weight,
         reps: s.reps,
+        duration_minutes: s.duration_minutes,
+        distance: s.distance,
       }))
     }
     if (initialTemplate && workout.status !== 'completed') {
@@ -83,8 +89,11 @@ export default function WorkoutLogger({
           localId: crypto.randomUUID(),
           exerciseId: ex.exercise_id,
           exerciseName: name,
+          exerciseCategory: ex.exercises?.category ?? null,
           weight: ex.weight,
           reps: ex.reps,
+          duration_minutes: ex.duration_minutes ?? null,
+          distance: ex.distance ?? null,
         }))
       })
     }
@@ -95,12 +104,16 @@ export default function WorkoutLogger({
   const [selectedExercise, setSelectedExercise] = useState<SlimExercise | null>(null)
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
+  const [duration, setDuration] = useState('')
+  const [distance, setDistance] = useState('')
   const [addError, setAddError] = useState<string | null>(null)
 
   // Inline set editing
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editWeight, setEditWeight] = useState('')
   const [editReps, setEditReps] = useState('')
+  const [editDuration, setEditDuration] = useState('')
+  const [editDistance, setEditDistance] = useState('')
 
   // Exercise picker filter state
   const [pickerActiveMuscles, setPickerActiveMuscles] = useState<string[]>([])
@@ -160,25 +173,44 @@ export default function WorkoutLogger({
     const previous = [...localSets].reverse().find((s) => s.exerciseId === ex.id)
     setSelectedExercise(ex)
     setShowPicker(false)
-    setWeight(previous?.weight != null ? String(previous.weight) : '')
-    setReps(previous?.reps != null ? String(previous.reps) : '')
+    if (ex.category === 'cardio') {
+      setDuration(previous?.duration_minutes != null ? String(previous.duration_minutes) : '')
+      setDistance(previous?.distance != null ? String(previous.distance) : '')
+      setWeight('')
+      setReps('')
+    } else {
+      setWeight(previous?.weight != null ? String(previous.weight) : '')
+      setReps(previous?.reps != null ? String(previous.reps) : '')
+      setDuration('')
+      setDistance('')
+    }
     setAddError(null)
   }
 
   function handleAddSet() {
     if (!selectedExercise) return
-    if (!weight && !reps) { setAddError('Enter weight or reps'); return }
+    const isCardio = selectedExercise.category === 'cardio'
+    if (isCardio) {
+      if (!duration) { setAddError('Enter duration'); return }
+    } else {
+      if (!weight && !reps) { setAddError('Enter weight or reps'); return }
+    }
     const newSet: LocalSet = {
       localId: crypto.randomUUID(),
       exerciseId: selectedExercise.id,
       exerciseName: selectedExercise.name,
-      weight: weight ? Number(weight) : null,
-      reps: reps ? Number(reps) : null,
+      exerciseCategory: selectedExercise.category,
+      weight: !isCardio && weight ? Number(weight) : null,
+      reps: !isCardio && reps ? Number(reps) : null,
+      duration_minutes: isCardio && duration ? Number(duration) : null,
+      distance: isCardio && distance ? Number(distance) : null,
     }
     const nextSets = [...localSets, newSet]
     setLocalSets(nextSets)
     setWeight('')
     setReps('')
+    setDuration('')
+    setDistance('')
     setAddError(null)
     setSavedOnce(true)
     startTransition(async () => {
@@ -186,6 +218,8 @@ export default function WorkoutLogger({
         exercise_id: s.exerciseId,
         weight: s.weight,
         reps: s.reps,
+        duration_minutes: s.duration_minutes,
+        distance: s.distance,
       })))
     })
   }
@@ -198,15 +232,23 @@ export default function WorkoutLogger({
     setEditingId(s.localId)
     setEditWeight(s.weight != null ? String(s.weight) : '')
     setEditReps(s.reps != null ? String(s.reps) : '')
+    setEditDuration(s.duration_minutes != null ? String(s.duration_minutes) : '')
+    setEditDistance(s.distance != null ? String(s.distance) : '')
   }
 
   function saveEditSet(localId: string) {
     setLocalSets((prev) =>
-      prev.map((s) =>
-        s.localId === localId
-          ? { ...s, weight: editWeight ? Number(editWeight) : null, reps: editReps ? Number(editReps) : null }
-          : s,
-      ),
+      prev.map((s) => {
+        if (s.localId !== localId) return s
+        const isCardio = s.exerciseCategory === 'cardio'
+        return {
+          ...s,
+          weight: !isCardio && editWeight ? Number(editWeight) : null,
+          reps: !isCardio && editReps ? Number(editReps) : null,
+          duration_minutes: isCardio && editDuration ? Number(editDuration) : null,
+          distance: isCardio && editDistance ? Number(editDistance) : null,
+        }
+      }),
     )
     setEditingId(null)
   }
@@ -250,8 +292,11 @@ export default function WorkoutLogger({
           localId: crypto.randomUUID(),
           exerciseId: ex.exercise_id,
           exerciseName: name,
+          exerciseCategory: ex.exercises?.category ?? null,
           weight: ex.weight,
           reps: ex.reps,
+          duration_minutes: ex.duration_minutes ?? null,
+          distance: ex.distance ?? null,
         })
       }
     }
@@ -277,6 +322,8 @@ export default function WorkoutLogger({
       exercise_id: s.exerciseId,
       weight: s.weight,
       reps: s.reps,
+      duration_minutes: s.duration_minutes,
+      distance: s.distance,
     }))
   }
 
@@ -319,8 +366,11 @@ export default function WorkoutLogger({
         localId: crypto.randomUUID(),
         exerciseId: entry.exerciseId,
         exerciseName: entry.exerciseName,
+        exerciseCategory: null,
         weight: entry.weight,
         reps: entry.reps,
+        duration_minutes: null,
+        distance: null,
       })),
     )
     setLocalSets(newSets)
@@ -409,30 +459,57 @@ export default function WorkoutLogger({
             </svg>
           </button>
         </div>
-        <div className="flex gap-2">
-          <input
-            type="number"
-            placeholder="kg"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAddSet()}
-            className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
-          />
-          <input
-            type="number"
-            placeholder="Reps"
-            value={reps}
-            onChange={(e) => setReps(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAddSet()}
-            className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
-          />
-          <button
-            onClick={handleAddSet}
-            className="shrink-0 rounded-lg bg-orange-500 hover:bg-orange-600 px-4 py-2 text-sm font-bold text-white transition-colors"
-          >
-            Add
-          </button>
-        </div>
+        {selectedExercise?.category === 'cardio' ? (
+          <div className="flex gap-2">
+            <input
+              type="number"
+              placeholder="Min"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddSet()}
+              className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
+            />
+            <input
+              type="number"
+              placeholder="km (opt)"
+              value={distance}
+              onChange={(e) => setDistance(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddSet()}
+              className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
+            />
+            <button
+              onClick={handleAddSet}
+              className="shrink-0 rounded-lg bg-orange-500 hover:bg-orange-600 px-4 py-2 text-sm font-bold text-white transition-colors"
+            >
+              Add
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <input
+              type="number"
+              placeholder="kg"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddSet()}
+              className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
+            />
+            <input
+              type="number"
+              placeholder="Reps"
+              value={reps}
+              onChange={(e) => setReps(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddSet()}
+              className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
+            />
+            <button
+              onClick={handleAddSet}
+              className="shrink-0 rounded-lg bg-orange-500 hover:bg-orange-600 px-4 py-2 text-sm font-bold text-white transition-colors"
+            >
+              Add
+            </button>
+          </div>
+        )}
         {addError && <p className="text-xs font-medium text-red-500">{addError}</p>}
       </div>
     )
@@ -533,18 +610,37 @@ export default function WorkoutLogger({
                     className="grid grid-cols-[2rem_1fr_1fr] items-center gap-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-4 py-3"
                   >
                     <span className="text-xs font-bold text-zinc-400 dark:text-zinc-600">#{i + 1}</span>
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Weight</p>
-                      <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                        {s.weight != null ? `${s.weight} kg` : '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Reps</p>
-                      <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                        {s.reps != null ? s.reps : '—'}
-                      </p>
-                    </div>
+                    {s.exerciseCategory === 'cardio' ? (
+                      <>
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Duration</p>
+                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                            {s.duration_minutes != null ? `${s.duration_minutes} min` : '—'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Distance</p>
+                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                            {s.distance != null ? `${s.distance} km` : '—'}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Weight</p>
+                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                            {s.weight != null ? `${s.weight} kg` : '—'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Reps</p>
+                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                            {s.reps != null ? s.reps : '—'}
+                          </p>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -716,28 +812,57 @@ export default function WorkoutLogger({
                   >
                     <span className="text-xs font-bold text-orange-400 w-8 shrink-0">#{i + 1}</span>
                     <div className="flex-1 grid grid-cols-2 gap-2">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Weight (kg)</span>
-                        <input
-                          type="number"
-                          value={editWeight}
-                          onChange={(e) => setEditWeight(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && saveEditSet(s.localId)}
-                          placeholder="—"
-                          className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-orange-400 transition-colors"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Reps</span>
-                        <input
-                          type="number"
-                          value={editReps}
-                          onChange={(e) => setEditReps(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && saveEditSet(s.localId)}
-                          placeholder="—"
-                          className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-orange-400 transition-colors"
-                        />
-                      </div>
+                      {s.exerciseCategory === 'cardio' ? (
+                        <>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Duration (min)</span>
+                            <input
+                              type="number"
+                              value={editDuration}
+                              onChange={(e) => setEditDuration(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && saveEditSet(s.localId)}
+                              placeholder="—"
+                              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-orange-400 transition-colors"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Distance (km)</span>
+                            <input
+                              type="number"
+                              value={editDistance}
+                              onChange={(e) => setEditDistance(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && saveEditSet(s.localId)}
+                              placeholder="—"
+                              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-orange-400 transition-colors"
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Weight (kg)</span>
+                            <input
+                              type="number"
+                              value={editWeight}
+                              onChange={(e) => setEditWeight(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && saveEditSet(s.localId)}
+                              placeholder="—"
+                              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-orange-400 transition-colors"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Reps</span>
+                            <input
+                              type="number"
+                              value={editReps}
+                              onChange={(e) => setEditReps(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && saveEditSet(s.localId)}
+                              placeholder="—"
+                              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-orange-400 transition-colors"
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
                     <button onClick={() => setEditingId(null)} className="text-zinc-300 dark:text-zinc-700 hover:text-red-500 transition-colors text-sm shrink-0">✕</button>
                   </div>
@@ -748,18 +873,37 @@ export default function WorkoutLogger({
                     onClick={() => startEditSet(s)}
                   >
                     <span className="text-xs font-bold text-zinc-400 dark:text-zinc-600">#{i + 1}</span>
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Weight</p>
-                      <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                        {s.weight != null ? `${s.weight} kg` : '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Reps</p>
-                      <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                        {s.reps != null ? s.reps : '—'}
-                      </p>
-                    </div>
+                    {s.exerciseCategory === 'cardio' ? (
+                      <>
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Duration</p>
+                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                            {s.duration_minutes != null ? `${s.duration_minutes} min` : '—'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Distance</p>
+                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                            {s.distance != null ? `${s.distance} km` : '—'}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Weight</p>
+                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                            {s.weight != null ? `${s.weight} kg` : '—'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Reps</p>
+                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                            {s.reps != null ? s.reps : '—'}
+                          </p>
+                        </div>
+                      </>
+                    )}
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDeleteSet(s.localId) }}
                       className="text-zinc-300 hover:text-red-500 dark:text-zinc-700 dark:hover:text-red-500 transition-colors"

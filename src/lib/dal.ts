@@ -45,7 +45,7 @@ export async function getWorkoutWithSets(workoutId: number) {
       .single(),
     supabase
       .from('sets')
-      .select('id, exercise_id, weight, reps, duration_minutes, distance, exercises(name)')
+      .select('id, exercise_id, weight, reps, duration_minutes, distance, exercises(name, category)')
       .eq('workout_id', workoutId)
       .order('created_at', { ascending: true }),
   ])
@@ -99,7 +99,7 @@ export async function getUserTemplates() {
 
   const { data } = await supabase
     .from('routines')
-    .select('id, name, created_at, routine_exercises(id, exercise_id, sets, reps, weight, order, exercises(id, name, category))')
+    .select('id, name, created_at, routine_exercises(id, exercise_id, sets, reps, weight, duration_minutes, distance, order, exercises(id, name, category))')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
@@ -112,7 +112,7 @@ export async function getTemplate(routineId: string | number) {
 
   const { data } = await supabase
     .from('routines')
-    .select('id, name, created_at, routine_exercises(id, exercise_id, sets, reps, weight, order, exercises(id, name, category))')
+    .select('id, name, created_at, routine_exercises(id, exercise_id, sets, reps, weight, duration_minutes, distance, order, exercises(id, name, category))')
     .eq('id', routineId)
     .eq('user_id', user.id)
     .single()
@@ -403,8 +403,10 @@ export type RoutineExerciseRow = {
   id: number
   exercise_id: number
   sets: number
-  reps: number
+  reps: number | null
   weight: number | null
+  duration_minutes: number | null
+  distance: number | null
   order: number
   exercises: { id: number; name: string; category: string | null }
 }

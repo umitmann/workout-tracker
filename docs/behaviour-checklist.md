@@ -338,6 +338,26 @@ The four icon buttons (i, clock, trophy, bolt) must be reachable while the user 
 
 ---
 
+---
+
+## 19. Cardio exercise unit-aware logging
+
+| # | Scenario | Expected result |
+|---|----------|----------------|
+| 19.1 | Select a cardio exercise (e.g. "Running") via the picker | Picker closes; add-set form shows duration (minutes) and distance fields — **no** weight or reps inputs |
+| 19.2 | Select a strength exercise (e.g. "Bench Press") in the same workout | Add-set form shows weight (kg) and reps — no duration or distance fields |
+| 19.3 | Log a cardio set with duration only (leave distance blank) | Set row shows duration only; distance omitted |
+| 19.4 | Log a cardio set with duration and distance | Set row shows "X min · Y km" (or Y m depending on user preference) |
+| 19.5 | Workout contains both cardio and strength exercises | Each exercise group shows the correct field layout independently; no cross-contamination |
+| 19.6 | Complete a workout with a cardio set | Completed-workout summary row shows duration/distance, not weight/reps |
+| 19.7 | Reload a completed workout that has cardio sets | duration_minutes and distance values are present — not overwritten with null |
+| 19.8 | Cardio set in performance-history modal (clock/trophy/bolt) | Modal shows duration column, not weight column |
+| 19.9 | Exercise history chart for a cardio exercise | Chart plots duration (not weight) on the primary axis |
+| 19.10 | User preference: km selected | All distance values in set rows and history display in km |
+| 19.11 | User preference: m selected | All distance values display in metres |
+
+---
+
 ## Known gotchas to recheck after schema changes
 
 - `routines.id` is **UUID** — never pass through `Number()`. Use `string | number` in DAL functions.

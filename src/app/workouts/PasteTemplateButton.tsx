@@ -28,8 +28,10 @@ export default function PasteTemplateButton() {
         clipboard.entries.map((e, i) => ({
           exerciseId: e.exerciseId,
           sets: e.setCount,
-          reps: e.reps ?? 0,
+          reps: e.reps ?? null,
           weight: e.weight,
+          duration_minutes: null,
+          distance: null,
           order: i,
         })),
       )

@@ -7,6 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:auth-setup": "node .claude/setup-auth.mjs",
+    "test:cardio": "node .claude/test_cardio-exercise-unit-aware-logging.mjs",
+    "test:checklist": "node .claude/verify_checklist.mjs",
+    "test:filters": "node --experimental-strip-types --test .claude/test_exercise-picker-muscle-filter.mjs",
     "seed:exercises": "tsx scripts/seed-exercises.ts",
     "exercises:fetch-wger": "tsx scripts/fetch-wger.ts",
     "exercises:merge": "tsx scripts/merge-exercises.ts",
@@ -23,6 +27,7 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

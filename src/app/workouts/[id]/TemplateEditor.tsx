@@ -17,8 +17,10 @@ type TemplateExercise = {
   exerciseName: string
   exerciseCategory: string | null
   sets: number
-  reps: number
+  reps: number | null
   weight: number | null
+  duration_minutes: number | null
+  distance: number | null
 }
 
 type ExerciseDetails = {
@@ -64,8 +66,10 @@ export default function TemplateEditor({
           exerciseName: e.exercises?.name ?? String(e.exercise_id),
           exerciseCategory: e.exercises?.category ?? null,
           sets: e.sets ?? 3,
-          reps: e.reps ?? 10,
+          reps: e.reps ?? null,
           weight: e.weight,
+          duration_minutes: e.duration_minutes ?? null,
+          distance: e.distance ?? null,
         })) ?? [],
   )
 
@@ -82,6 +86,7 @@ export default function TemplateEditor({
   const [error, setError] = useState<string | null>(null)
 
   function handleAddExercise(ex: SlimExercise) {
+    const isCardio = ex.category === 'cardio'
     setItems((prev) => [
       ...prev,
       {
@@ -90,8 +95,10 @@ export default function TemplateEditor({
         exerciseName: ex.name,
         exerciseCategory: ex.category,
         sets: 3,
-        reps: 10,
+        reps: isCardio ? null : 10,
         weight: null,
+        duration_minutes: isCardio ? 30 : null,
+        distance: null,
       },
     ])
     setShowPicker(false)
@@ -112,7 +119,7 @@ export default function TemplateEditor({
     })
   }
 
-  function updateItem(localId: string, patch: Partial<Pick<TemplateExercise, 'sets' | 'reps' | 'weight'>>) {
+  function updateItem(localId: string, patch: Partial<Pick<TemplateExercise, 'sets' | 'reps' | 'weight' | 'duration_minutes' | 'distance'>>) {
     setItems((prev) => prev.map((i) => (i.localId === localId ? { ...i, ...patch } : i)))
   }
 
@@ -167,8 +174,10 @@ export default function TemplateEditor({
         exerciseName: entry.exerciseName,
         exerciseCategory: null,
         sets: entry.setCount,
-        reps: entry.reps ?? 0,
+        reps: entry.reps ?? null,
         weight: entry.weight,
+        duration_minutes: null,
+        distance: null,
       })),
     )
     setShowPasteConfirm(false)
@@ -183,6 +192,8 @@ export default function TemplateEditor({
       sets: item.sets,
       reps: item.reps,
       weight: item.weight,
+      duration_minutes: item.duration_minutes,
+      distance: item.distance,
       order: i,
     }))
 
@@ -208,6 +219,8 @@ export default function TemplateEditor({
       sets: item.sets,
       reps: item.reps,
       weight: item.weight,
+      duration_minutes: item.duration_minutes,
+      distance: item.distance,
       order: i,
     }))
 
@@ -382,7 +395,7 @@ export default function TemplateEditor({
               </div>
             </div>
 
-            {/* Sets / Reps / Weight inputs */}
+            {/* Sets + cardio-aware target inputs */}
             <div className="grid grid-cols-3 gap-2">
               <label className="flex flex-col gap-1">
                 <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Sets</span>
@@ -394,27 +407,57 @@ export default function TemplateEditor({
                   className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
                 />
               </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Reps</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={item.reps}
-                  onChange={(e) => updateItem(item.localId, { reps: Number(e.target.value) || 1 })}
-                  className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Weight (kg)</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={item.weight ?? ''}
-                  placeholder="—"
-                  onChange={(e) => updateItem(item.localId, { weight: e.target.value ? Number(e.target.value) : null })}
-                  className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
-                />
-              </label>
+              {item.exerciseCategory === 'cardio' ? (
+                <>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Duration (min)</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={item.duration_minutes ?? ''}
+                      placeholder="—"
+                      onChange={(e) => updateItem(item.localId, { duration_minutes: e.target.value ? Number(e.target.value) : null })}
+                      className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Distance (km)</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={item.distance ?? ''}
+                      placeholder="—"
+                      onChange={(e) => updateItem(item.localId, { distance: e.target.value ? Number(e.target.value) : null })}
+                      className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Reps</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={item.reps ?? ''}
+                      placeholder="—"
+                      onChange={(e) => updateItem(item.localId, { reps: e.target.value ? Number(e.target.value) : null })}
+                      className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Weight (kg)</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={item.weight ?? ''}
+                      placeholder="—"
+                      onChange={(e) => updateItem(item.localId, { weight: e.target.value ? Number(e.target.value) : null })}
+                      className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
+                    />
+                  </label>
+                </>
+              )}
             </div>
           </div>
         ))}

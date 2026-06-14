@@ -8,8 +8,10 @@ import { redirect } from 'next/navigation'
 export type TemplateExercisePayload = {
   exerciseId: number
   sets: number
-  reps: number
+  reps: number | null
   weight: number | null
+  duration_minutes: number | null
+  distance: number | null
   order: number
 }
 
@@ -61,6 +63,8 @@ export async function saveTemplateExercises(
         sets: e.sets,
         reps: e.reps,
         weight: e.weight,
+        duration_minutes: e.duration_minutes,
+        distance: e.distance,
         order: e.order,
       })),
     )

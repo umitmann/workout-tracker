@@ -195,13 +195,21 @@ The exercises inside a routine, in order.
 
 ```sql
 create table routine_exercises (
-  id          uuid primary key default gen_random_uuid(),
-  routine_id  uuid not null references routines on delete cascade,
-  exercise_id bigint not null references exercises on delete restrict,
-  sets        integer not null,
-  reps        integer not null,
-  "order"     integer not null
+  id                uuid primary key default gen_random_uuid(),
+  routine_id        uuid not null references routines on delete cascade,
+  exercise_id       bigint not null references exercises on delete restrict,
+  sets              integer not null,
+  reps              integer,           -- null for cardio exercises
+  weight            numeric,           -- null for cardio exercises
+  duration_minutes  numeric,           -- cardio only
+  distance          numeric,           -- cardio only, optional
+  "order"           integer not null
 );
+
+-- Migration applied 2026-06-14:
+-- alter table routine_exercises add column duration_minutes numeric;
+-- alter table routine_exercises add column distance numeric;
+-- alter table routine_exercises alter column reps drop not null;
 
 alter table routine_exercises enable row level security;
 
