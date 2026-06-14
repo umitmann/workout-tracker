@@ -36330,5 +36330,184 @@
     "secondaryMuscles": [],
     "instructions": [],
     "images": []
+  },
+  {
+    "name": "Pull-Up",
+    "category": "strength",
+    "equipment": "body only",
+    "primaryMuscles": [
+      "lats",
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "traps",
+      "middle back"
+    ],
+    "instructions": [
+      "Hang from a pull-up bar with an overhand grip, hands slightly wider than shoulder-width.",
+      "Start from a dead hang with arms fully extended.",
+      "Pull yourself up until your chin clears the bar.",
+      "Lower back down with control to the dead hang.",
+      "Repeat for the desired number of reps."
+    ],
+    "images": []
+  },
+  {
+    "name": "Crunch",
+    "category": "strength",
+    "equipment": "body only",
+    "primaryMuscles": [
+      "abdominals"
+    ],
+    "secondaryMuscles": [],
+    "instructions": [
+      "Lie on your back with knees bent and feet flat on the floor.",
+      "Place your hands lightly behind your head.",
+      "Contract your abs and lift your shoulders off the floor.",
+      "Hold for a moment at the top, then lower slowly.",
+      "Repeat for the desired number of reps."
+    ],
+    "images": []
+  },
+  {
+    "name": "Squat",
+    "category": "strength",
+    "equipment": "body only",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings",
+      "calves"
+    ],
+    "instructions": [
+      "Stand with feet shoulder-width apart, toes slightly turned out.",
+      "Brace your core and push your hips back as you lower down.",
+      "Descend until your thighs are parallel to the floor or lower.",
+      "Drive through your heels to stand back up.",
+      "Repeat for the desired number of reps."
+    ],
+    "images": []
+  },
+  {
+    "name": "Lunge",
+    "category": "strength",
+    "equipment": "body only",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings",
+      "calves"
+    ],
+    "instructions": [
+      "Stand tall with feet together.",
+      "Step one foot forward and lower your hips until both knees are at 90 degrees.",
+      "Keep your front knee over your ankle and your torso upright.",
+      "Push through your front heel to return to standing.",
+      "Alternate legs for the desired number of reps."
+    ],
+    "images": []
+  },
+  {
+    "name": "Dip",
+    "category": "strength",
+    "equipment": "body only",
+    "primaryMuscles": [
+      "triceps",
+      "chest"
+    ],
+    "secondaryMuscles": [
+      "shoulders"
+    ],
+    "instructions": [
+      "Grip parallel bars and support yourself with arms fully extended.",
+      "Lean slightly forward to engage the chest, or stay upright to focus on triceps.",
+      "Lower your body by bending your elbows until your upper arms are parallel to the floor.",
+      "Push back up to the starting position.",
+      "Repeat for the desired number of reps."
+    ],
+    "images": []
+  },
+  {
+    "name": "Burpee",
+    "category": "cardio",
+    "equipment": "body only",
+    "primaryMuscles": [
+      "abdominals",
+      "chest"
+    ],
+    "secondaryMuscles": [
+      "quadriceps",
+      "shoulders"
+    ],
+    "instructions": [
+      "Stand with feet shoulder-width apart.",
+      "Drop into a squat and place your hands on the floor.",
+      "Jump your feet back into a push-up position.",
+      "Perform one push-up, then jump your feet back to your hands.",
+      "Explode upward into a jump with arms overhead."
+    ],
+    "images": []
+  },
+  {
+    "name": "Mountain Climber",
+    "category": "cardio",
+    "equipment": "body only",
+    "primaryMuscles": [
+      "abdominals"
+    ],
+    "secondaryMuscles": [
+      "quadriceps",
+      "shoulders"
+    ],
+    "instructions": [
+      "Start in a high plank position with arms straight and core braced.",
+      "Drive one knee toward your chest.",
+      "Quickly switch legs, driving the other knee in as the first goes back.",
+      "Continue alternating at a fast pace."
+    ],
+    "images": []
+  },
+  {
+    "name": "Jumping Jack",
+    "category": "cardio",
+    "equipment": "body only",
+    "primaryMuscles": [
+      "abductors"
+    ],
+    "secondaryMuscles": [
+      "calves",
+      "shoulders"
+    ],
+    "instructions": [
+      "Stand with feet together and arms at your sides.",
+      "Jump your feet out wide while raising your arms overhead.",
+      "Jump back to the starting position.",
+      "Repeat continuously for the desired duration."
+    ],
+    "images": []
+  },
+  {
+    "name": "Tricep Dip",
+    "category": "strength",
+    "equipment": "body only",
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "chest",
+      "shoulders"
+    ],
+    "instructions": [
+      "Sit on the edge of a sturdy bench or chair, hands gripping the edge beside your hips.",
+      "Slide your hips off the bench and lower your body by bending your elbows.",
+      "Lower until your upper arms are parallel to the floor.",
+      "Push back up to the starting position.",
+      "Repeat for the desired number of reps."
+    ],
+    "images": []
   }
 ]
