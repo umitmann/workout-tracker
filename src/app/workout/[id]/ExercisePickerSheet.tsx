@@ -9,15 +9,19 @@ export type SlimExercise = {
   equipment: string | null
 }
 
+type PerfMode = 'last' | 'best' | 'best60'
+
 export default function ExercisePickerSheet({
   exercises,
   onSelect,
   onInfoClick,
+  onPerfClick,
   onClose,
 }: {
   exercises: SlimExercise[]
   onSelect: (exercise: SlimExercise) => void
   onInfoClick: (exerciseId: number) => void
+  onPerfClick: (exerciseId: number, exerciseName: string, mode: PerfMode) => void
   onClose: () => void
 }) {
   const [search, setSearch] = useState('')
@@ -58,13 +62,47 @@ export default function ExercisePickerSheet({
                   <p className="text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-600 mt-0.5">{ex.category}</p>
                 )}
               </button>
-              <button
-                onClick={() => onInfoClick(ex.id)}
-                title="Exercise info"
-                className="shrink-0 mx-3 w-6 h-6 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
-              >
-                i
-              </button>
+              <div className="flex items-center gap-1 px-3 shrink-0">
+                <button
+                  onClick={() => onInfoClick(ex.id)}
+                  title="Exercise info"
+                  className="w-6 h-6 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
+                >
+                  i
+                </button>
+                <button
+                  onClick={() => onPerfClick(ex.id, ex.name, 'last')}
+                  title="Last session"
+                  className="w-6 h-6 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
+                >
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="6" cy="6" r="5" />
+                    <path d="M6 3v3l1.5 1.5" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => onPerfClick(ex.id, ex.name, 'best')}
+                  title="Best session"
+                  className="w-6 h-6 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
+                >
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3.5 1.5h5v3.5a2.5 2.5 0 0 1-5 0V1.5z" />
+                    <path d="M6 7v1.5" />
+                    <path d="M4 9h4" />
+                    <path d="M1.5 2.5h2" />
+                    <path d="M8.5 2.5h2" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => onPerfClick(ex.id, ex.name, 'best60')}
+                  title="Best · 60 days"
+                  className="w-6 h-6 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
+                >
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M7 1.5L3.5 6.5H6.5L5 10.5" />
+                  </svg>
+                </button>
+              </div>
             </li>
           ))}
         </ul>

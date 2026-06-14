@@ -205,6 +205,114 @@ Session-only clipboard (cleared on page refresh). Copy is available on completed
 
 ---
 
+## 11. History access in add-set form
+
+The four icon buttons (i, clock, trophy, bolt) must be reachable while the user is filling in a new set — before any set for that exercise exists in the current session.
+
+| # | Scenario | Expected result |
+|---|----------|----------------|
+| 11.1 | Select an exercise via the picker (add-set form visible, zero sets for that exercise in session) | The add-set form header shows the i, clock, trophy, and bolt buttons next to the exercise name |
+| 11.2 | Tap the clock button while the add-set form is showing | Last session modal opens; form remains visible beneath it |
+| 11.3 | Dismiss the modal (✕ or outside tap) | Form is still showing; weight/reps inputs are unchanged |
+| 11.4 | Tap the i button while the add-set form is showing | Exercise info modal opens; form remains visible |
+| 11.5 | Dismiss info modal | Form still showing |
+| 11.6 | Exercise has no completed workout history | Clock/trophy/bolt buttons still visible; modals show "No completed workouts with this exercise yet." |
+| 11.7 | Add a set via the form | Set appears in the grouped exercise list; that group's header also shows the four buttons (existing behaviour, no regression) |
+| 11.8 | Use "+" quick-add on an exercise that already has sets | Add-set form shows the four history buttons (same as 11.1) |
+
+---
+
+## 12. Performance buttons in exercise picker
+
+| # | Scenario | Expected result |
+|---|----------|----------------|
+| 12.1 | Open exercise picker ("Add exercise") | Every visible row shows i, clock, trophy, and bolt buttons alongside the exercise name |
+| 12.2 | Scroll the picker list | Buttons remain present at all scroll positions |
+| 12.3 | Tap clock on a picker row | Last session modal opens; picker remains open and visible behind it |
+| 12.4 | Dismiss modal | Picker is still open; the exercise was **not** selected; no add-set form appeared |
+| 12.5 | Tap trophy on a picker row | Best session modal opens; picker remains open |
+| 12.6 | Tap bolt on a picker row | Best · 60 days modal opens; picker remains open |
+| 12.7 | Tap i on a picker row | Info modal opens; picker remains open |
+| 12.8 | Tap the exercise name / row body (outside the four buttons) | Exercise is selected, picker closes, add-set form opens (existing behaviour, no regression) |
+| 12.9 | Picker opened from template editor | Same four buttons present per row |
+
+---
+
+## 13. Scroll position in exercise picker after modal
+
+| # | Scenario | Expected result |
+|---|----------|----------------|
+| 13.1 | Scroll picker to an exercise below the fold, tap i | Modal opens |
+| 13.2 | Dismiss modal | Picker scroll position is exactly where it was before the modal opened; the triggering row is still on screen without scrolling |
+| 13.3 | Same as 13.1–13.2 but with clock, trophy, or bolt | Scroll position restored identically |
+| 13.4 | Dismiss via ✕ vs outside tap vs back gesture | Scroll position is restored regardless of dismissal method |
+| 13.5 | Picker was at the top (not scrolled) when modal opened | After dismissal picker is still at the top — no unintended scroll |
+
+---
+
+## 14. Add-set form inline with target exercise
+
+| # | Scenario | Expected result |
+|---|----------|----------------|
+| 14.1 | Workout has two exercises; tap "+" on the first exercise | Add-set form appears below the first exercise's set rows, **above** the second exercise — not at the bottom of the page |
+| 14.2 | Fill in form and tap "Add" | New set row appears as the last row in the first exercise's group; form stays inline with that exercise |
+| 14.3 | Tap "+" on the first exercise again (another set) | Form remains inline with first exercise; still above the second exercise |
+| 14.4 | Tap "+" on the second exercise | Form moves to below the second exercise's sets |
+| 14.5 | Tap the "Add exercise" dashed button | Exercise picker opens (no change to this path) |
+| 14.6 | Workout has three or more exercises | "+" on any exercise shows the form inline with that exercise, not at the bottom |
+
+---
+
+## 15. Auto-save after adding a set
+
+| # | Scenario | Expected result |
+|---|----------|----------------|
+| 15.1 | Add a set (weight and/or reps filled, tap "Add") | Set appears in list; sets are persisted to DB automatically |
+| 15.2 | Reload page immediately after tapping "Add" | The added set is present — it was saved |
+| 15.3 | Add multiple sets back-to-back quickly | All sets persist; no set is lost between rapid adds |
+| 15.4 | Tap manual "Save" button after auto-save already ran | Save runs without showing the first-time warning (already satisfied) |
+| 15.5 | Tap "Done" | Workout marked completed; all sets saved; redirects to /dashboard |
+| 15.6 | Inline edit a set value then tap elsewhere | Edit lives in local state only — not auto-saved; still requires manual Save or Done |
+| 15.7 | Delete a set | Deletion lives in local state only — not auto-saved; still requires manual Save or Done |
+| 15.8 | Open a completed workout | No "Add" button; auto-save never runs |
+
+---
+
+## 16. Exercise technique modes
+
+| # | Scenario | Expected result |
+|---|----------|----------------|
+| 16.1 | Tap technique selector on any exercise card in the logger | Options appear: Normal, Drop Set, AMRAP, Rest-Pause, Myo-Reps, Cluster Set |
+| 16.2 | Default technique for a new exercise | "Normal" — existing set-logging behaviour unchanged |
+| 16.3 | Select "Drop Set" on an exercise | Exercise card shows "DROP SET" badge; add-set form reflects drop-set mode |
+| 16.4 | Log multiple sub-sets under Drop Set | Sub-sets displayed grouped in descending weight order; each sub-set labelled (e.g., "10 kg × 8", "9 kg × 12", "8 kg × failure") |
+| 16.5 | Select "AMRAP" on an exercise | Set row labelled "AMRAP"; reps entered after the set completes (actual count); no predetermined rep target |
+| 16.6 | Two exercises in the same workout with different techniques | Each exercise carries its own technique label independently |
+| 16.7 | Normal exercise in same workout as Drop Set exercise | Normal exercise logs identically to current behaviour — no regression |
+| 16.8 | Complete workout with a Drop Set exercise | Completed-workout summary shows technique label per exercise; drop chain visible |
+| 16.9 | View exercise history for a Drop Set exercise | Each session entry shows the technique label; weight trend uses the top weight in the chain |
+| 16.10 | Load a template into a workout | Template exercises load as "Normal" unless the template itself saved a technique preference |
+
+---
+
+## 17. Rest timer between sets
+
+| # | Scenario | Expected result |
+|---|----------|----------------|
+| 17.1 | Add a set in an active workout | Rest timer becomes available (auto-starts or "Start rest" button appears) |
+| 17.2 | Fixed rest mode — configure 90 s, let countdown reach zero | Alert fires at zero; 90 s recorded as rest for the preceding set |
+| 17.3 | Fixed rest mode — add the next set at 60 s (before countdown ends) | Timer stops; 60 s (actual elapsed) recorded — not the configured 90 s |
+| 17.4 | Variable rest mode — tap "Start rest", tap "Done resting" at ~45 s | 45 s recorded as rest for the preceding set |
+| 17.5 | Variable rest mode — add next set while timer running (without tapping "Done resting") | Timer stops; actual elapsed time recorded |
+| 17.6 | Timer running — user adds next set immediately | Timer dismisses; the next set can be entered without waiting |
+| 17.7 | Rest timer never blocks set entry | User can always tap "Add" regardless of timer state |
+| 17.8 | Completed-workout summary | Rest duration shown alongside each set row |
+| 17.9 | Exercise history | Rest durations visible per session entry |
+| 17.10 | Completed (read-only) workout | No rest timer appears |
+| 17.11 | First set of the session (nothing to rest from) | No timer starts until the first set has been added |
+
+---
+
 ## Known gotchas to recheck after schema changes
 
 - `routines.id` is **UUID** — never pass through `Number()`. Use `string | number` in DAL functions.

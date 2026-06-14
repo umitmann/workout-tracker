@@ -164,19 +164,26 @@ export default function WorkoutLogger({
   function handleAddSet() {
     if (!selectedExercise) return
     if (!weight && !reps) { setAddError('Enter weight or reps'); return }
-    setLocalSets((prev) => [
-      ...prev,
-      {
-        localId: crypto.randomUUID(),
-        exerciseId: selectedExercise.id,
-        exerciseName: selectedExercise.name,
-        weight: weight ? Number(weight) : null,
-        reps: reps ? Number(reps) : null,
-      },
-    ])
+    const newSet: LocalSet = {
+      localId: crypto.randomUUID(),
+      exerciseId: selectedExercise.id,
+      exerciseName: selectedExercise.name,
+      weight: weight ? Number(weight) : null,
+      reps: reps ? Number(reps) : null,
+    }
+    const nextSets = [...localSets, newSet]
+    setLocalSets(nextSets)
     setWeight('')
     setReps('')
     setAddError(null)
+    setSavedOnce(true)
+    startTransition(async () => {
+      await saveWorkoutProgress(workout.id, nextSets.map((s) => ({
+        exercise_id: s.exerciseId,
+        weight: s.weight,
+        reps: s.reps,
+      })))
+    })
   }
 
   function handleDeleteSet(localId: string) {
@@ -342,6 +349,89 @@ export default function WorkoutLogger({
       ;[next[idx], next[newIdx]] = [next[newIdx], next[idx]]
       return next.flatMap((id) => prev.filter((s) => s.exerciseId === id))
     })
+  }
+
+  // ─── Add-set form (rendered inline or at bottom) ──────────────────────────
+
+  function renderAddSetForm() {
+    if (!selectedExercise) return null
+    return (
+      <div className="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-600">Adding set</p>
+          <button
+            onClick={() => setShowPicker(true)}
+            className="text-xs font-bold text-orange-500 hover:text-orange-600 transition-colors"
+          >
+            change
+          </button>
+        </div>
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="flex-1 min-w-0 truncate text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wide">
+            {selectedExercise.name}
+          </p>
+          <button
+            onClick={() => handleInfoClick(selectedExercise.id)}
+            title="Exercise info"
+            className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
+          >
+            i
+          </button>
+          <button
+            onClick={() => handlePerfClick(selectedExercise.id, selectedExercise.name, 'last')}
+            title="Last session"
+            className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
+          >
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="6" cy="6" r="5" /><path d="M6 3v3l1.5 1.5" />
+            </svg>
+          </button>
+          <button
+            onClick={() => handlePerfClick(selectedExercise.id, selectedExercise.name, 'best')}
+            title="Best session"
+            className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
+          >
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3.5 1.5h5v3.5a2.5 2.5 0 0 1-5 0V1.5z" /><path d="M6 7v1.5" /><path d="M4 9h4" /><path d="M1.5 2.5h2" /><path d="M8.5 2.5h2" />
+            </svg>
+          </button>
+          <button
+            onClick={() => handlePerfClick(selectedExercise.id, selectedExercise.name, 'best60')}
+            title="Best · 60 days"
+            className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
+          >
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M7 1.5L3.5 6.5H6.5L5 10.5" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            placeholder="kg"
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddSet()}
+            className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
+          />
+          <input
+            type="number"
+            placeholder="Reps"
+            value={reps}
+            onChange={(e) => setReps(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddSet()}
+            className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
+          />
+          <button
+            onClick={handleAddSet}
+            className="shrink-0 rounded-lg bg-orange-500 hover:bg-orange-600 px-4 py-2 text-sm font-bold text-white transition-colors"
+          >
+            Add
+          </button>
+        </div>
+        {addError && <p className="text-xs font-medium text-red-500">{addError}</p>}
+      </div>
+    )
   }
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -669,10 +759,11 @@ export default function WorkoutLogger({
                 ),
               )}
             </div>
+            {selectedExercise?.id === exerciseId && renderAddSetForm()}
           </div>
         )})}
 
-        {localSets.length === 0 && (
+        {localSets.length === 0 && !selectedExercise && (
           <p className="text-sm font-medium text-zinc-400 dark:text-zinc-600">
             No sets yet. Pick an exercise or load a template.
           </p>
@@ -696,50 +787,17 @@ export default function WorkoutLogger({
           )}
         </div>
 
-        {/* Add set form */}
-        {!selectedExercise ? (
+        {/* Form for a newly-selected exercise not yet in the list */}
+        {selectedExercise && !exerciseOrder.includes(selectedExercise.id) && renderAddSetForm()}
+
+        {/* Add exercise button — always visible unless a new exercise form is showing */}
+        {(!selectedExercise || exerciseOrder.includes(selectedExercise.id)) && (
           <button
             onClick={() => setShowPicker(true)}
             className="flex items-center justify-center gap-2 w-full rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 py-5 text-sm font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 hover:border-orange-400 hover:text-orange-500 transition-colors"
           >
             + Add exercise
           </button>
-        ) : (
-          <div className="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-600">Adding set</p>
-              <button
-                onClick={() => setShowPicker(true)}
-                className="text-xs font-bold text-orange-500 hover:text-orange-600 transition-colors"
-              >
-                change
-              </button>
-            </div>
-            <p className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wide">{selectedExercise.name}</p>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                placeholder="kg"
-                value={weight}
-                onChange={(e) => setWeight(e.target.value)}
-                className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
-              />
-              <input
-                type="number"
-                placeholder="Reps"
-                value={reps}
-                onChange={(e) => setReps(e.target.value)}
-                className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
-              />
-              <button
-                onClick={handleAddSet}
-                className="shrink-0 rounded-lg bg-orange-500 hover:bg-orange-600 px-4 py-2 text-sm font-bold text-white transition-colors"
-              >
-                Add
-              </button>
-            </div>
-            {addError && <p className="text-xs font-medium text-red-500">{addError}</p>}
-          </div>
         )}
       </main>
 
@@ -768,6 +826,7 @@ export default function WorkoutLogger({
           exercises={exercises}
           onSelect={handleSelectExercise}
           onInfoClick={handleInfoClick}
+          onPerfClick={handlePerfClick}
           onClose={() => setShowPicker(false)}
         />
       )}

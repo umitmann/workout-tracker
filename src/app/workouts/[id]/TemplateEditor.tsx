@@ -471,6 +471,7 @@ export default function TemplateEditor({
           exercises={exercises}
           onSelect={handleAddExercise}
           onInfoClick={handleInfoClick}
+          onPerfClick={handlePerfClick}
           onClose={() => setShowPicker(false)}
         />
       )}
