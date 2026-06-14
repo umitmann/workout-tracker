@@ -50,7 +50,7 @@ export default function ExercisePickerSheet({
             className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-3 text-sm outline-none focus:border-orange-400 dark:focus:border-orange-500 transition-colors"
           />
         </div>
-        <ul className="overflow-y-auto flex-1">
+        <ul className="overflow-y-auto flex-1 min-h-0">
           {filtered.slice(0, 50).map((ex) => (
             <li key={ex.id} className="flex items-center border-b border-zinc-100 dark:border-zinc-800 last:border-0">
               <button

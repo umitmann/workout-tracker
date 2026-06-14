@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# test artifacts
+.claude/auth.json
+.claude/verify-shots/
+.claude/verify_checklist.mjs
