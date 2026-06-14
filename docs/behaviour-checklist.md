@@ -59,11 +59,16 @@ Run through this list manually after any change to routing, workout actions, dat
 | 3.12 | Tap "Start now" on planned workout **with template** | Navigates to template editor `/workouts/[id]?workoutId=...` to set weights first |
 | 3.13 | Tap "Start now" on planned workout **without template** | Status → `in_progress` directly, navigates to logger |
 | 3.14 | In template editor from planned workout — tap "Start now" | Saves template, transitions workout to `in_progress`, navigates to logger |
-| 3.15 | Tap "Remove" on planned workout | Workout deleted, calendar refreshes |
-| 3.16 | Tap cell with **in_progress** workout | Sheet shows "Continue" |
-| 3.17 | Tap cell with **completed** workout | Sheet shows "View workout" |
-| 3.18 | Tap "View workout" | Opens `/workout/[id]` — shows completed read-only summary from DB |
-| 3.19 | Dot colours | Completed = emerald, In-progress = orange, Planned = gray |
+| 3.15 | Tap "Remove" on planned workout | Buttons replace with **Confirm** (red filled) + **Cancel** |
+| 3.16 | Tap "Confirm" after Remove prompt | Workout deleted, calendar refreshes |
+| 3.17 | Tap "Cancel" after Remove prompt | Prompt dismissed, workout unchanged |
+| 3.18 | Tap cell with **in_progress** workout | Sheet shows "Continue" and "Delete" |
+| 3.19 | Tap "Delete" on in_progress / completed workout | Confirm + Cancel buttons appear |
+| 3.20 | Tap "Confirm" after Delete prompt | Workout soft-deleted, calendar refreshes |
+| 3.21 | Tap "Cancel" after Delete prompt | Prompt dismissed, workout unchanged |
+| 3.22 | Tap cell with **completed** workout | Sheet shows "View workout" and "Delete" |
+| 3.23 | Tap "View workout" | Opens `/workout/[id]` — shows completed read-only summary from DB |
+| 3.24 | Dot colours | Completed = emerald, In-progress = orange, Planned = gray |
 
 ---
 

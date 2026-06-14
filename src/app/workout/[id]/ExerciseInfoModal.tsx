@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { fetchExerciseHistory } from '@/app/actions/exercises'
 import { ExerciseHistoryPoint } from '@/lib/dal'
 import { ExerciseHistoryChart } from '@/components/ExerciseHistoryChart'
+import { useSwipe } from '@/lib/useSwipe'
 
 type Exercise = {
   id: number
@@ -35,6 +36,11 @@ export default function ExerciseInfoModal({
   const instructions = exercise.instructions ?? []
   const muscles = exercise.muscles ?? []
   const musclesSecondary = exercise.muscles_secondary ?? []
+
+  const swipe = useSwipe({
+    onSwipeLeft: () => setImgIndex((i) => Math.min(i + 1, images.length - 1)),
+    onSwipeRight: () => setImgIndex((i) => Math.max(i - 1, 0)),
+  })
 
   function handleTabChange(t: Tab) {
     setTab(t)
@@ -95,7 +101,7 @@ export default function ExerciseInfoModal({
             <>
               {/* Image carousel */}
               {images.length > 0 && (
-                <div className="relative bg-zinc-100 dark:bg-zinc-800">
+                <div className="relative bg-zinc-100 dark:bg-zinc-800" {...swipe}>
                   <img
                     src={images[imgIndex]}
                     alt={`${exercise.name} illustration`}

@@ -75,6 +75,7 @@ export default function CalendarView({
   const [addingWorkout, setAddingWorkout] = useState(false)
   const [copiedId, setCopiedId] = useState<number | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
 
   // ── Calendar grid helpers ──────────────────────────────────────────────────
 
@@ -271,6 +272,11 @@ export default function CalendarView({
   }
 
   async function handleDeleteWorkout(workoutId: number) {
+    if (confirmDeleteId !== workoutId) {
+      setConfirmDeleteId(workoutId)
+      return
+    }
+    setConfirmDeleteId(null)
     setDeletingId(workoutId)
     await deleteWorkoutSoft(workoutId)
     setDeletingId(null)
@@ -453,13 +459,31 @@ export default function CalendarView({
                         >
                           {isPending ? '…' : 'Start now'}
                         </button>
-                        <button
-                          onClick={() => handleDeleteWorkout(workout.id)}
-                          disabled={isDeleting || isPending}
-                          className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-3 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors disabled:opacity-40"
-                        >
-                          {isDeleting ? '…' : 'Remove'}
-                        </button>
+                        {confirmDeleteId === workout.id ? (
+                          <div className="flex gap-2 flex-1">
+                            <button
+                              onClick={() => handleDeleteWorkout(workout.id)}
+                              disabled={isDeleting}
+                              className="flex-1 rounded-xl bg-red-500 hover:bg-red-600 py-3 text-sm font-bold uppercase tracking-wide text-white disabled:opacity-40 transition-colors"
+                            >
+                              {isDeleting ? '…' : 'Confirm'}
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteId(null)}
+                              className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-3 text-sm font-bold text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleDeleteWorkout(workout.id)}
+                            disabled={isDeleting || isPending}
+                            className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-3 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors disabled:opacity-40"
+                          >
+                            {isDeleting ? '…' : 'Remove'}
+                          </button>
+                        )}
                       </div>
                     )}
 
@@ -492,13 +516,31 @@ export default function CalendarView({
                           >
                             {workout.status === 'completed' ? 'View workout' : 'Continue'}
                           </a>
-                          <button
-                            onClick={() => handleDeleteWorkout(workout.id)}
-                            disabled={isDeleting || isPending}
-                            className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-3 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors disabled:opacity-40"
-                          >
-                            {isDeleting ? '…' : 'Delete'}
-                          </button>
+                          {confirmDeleteId === workout.id ? (
+                            <div className="flex gap-2 flex-1">
+                              <button
+                                onClick={() => handleDeleteWorkout(workout.id)}
+                                disabled={isDeleting}
+                                className="flex-1 rounded-xl bg-red-500 hover:bg-red-600 py-3 text-sm font-bold uppercase tracking-wide text-white disabled:opacity-40 transition-colors"
+                              >
+                                {isDeleting ? '…' : 'Confirm'}
+                              </button>
+                              <button
+                                onClick={() => setConfirmDeleteId(null)}
+                                className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-3 text-sm font-bold text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleDeleteWorkout(workout.id)}
+                              disabled={isDeleting || isPending}
+                              className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-3 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors disabled:opacity-40"
+                            >
+                              {isDeleting ? '…' : 'Delete'}
+                            </button>
+                          )}
                         </div>
                       </>
                     )}

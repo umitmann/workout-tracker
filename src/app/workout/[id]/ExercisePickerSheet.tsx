@@ -51,7 +51,7 @@ export default function ExercisePickerSheet({
           />
         </div>
         <ul className="overflow-y-auto flex-1 min-h-0">
-          {filtered.slice(0, 50).map((ex) => (
+          {filtered.map((ex) => (
             <li key={ex.id} className="flex items-center border-b border-zinc-100 dark:border-zinc-800 last:border-0">
               <button
                 onClick={() => onSelect(ex)}
