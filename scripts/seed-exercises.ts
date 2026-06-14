@@ -4,11 +4,12 @@ config({ path: '.env.local' })
 import { createClient } from '@supabase/supabase-js'
 import rawExercises from './exercises.json'
 
-const IMAGES_BASE =
+// Only used for yuhonas exercises whose images are relative paths
+const YUHONAS_IMAGES_BASE =
   'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises'
 
 interface RawExercise {
-  id: string
+  id?: string
   name: string
   category: string | null
   equipment: string | null
@@ -16,6 +17,11 @@ interface RawExercise {
   secondaryMuscles: string[]
   images: string[]
   instructions: string[]
+}
+
+function resolveImage(img: string): string {
+  // wger images are already absolute URLs; yuhonas images are relative paths
+  return img.startsWith('http') ? img : `${YUHONAS_IMAGES_BASE}/${img}`
 }
 
 async function seed() {
@@ -30,17 +36,41 @@ async function seed() {
   const supabase = createClient(url, key)
 
   const raw = rawExercises as RawExercise[]
-  console.log(`Loaded ${raw.length} exercises`)
+  console.log(`Loaded ${raw.length} exercises from JSON`)
 
-  const exercises = raw.map((e) => ({
-    name: e.name,
-    category: e.category ?? null,
-    equipment: e.equipment ?? null,
-    muscles: e.primaryMuscles.length > 0 ? e.primaryMuscles : null,
-    muscles_secondary: e.secondaryMuscles.length > 0 ? e.secondaryMuscles : null,
-    images: e.images.length > 0 ? e.images.map((img) => `${IMAGES_BASE}/${img}`) : null,
-    instructions: e.instructions.length > 0 ? e.instructions : null,
-  }))
+  // Fetch all existing names so we can skip duplicates without needing a DB unique constraint
+  const { data: existing, error: fetchError } = await supabase
+    .from('exercises')
+    .select('name')
+
+  if (fetchError) {
+    console.error('Failed to fetch existing exercises:', fetchError.message)
+    process.exit(1)
+  }
+
+  const existingNames = new Set(
+    (existing ?? []).map((e: { name: string }) => e.name.toLowerCase().trim()),
+  )
+  console.log(`Existing in DB: ${existingNames.size}`)
+
+  const exercises = raw
+    .filter((e) => !existingNames.has(e.name.toLowerCase().trim()))
+    .map((e) => ({
+      name: e.name,
+      category: e.category ?? null,
+      equipment: e.equipment ?? null,
+      muscles: e.primaryMuscles.length > 0 ? e.primaryMuscles : null,
+      muscles_secondary: e.secondaryMuscles.length > 0 ? e.secondaryMuscles : null,
+      images: e.images.length > 0 ? e.images.map(resolveImage) : null,
+      instructions: e.instructions.length > 0 ? e.instructions : null,
+    }))
+
+  if (exercises.length === 0) {
+    console.log('Nothing new to seed.')
+    return
+  }
+
+  console.log(`New exercises to insert: ${exercises.length}`)
 
   const BATCH_SIZE = 100
   const total = Math.ceil(exercises.length / BATCH_SIZE)

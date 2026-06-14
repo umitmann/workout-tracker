@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed:exercises": "tsx scripts/seed-exercises.ts"
+    "seed:exercises": "tsx scripts/seed-exercises.ts",
+    "exercises:fetch-wger": "tsx scripts/fetch-wger.ts",
+    "exercises:merge": "tsx scripts/merge-exercises.ts",
+    "exercises:verify": "tsx scripts/verify-exercises.ts",
+    "exercises:import": "npm run exercises:fetch-wger && npm run exercises:merge && npm run exercises:verify && npm run seed:exercises"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",
