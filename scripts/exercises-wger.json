@@ -32,7 +32,7 @@
   },
   {
     "name": "Slow Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "quadriceps"
@@ -59,7 +59,7 @@
   },
   {
     "name": "Wide Push-Up",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "chest"
@@ -83,7 +83,7 @@
   },
   {
     "name": "Marching High Knees",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "quadriceps"
@@ -110,7 +110,7 @@
   },
   {
     "name": "1/2 Kneeling Thoracic Rotation",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -123,7 +123,7 @@
   },
   {
     "name": "lento avanti seduto",
-    "category": "back",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders"
@@ -136,7 +136,7 @@
   },
   {
     "name": "Single-arm dumbbell shoulder press",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders"
@@ -157,7 +157,7 @@
   },
   {
     "name": "Kettlebell sumo high pull",
-    "category": "back",
+    "category": "strength",
     "equipment": "kettlebells",
     "primaryMuscles": [
       "traps"
@@ -182,7 +182,7 @@
   },
   {
     "name": "Mentzer Pulldown",
-    "category": "arms",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "biceps"
@@ -199,7 +199,7 @@
   },
   {
     "name": "Single-Arm Lat Pulldown",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats",
@@ -219,7 +219,7 @@
   },
   {
     "name": "Axe Hold",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -232,7 +232,7 @@
   },
   {
     "name": "Tricep Pushdown on Cable",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -249,7 +249,7 @@
   },
   {
     "name": "Step-ups",
-    "category": "legs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -268,7 +268,7 @@
   },
   {
     "name": "commando pull-ups",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "shoulders",
@@ -284,7 +284,7 @@
   },
   {
     "name": "Single Arm Plank to Row",
-    "category": "back",
+    "category": "strength",
     "equipment": "kettlebells",
     "primaryMuscles": [
       "shoulders",
@@ -305,7 +305,7 @@
   },
   {
     "name": "Fingerboard 20 mm edge",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -316,7 +316,7 @@
   },
   {
     "name": "Incline Bench Reverse Fly",
-    "category": "back",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders",
@@ -334,7 +334,7 @@
   },
   {
     "name": "Handstand Push Up",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders",
@@ -363,7 +363,7 @@
   },
   {
     "name": "LYING DUMBBELL ROW SS SEATED SHRUG",
-    "category": "back",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "lats"
@@ -391,7 +391,7 @@
   },
   {
     "name": "Biceps with TRX",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "biceps"
@@ -409,7 +409,7 @@
   },
   {
     "name": "Kettlebell Swing",
-    "category": "abs",
+    "category": "strength",
     "equipment": "kettlebells",
     "primaryMuscles": [
       "shoulders",
@@ -441,7 +441,7 @@
   },
   {
     "name": "Bear Walk 2",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "shoulders",
@@ -469,7 +469,7 @@
   },
   {
     "name": "one-handed kettlebell curls",
-    "category": "arms",
+    "category": "strength",
     "equipment": "kettlebells",
     "primaryMuscles": [
       "biceps"
@@ -485,7 +485,7 @@
   },
   {
     "name": "Medicine ball booklet crunch",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -500,7 +500,7 @@
   },
   {
     "name": "Box squat",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes",
@@ -533,7 +533,7 @@
   },
   {
     "name": "Knee Raises",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "abdominals"
@@ -550,7 +550,7 @@
   },
   {
     "name": "Sloper hanging",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -563,7 +563,7 @@
   },
   {
     "name": "Barbell Ab Rollout",
-    "category": "abs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "abdominals"
@@ -617,7 +617,7 @@
   },
   {
     "name": "Pullup on fingerboard",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -628,7 +628,7 @@
   },
   {
     "name": "Push-up rotations",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -646,7 +646,7 @@
   },
   {
     "name": "Kneeling kickbacks",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -665,7 +665,7 @@
   },
   {
     "name": "Reverse Nordic Curl",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "quadriceps"
@@ -683,7 +683,7 @@
   },
   {
     "name": "Straight Bar Cable Curls",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "biceps"
@@ -698,7 +698,7 @@
   },
   {
     "name": "Cable Fly",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -733,7 +733,7 @@
   },
   {
     "name": "TRX Rows",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "shoulders",
@@ -750,7 +750,7 @@
   },
   {
     "name": "Leg raises pull up bar",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "abdominals"
@@ -768,7 +768,7 @@
   },
   {
     "name": "Mountain climbers",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -787,7 +787,7 @@
   },
   {
     "name": "4-count burpees",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -806,7 +806,7 @@
   },
   {
     "name": "No push-up burpees",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -827,7 +827,7 @@
   },
   {
     "name": "Floor dips",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -849,7 +849,7 @@
   },
   {
     "name": "Child's pose",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -873,7 +873,7 @@
   },
   {
     "name": "Kettlebell deadlifts",
-    "category": "back",
+    "category": "strength",
     "equipment": "kettlebells",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -901,7 +901,7 @@
   },
   {
     "name": "Body-Ups",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -923,7 +923,7 @@
   },
   {
     "name": "Bent High Pulls",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "traps"
@@ -939,7 +939,7 @@
   },
   {
     "name": "Chin tuck",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -956,7 +956,7 @@
   },
   {
     "name": "Head turns",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -976,7 +976,7 @@
   },
   {
     "name": "Back neck stretch",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -1020,7 +1020,7 @@
   },
   {
     "name": "Single-arm cable pushdown",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -1042,7 +1042,7 @@
   },
   {
     "name": "Alternating bicep curls",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -1064,7 +1064,7 @@
   },
   {
     "name": "Head tilts",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -1086,7 +1086,7 @@
   },
   {
     "name": "Nordic Curl",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "hamstrings"
@@ -1101,7 +1101,7 @@
   },
   {
     "name": "Reverse Preacher Curl (Close Grip)",
-    "category": "arms",
+    "category": "strength",
     "equipment": "e-z curl bar",
     "primaryMuscles": [
       "biceps"
@@ -1114,7 +1114,7 @@
   },
   {
     "name": "SMITH MACHINE SLIGHT INCLINE PRESS",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -1129,7 +1129,7 @@
   },
   {
     "name": "Chin-ups",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats"
@@ -1148,7 +1148,7 @@
   },
   {
     "name": "Burpees",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -1159,7 +1159,7 @@
   },
   {
     "name": "Chest Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -1172,7 +1172,7 @@
   },
   {
     "name": "Cross-Bench Dumbbell Pullovers",
-    "category": "chest",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "lats",
@@ -1193,7 +1193,7 @@
   },
   {
     "name": "Deadhang",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -1226,7 +1226,7 @@
   },
   {
     "name": "Cable Woodchoppers",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -1242,7 +1242,7 @@
   },
   {
     "name": "Deadbug",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -1259,7 +1259,7 @@
   },
   {
     "name": "Chin Up",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -1273,7 +1273,7 @@
   },
   {
     "name": "Facepull",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "traps"
@@ -1292,7 +1292,7 @@
   },
   {
     "name": "Reverse EZ Bar Cable Curls",
-    "category": "arms",
+    "category": "strength",
     "equipment": "e-z curl bar",
     "primaryMuscles": [
       "biceps"
@@ -1305,7 +1305,7 @@
   },
   {
     "name": "Machine chest fly",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -1320,7 +1320,7 @@
   },
   {
     "name": "Dumbbells on Scott Machine",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "biceps"
@@ -1331,7 +1331,7 @@
   },
   {
     "name": "Hyperextensions",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "traps"
@@ -1372,7 +1372,7 @@
   },
   {
     "name": "Barbell Hip Thrust",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "glutes"
@@ -1386,7 +1386,7 @@
   },
   {
     "name": "BUS DRIVERS",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -1401,7 +1401,7 @@
   },
   {
     "name": "Hand Grip",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -1414,7 +1414,7 @@
   },
   {
     "name": "Hip Raise, Lying",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -1426,7 +1426,7 @@
   },
   {
     "name": "Hercules Pillars",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "biceps",
@@ -1442,7 +1442,7 @@
   },
   {
     "name": "Hip Thrust",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "glutes"
@@ -1458,7 +1458,7 @@
   },
   {
     "name": "High Pull",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -1475,7 +1475,7 @@
   },
   {
     "name": "Hollow Hold",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "abdominals"
@@ -1492,7 +1492,7 @@
   },
   {
     "name": "Rope Pullover/row",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats"
@@ -1509,7 +1509,7 @@
   },
   {
     "name": "Single arm row",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats"
@@ -1524,7 +1524,7 @@
   },
   {
     "name": "Barbell Clean and press",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders",
@@ -1542,7 +1542,7 @@
   },
   {
     "name": "Incline Dumbbell Row",
-    "category": "back",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [
@@ -1563,7 +1563,7 @@
   },
   {
     "name": "Good Mornings",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "hamstrings"
@@ -1577,7 +1577,7 @@
   },
   {
     "name": "Front Plate Raise",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -1602,7 +1602,7 @@
   },
   {
     "name": "Smith Press",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "shoulders"
@@ -1617,7 +1617,7 @@
   },
   {
     "name": "Isometric Wipers",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "chest"
@@ -1635,7 +1635,7 @@
   },
   {
     "name": "Jumping Jacks",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "quadriceps"
@@ -1651,7 +1651,7 @@
   },
   {
     "name": "Landmine press",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders"
@@ -1665,7 +1665,7 @@
   },
   {
     "name": "Cable Cross-over",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -1697,7 +1697,7 @@
   },
   {
     "name": "Long-Pulley, Narrow",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -1716,7 +1716,7 @@
   },
   {
     "name": "Straight Bar Cable Front Raise",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "e-z curl bar",
     "primaryMuscles": [
       "shoulders"
@@ -1729,7 +1729,7 @@
   },
   {
     "name": "Quadriped Arm and Leg Raise",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "shoulders",
@@ -1757,7 +1757,7 @@
   },
   {
     "name": "Long-Pulley (low Row)",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -1779,7 +1779,7 @@
   },
   {
     "name": "Lying Rotator Cuff Exercise",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -1795,7 +1795,7 @@
   },
   {
     "name": "Muscle up",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "biceps",
@@ -1817,7 +1817,7 @@
   },
   {
     "name": "L Hold",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -1828,7 +1828,7 @@
   },
   {
     "name": "Prone Scapular Retraction - Arms at Side",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "traps"
@@ -1843,7 +1843,7 @@
   },
   {
     "name": "Pike Push Ups",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "chest"
@@ -1860,7 +1860,7 @@
   },
   {
     "name": "Seated Dumbbell Side Lateral",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders"
@@ -1873,7 +1873,7 @@
   },
   {
     "name": "Overhand Cable Curl",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "biceps"
@@ -1886,7 +1886,7 @@
   },
   {
     "name": "Reverse Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "biceps"
@@ -1902,7 +1902,7 @@
   },
   {
     "name": "T-Bar row",
-    "category": "back",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "lats",
@@ -1916,7 +1916,7 @@
   },
   {
     "name": "Front Wood Chop",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -1925,7 +1925,7 @@
   },
   {
     "name": "Roman Chair Crunch",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -1937,7 +1937,7 @@
   },
   {
     "name": "Modified pulldown",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats"
@@ -1952,7 +1952,7 @@
   },
   {
     "name": "Quadruped thoracic rotation right",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -1970,7 +1970,7 @@
   },
   {
     "name": "Dumbbell Bent Over Face Pull",
-    "category": "back",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders",
@@ -1989,7 +1989,7 @@
   },
   {
     "name": "Doorway Pectoral Stretch",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "chest"
@@ -2015,7 +2015,7 @@
   },
   {
     "name": "Incline Bench Press - MP",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -2032,7 +2032,7 @@
   },
   {
     "name": "Reverse Plank",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -2043,7 +2043,7 @@
   },
   {
     "name": "Side Dumbbell Trunk Flexion",
-    "category": "abs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "abdominals"
@@ -2060,7 +2060,7 @@
   },
   {
     "name": "Side-lying External Rotation",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -2090,7 +2090,7 @@
   },
   {
     "name": "Side Bends on Machine",
-    "category": "abs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "abdominals"
@@ -2114,7 +2114,7 @@
   },
   {
     "name": "Tricep Dumbbell Kickback",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "triceps"
@@ -2145,7 +2145,7 @@
   },
   {
     "name": "Superman",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "glutes",
@@ -2161,7 +2161,7 @@
   },
   {
     "name": "Triceps on Machine",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -2176,7 +2176,7 @@
   },
   {
     "name": "Standing Rope Forearm",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -2195,7 +2195,7 @@
   },
   {
     "name": "Turkish Get-Up",
-    "category": "abs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders",
@@ -2217,7 +2217,7 @@
   },
   {
     "name": "SEATED CABLE MID TRAP SHRUG",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -2230,7 +2230,7 @@
   },
   {
     "name": "Curl with kettlebell two hands",
-    "category": "arms",
+    "category": "strength",
     "equipment": "kettlebells",
     "primaryMuscles": [
       "biceps"
@@ -2246,7 +2246,7 @@
   },
   {
     "name": "Power Clean",
-    "category": "chest",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "chest"
@@ -2259,7 +2259,7 @@
   },
   {
     "name": "Weighted Step-ups",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -2270,7 +2270,7 @@
   },
   {
     "name": "Upper External Oblique",
-    "category": "chest",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "abdominals"
@@ -2283,7 +2283,7 @@
   },
   {
     "name": "Trunk Rotation With Cable",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -2298,7 +2298,7 @@
   },
   {
     "name": "Wall Slides",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "biceps",
@@ -2317,7 +2317,7 @@
   },
   {
     "name": "Overhead Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders"
@@ -2328,7 +2328,7 @@
   },
   {
     "name": "Elevated prayer stretch",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats"
@@ -2352,7 +2352,7 @@
   },
   {
     "name": "Quadruped thoracic rotation left",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -2370,7 +2370,7 @@
   },
   {
     "name": "Hindu Pushups",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders",
@@ -2391,7 +2391,7 @@
   },
   {
     "name": "Shoulder dislocates",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -2410,7 +2410,7 @@
   },
   {
     "name": "Bent over row to external rotation",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -2439,7 +2439,7 @@
   },
   {
     "name": "YWTs",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -2468,7 +2468,7 @@
   },
   {
     "name": "Close-grip Press-ups",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "biceps",
@@ -2494,7 +2494,7 @@
   },
   {
     "name": "Dumbbell Hang Power Cleans",
-    "category": "back",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -2511,7 +2511,7 @@
   },
   {
     "name": "Dumbbell sumo deadlift",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -2528,7 +2528,7 @@
   },
   {
     "name": "Medicine ball twist",
-    "category": "abs",
+    "category": "strength",
     "equipment": "exercise ball",
     "primaryMuscles": [
       "abdominals"
@@ -2543,7 +2543,7 @@
   },
   {
     "name": "Vpushup",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "chest",
@@ -2559,7 +2559,7 @@
   },
   {
     "name": "Plank Shoulder Taps",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "shoulders",
@@ -2579,7 +2579,7 @@
   },
   {
     "name": "Unilateral Cable row",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats"
@@ -2594,7 +2594,7 @@
   },
   {
     "name": "Dumbbell Front Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "glutes",
@@ -2614,7 +2614,7 @@
   },
   {
     "name": "Kettlebell One Legged Deadlift",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "glutes"
@@ -2630,7 +2630,7 @@
   },
   {
     "name": "Dumbbell Hip Thrust",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "glutes",
@@ -2647,7 +2647,7 @@
   },
   {
     "name": "Dumbbell Shrug",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -2661,7 +2661,7 @@
   },
   {
     "name": "Weighted Crunch",
-    "category": "abs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "abdominals"
@@ -2684,7 +2684,7 @@
   },
   {
     "name": "Dumbbell Side Bend",
-    "category": "abs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "abdominals"
@@ -2700,7 +2700,7 @@
   },
   {
     "name": "Dumbbell Rear Lunge",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "glutes",
@@ -2719,7 +2719,7 @@
   },
   {
     "name": "Dumbbell Side Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes",
@@ -2738,7 +2738,7 @@
   },
   {
     "name": "Machine lateral wise",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "shoulders"
@@ -2754,7 +2754,7 @@
   },
   {
     "name": "Machine Chest Press Exercise",
-    "category": "chest",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "chest"
@@ -2791,7 +2791,7 @@
   },
   {
     "name": "Dumbbell Romanian Deadlift",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "hamstrings",
@@ -2808,7 +2808,7 @@
   },
   {
     "name": "Incline Skull Crush",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -2821,7 +2821,7 @@
   },
   {
     "name": "Rear Delt Raise",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders",
@@ -2840,7 +2840,7 @@
   },
   {
     "name": "Front neck stretch",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -2860,7 +2860,7 @@
   },
   {
     "name": "2 Handed Kettlebell Swing",
-    "category": "abs",
+    "category": "strength",
     "equipment": "kettlebells",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -2893,7 +2893,7 @@
   },
   {
     "name": "Seated Bench Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "chest"
@@ -2911,7 +2911,7 @@
   },
   {
     "name": "Bent Over Rowing Reverse",
-    "category": "back",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "lats"
@@ -2935,7 +2935,7 @@
   },
   {
     "name": "Abduction while standing",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -2950,7 +2950,7 @@
   },
   {
     "name": "Seated rear delt rise",
-    "category": "back",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "lats"
@@ -2966,7 +2966,7 @@
   },
   {
     "name": "Dynamic side hold",
-    "category": "abs",
+    "category": "strength",
     "equipment": "kettlebells",
     "primaryMuscles": [
       "abdominals"
@@ -2983,7 +2983,7 @@
   },
   {
     "name": "Wall balls",
-    "category": "legs",
+    "category": "strength",
     "equipment": "exercise ball",
     "primaryMuscles": [
       "shoulders",
@@ -3005,7 +3005,7 @@
   },
   {
     "name": "Horizontal traction isometry",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats",
@@ -3022,7 +3022,7 @@
   },
   {
     "name": "Alternate back lunges",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes",
@@ -3036,7 +3036,7 @@
   },
   {
     "name": "walking bridge",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -3055,7 +3055,7 @@
   },
   {
     "name": "Seated Knee Tuck",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -3075,7 +3075,7 @@
   },
   {
     "name": "Cable Concentration Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "biceps"
@@ -3092,7 +3092,7 @@
   },
   {
     "name": "Push-Ups | Incline",
-    "category": "chest",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "chest"
@@ -3108,7 +3108,7 @@
   },
   {
     "name": "Push-Ups | Decline",
-    "category": "chest",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "chest"
@@ -3132,7 +3132,7 @@
   },
   {
     "name": "Push-Ups | Parallettes",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -3156,7 +3156,7 @@
   },
   {
     "name": "Rest (for timed workouts)",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -3179,7 +3179,7 @@
   },
   {
     "name": "Dumbbell farmer's carry",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -3190,7 +3190,7 @@
   },
   {
     "name": "Remo maquina agarre estrecho",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -3203,7 +3203,7 @@
   },
   {
     "name": "Remo maquina agarre estrecho supino",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -3216,7 +3216,7 @@
   },
   {
     "name": "Jalón abierto",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -3233,7 +3233,7 @@
   },
   {
     "name": "Jalón abierto supino",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -3247,7 +3247,7 @@
   },
   {
     "name": "Jalón cerrado",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -3263,7 +3263,7 @@
   },
   {
     "name": "Jalón cerrado supino",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -3279,7 +3279,7 @@
   },
   {
     "name": "Extensión de gluteos en polea",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes"
@@ -3301,7 +3301,7 @@
   },
   {
     "name": "Extensión de gluteo en  máquina",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes"
@@ -3315,7 +3315,7 @@
   },
   {
     "name": "JALONES PECHO NEUTRO",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "biceps",
@@ -3340,7 +3340,7 @@
   },
   {
     "name": "PULL OVER POLEA ALTA",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats",
@@ -3359,7 +3359,7 @@
   },
   {
     "name": "JALON EN BANCO INCLINADO",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -3374,7 +3374,7 @@
   },
   {
     "name": "Arabesque",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings",
@@ -3391,7 +3391,7 @@
   },
   {
     "name": "Back extensión",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats",
@@ -3407,7 +3407,7 @@
   },
   {
     "name": "Triceps Pushdown",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -3422,7 +3422,7 @@
   },
   {
     "name": "One Arm Bent Row",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -3435,7 +3435,7 @@
   },
   {
     "name": "Curl de biceps con agarre prono",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -3454,7 +3454,7 @@
   },
   {
     "name": "Alternating Biceps Curls With Dumbbell",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -3474,7 +3474,7 @@
   },
   {
     "name": "Russian Twist",
-    "category": "abs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "lats",
@@ -3497,7 +3497,7 @@
   },
   {
     "name": "PALLOF PRESS",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders",
@@ -3522,7 +3522,7 @@
   },
   {
     "name": "Side Slides + Squats",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "quadriceps"
@@ -3540,7 +3540,7 @@
   },
   {
     "name": "Wall Drills",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "quadriceps"
@@ -3556,7 +3556,7 @@
   },
   {
     "name": "Inverted Rows",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "biceps",
@@ -3576,7 +3576,7 @@
   },
   {
     "name": "Tibialis raises",
-    "category": "calves",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -3589,7 +3589,7 @@
   },
   {
     "name": "Dragon squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "quadriceps"
@@ -3609,7 +3609,7 @@
   },
   {
     "name": "Side Lying Hip Abduction",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -3621,7 +3621,7 @@
   },
   {
     "name": "Calf raises, left leg",
-    "category": "calves",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "calves"
@@ -3653,7 +3653,7 @@
   },
   {
     "name": "Wrist curl, dumbbells",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -3672,7 +3672,7 @@
   },
   {
     "name": "Scorpion Kick",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -3685,7 +3685,7 @@
   },
   {
     "name": "Prisoner Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -3706,7 +3706,7 @@
   },
   {
     "name": "Skydiver with arms in T-position",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -3722,7 +3722,7 @@
   },
   {
     "name": "Full Sit Outs",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes",
@@ -3738,7 +3738,7 @@
   },
   {
     "name": "Reverse Snow Angel",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "traps"
@@ -3758,7 +3758,7 @@
   },
   {
     "name": "Recruitment Pulls",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -3770,7 +3770,7 @@
   },
   {
     "name": "Finger Pushup",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -3797,7 +3797,7 @@
   },
   {
     "name": "knee push-ups",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "shoulders",
@@ -3827,7 +3827,7 @@
   },
   {
     "name": "Australian pull-ups",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "shoulders",
@@ -3857,7 +3857,7 @@
   },
   {
     "name": "Cable Chest Press - Decline",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -3874,7 +3874,7 @@
   },
   {
     "name": "Shoulder Dumbbell Pendular Exercise",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders",
@@ -3892,7 +3892,7 @@
   },
   {
     "name": "Shoulder External Rotation with Dumbbell",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders",
@@ -3912,7 +3912,7 @@
   },
   {
     "name": "Claps over the head",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "shoulders"
@@ -3928,7 +3928,7 @@
   },
   {
     "name": "Dumbbell drag curls",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -3943,7 +3943,7 @@
   },
   {
     "name": "Leg Extension",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "quadriceps"
@@ -3964,7 +3964,7 @@
   },
   {
     "name": "Incline Shoulder Press Up",
-    "category": "chest",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "shoulders",
@@ -3982,7 +3982,7 @@
   },
   {
     "name": "Dumbbell wide bicep curls",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -3999,7 +3999,7 @@
   },
   {
     "name": "Neck extension",
-    "category": "arms",
+    "category": "strength",
     "equipment": "e-z curl bar",
     "primaryMuscles": [
       "biceps"
@@ -4012,7 +4012,7 @@
   },
   {
     "name": "Dumbbell bicep curl to press",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -4030,7 +4030,7 @@
   },
   {
     "name": "Dumbbell rear delt row",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders",
@@ -4052,7 +4052,7 @@
   },
   {
     "name": "Dumbbell close grip bench press",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "chest",
@@ -4070,7 +4070,7 @@
   },
   {
     "name": "Snach",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders"
@@ -4086,7 +4086,7 @@
   },
   {
     "name": "Triceps stretch left",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "triceps"
@@ -4102,7 +4102,7 @@
   },
   {
     "name": "Seated Cable Rows",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -4117,7 +4117,7 @@
   },
   {
     "name": "Triceps stretch right",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "triceps"
@@ -4133,7 +4133,7 @@
   },
   {
     "name": "Standing biceps stretch left",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "shoulders",
@@ -4151,7 +4151,7 @@
   },
   {
     "name": "Standing biceps stretch right",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders",
@@ -4169,7 +4169,7 @@
   },
   {
     "name": "Dumbbell Single-leg Hip Thrust",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "glutes"
@@ -4186,7 +4186,7 @@
   },
   {
     "name": "Remo alto polea alta",
-    "category": "back",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "abdominals",
@@ -4201,7 +4201,7 @@
   },
   {
     "name": "Frog stand",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "shoulders",
@@ -4223,7 +4223,7 @@
   },
   {
     "name": "Standing Calf Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "calves"
@@ -4261,7 +4261,7 @@
   },
   {
     "name": "Standing Soleus Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "calves"
@@ -4275,7 +4275,7 @@
   },
   {
     "name": "Exercise Band Dorsiflexion",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "calves"
@@ -4289,7 +4289,7 @@
   },
   {
     "name": "Seated Cable Row",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -4317,7 +4317,7 @@
   },
   {
     "name": "Exercise Band Plantarflexion",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "calves"
@@ -4333,7 +4333,7 @@
   },
   {
     "name": "Double Leg Calf Raise",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "calves"
@@ -4348,7 +4348,7 @@
   },
   {
     "name": "Yoga exercise: Cow-cat",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "shoulders",
@@ -4383,7 +4383,7 @@
   },
   {
     "name": "Front Lever",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "lats",
@@ -4397,7 +4397,7 @@
   },
   {
     "name": "Shoulder width three-point push-up",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -4415,7 +4415,7 @@
   },
   {
     "name": "TRX roll out",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -4434,7 +4434,7 @@
   },
   {
     "name": "Ice Scream maker",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "lats"
@@ -4450,7 +4450,7 @@
   },
   {
     "name": "Leg Extension",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "quadriceps"
@@ -4467,7 +4467,7 @@
   },
   {
     "name": "Front lever pull-up",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "biceps",
@@ -4484,7 +4484,7 @@
   },
   {
     "name": "Front lever tuck",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "shoulders",
@@ -4501,7 +4501,7 @@
   },
   {
     "name": "TRX Obliques",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals",
@@ -4521,7 +4521,7 @@
   },
   {
     "name": "TRX hammer curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "biceps"
@@ -4537,7 +4537,7 @@
   },
   {
     "name": "Cable External Rotation",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -4558,7 +4558,7 @@
   },
   {
     "name": "TRX gorilla biceps curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "biceps"
@@ -4578,7 +4578,7 @@
   },
   {
     "name": "Trx Single Arm Bicep Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "biceps"
@@ -4598,7 +4598,7 @@
   },
   {
     "name": "Back bridge",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [
@@ -4634,7 +4634,7 @@
   },
   {
     "name": "TRX Tricep Extension",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -4655,7 +4655,7 @@
   },
   {
     "name": "TRX dips",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -4673,7 +4673,7 @@
   },
   {
     "name": "Low Pulley Cable Fly",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -4699,7 +4699,7 @@
   },
   {
     "name": "Pullover",
-    "category": "back",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "chest"
@@ -4714,7 +4714,7 @@
   },
   {
     "name": "Sitting Calf Stretch (Dorsiflexion)",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "calves"
@@ -4729,7 +4729,7 @@
   },
   {
     "name": "Plantarflexion Stretch with Band",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -4742,7 +4742,7 @@
   },
   {
     "name": "Incline Dumbbell Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "chest"
@@ -4760,7 +4760,7 @@
   },
   {
     "name": "Biceps Close Grip Pull Down",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "biceps"
@@ -4780,7 +4780,7 @@
   },
   {
     "name": "Isometria trazioni impugnatura inversa",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats"
@@ -4796,7 +4796,7 @@
   },
   {
     "name": "Incline Chest-Supported Dumbbell Row",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "biceps",
@@ -4817,7 +4817,7 @@
   },
   {
     "name": "Pseudo Planche Push-up",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "shoulders"
@@ -4849,7 +4849,7 @@
   },
   {
     "name": "Dynamic Planche",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -4880,7 +4880,7 @@
   },
   {
     "name": "Reach ups",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -4899,7 +4899,7 @@
   },
   {
     "name": "Planche de cote dynamique",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -4914,7 +4914,7 @@
   },
   {
     "name": "Seated Dumbbell Curls",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -4930,7 +4930,7 @@
   },
   {
     "name": "Reverse Grip Barbell Curls",
-    "category": "arms",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "biceps"
@@ -4950,7 +4950,7 @@
   },
   {
     "name": "Trazioni impugnatura inversa",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "biceps",
@@ -4966,7 +4966,7 @@
   },
   {
     "name": "One armed push-ups",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "chest",
@@ -4983,7 +4983,7 @@
   },
   {
     "name": "Arco femorale una gamba",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes",
@@ -4999,7 +4999,7 @@
   },
   {
     "name": "Low-Cable Cross-Over - NB",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -5017,7 +5017,7 @@
   },
   {
     "name": "High-Cable Cross Tricep Extention - NB",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -5034,7 +5034,7 @@
   },
   {
     "name": "Preacher Curl - Internally Rotated",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -5048,7 +5048,7 @@
   },
   {
     "name": "Lat Pulldown - Cross Body Single Arm",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -5064,7 +5064,7 @@
   },
   {
     "name": "Cable Chest Press - Incline",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -5081,7 +5081,7 @@
   },
   {
     "name": "JM Press",
-    "category": "arms",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "triceps"
@@ -5099,7 +5099,7 @@
   },
   {
     "name": "Helms Row",
-    "category": "back",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "lats"
@@ -5117,7 +5117,7 @@
   },
   {
     "name": "Meadows Row",
-    "category": "back",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "lats",
@@ -5139,7 +5139,7 @@
   },
   {
     "name": "Cable Triceps Press",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -5153,7 +5153,7 @@
   },
   {
     "name": "Cable Tri Extension - Internal Rotation",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -5167,7 +5167,7 @@
   },
   {
     "name": "Front Plank",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -5189,7 +5189,7 @@
   },
   {
     "name": "Curl  - With Shoulder Elevated",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -5204,7 +5204,7 @@
   },
   {
     "name": "Lying Leg Raise",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -5240,7 +5240,7 @@
   },
   {
     "name": "Single Leg RDL",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings"
@@ -5286,7 +5286,7 @@
   },
   {
     "name": "Crunches HD",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -5306,7 +5306,7 @@
   },
   {
     "name": "Bench Dips On Floor HD",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "biceps",
@@ -5329,7 +5329,7 @@
   },
   {
     "name": "Kopfüber Gewichtaufheben",
-    "category": "abs",
+    "category": "strength",
     "equipment": "kettlebells",
     "primaryMuscles": [
       "abdominals"
@@ -5343,7 +5343,7 @@
   },
   {
     "name": "Bodyweight lunge HD",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "quadriceps"
@@ -5360,7 +5360,7 @@
   },
   {
     "name": "Lateral Push Off",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "calves"
@@ -5377,7 +5377,7 @@
   },
   {
     "name": "One Arm Overhead Cable Tricep Extension",
-    "category": "arms",
+    "category": "strength",
     "equipment": "bands",
     "primaryMuscles": [
       "triceps"
@@ -5392,7 +5392,7 @@
   },
   {
     "name": "Leg Swings (Front–Back)",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings"
@@ -5410,7 +5410,7 @@
   },
   {
     "name": "Seated Hip Abduction",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes"
@@ -5435,7 +5435,7 @@
   },
   {
     "name": "Forearm Curls (underhand grip)",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -5448,7 +5448,7 @@
   },
   {
     "name": "Triceps Overhead (Dumbbell)",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "triceps"
@@ -5463,7 +5463,7 @@
   },
   {
     "name": "Schoulder Raise (Dumbbell)",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders"
@@ -5478,7 +5478,7 @@
   },
   {
     "name": "Wall Angels",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "traps"
@@ -5493,7 +5493,7 @@
   },
   {
     "name": "seated figure four",
-    "category": "legs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "glutes"
@@ -5511,7 +5511,7 @@
   },
   {
     "name": "Lower Back Extensions",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -5524,7 +5524,7 @@
   },
   {
     "name": "Dumbbell Hex Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -5537,7 +5537,7 @@
   },
   {
     "name": "Double Kettlebell Clean and Press",
-    "category": "arms",
+    "category": "strength",
     "equipment": "kettlebells",
     "primaryMuscles": [
       "shoulders",
@@ -5560,7 +5560,7 @@
   },
   {
     "name": "Double Kettlebell Front Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": "kettlebells",
     "primaryMuscles": [
       "glutes",
@@ -5578,7 +5578,7 @@
   },
   {
     "name": "Blackroll",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -5591,7 +5591,7 @@
   },
   {
     "name": "Dumbbell Split Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -5602,7 +5602,7 @@
   },
   {
     "name": "Dumbbell Deadlift",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -5628,7 +5628,7 @@
   },
   {
     "name": "Rotary Torso Machine",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -5658,7 +5658,7 @@
   },
   {
     "name": "TORSO TWIST",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -5674,7 +5674,7 @@
   },
   {
     "name": "Band pull-aparts",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -5688,7 +5688,7 @@
   },
   {
     "name": "Upper Back",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders",
@@ -5705,7 +5705,7 @@
   },
   {
     "name": "Bodyweight Squat HD",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "quadriceps"
@@ -5729,7 +5729,7 @@
   },
   {
     "name": "Pullover Machine",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -5745,7 +5745,7 @@
   },
   {
     "name": "Zottman curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -5760,7 +5760,7 @@
   },
   {
     "name": "Thruster",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders"
@@ -5778,7 +5778,7 @@
   },
   {
     "name": "Hamstring Kicks",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings"
@@ -5796,7 +5796,7 @@
   },
   {
     "name": "Toe Touch",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings",
@@ -5814,7 +5814,7 @@
   },
   {
     "name": "Dumbbell Thruster",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "hamstrings",
@@ -5833,7 +5833,7 @@
   },
   {
     "name": "Glute Bridge Single-Arm Press",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "chest"
@@ -5855,7 +5855,7 @@
   },
   {
     "name": "Bear crawl pull through",
-    "category": "abs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders",
@@ -5878,7 +5878,7 @@
   },
   {
     "name": "Triceps Dips (Assisted)",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -5893,7 +5893,7 @@
   },
   {
     "name": "Cable Lateral Raises (Single Arm)",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -5916,7 +5916,7 @@
   },
   {
     "name": "Elephant Walks",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings"
@@ -5932,7 +5932,7 @@
   },
   {
     "name": "Good Morning",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings"
@@ -5946,7 +5946,7 @@
   },
   {
     "name": "Single Leg Hamstring Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings"
@@ -5960,7 +5960,7 @@
   },
   {
     "name": "Sit & Reach",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "hamstrings"
@@ -5975,7 +5975,7 @@
   },
   {
     "name": "Crossbody Leg Swings",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings"
@@ -5990,7 +5990,7 @@
   },
   {
     "name": "Standing Pancake",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings"
@@ -6004,7 +6004,7 @@
   },
   {
     "name": "Hamstring Chokes",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings"
@@ -6019,7 +6019,7 @@
   },
   {
     "name": "Roll Down",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [
@@ -6033,7 +6033,7 @@
   },
   {
     "name": "Crossbody Hamstring Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings"
@@ -6048,7 +6048,7 @@
   },
   {
     "name": "Preacher Curl - Externally Rotated",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -6062,7 +6062,7 @@
   },
   {
     "name": "Plank-to-Elbow Extension",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders",
@@ -6080,7 +6080,7 @@
   },
   {
     "name": "Cossack squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes",
@@ -6098,7 +6098,7 @@
   },
   {
     "name": "Wall-sit",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes",
@@ -6116,7 +6116,7 @@
   },
   {
     "name": "Dragon-flag",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -6136,7 +6136,7 @@
   },
   {
     "name": "Plank with Alternating Leg Lift",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes"
@@ -6149,7 +6149,7 @@
   },
   {
     "name": "Heel Touches",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -6172,7 +6172,7 @@
   },
   {
     "name": "bicycle crunches",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -6190,7 +6190,7 @@
   },
   {
     "name": "Hack Squats",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "quadriceps"
@@ -6211,7 +6211,7 @@
   },
   {
     "name": "Dumbbell Crunches",
-    "category": "abs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "abdominals"
@@ -6231,7 +6231,7 @@
   },
   {
     "name": "Biceps Curl Machine",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "biceps"
@@ -6249,7 +6249,7 @@
   },
   {
     "name": "Toe Taps",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -6266,7 +6266,7 @@
   },
   {
     "name": "Standing Side Crunches",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -6284,7 +6284,7 @@
   },
   {
     "name": "Dumbbell Shoulder Rotations",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders"
@@ -6305,7 +6305,7 @@
   },
   {
     "name": "Plate Pinch Hold",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -6322,7 +6322,7 @@
   },
   {
     "name": "Reverse Wood Chops",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes",
@@ -6341,7 +6341,7 @@
   },
   {
     "name": "Lat Pull DB",
-    "category": "back",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "lats"
@@ -6356,7 +6356,7 @@
   },
   {
     "name": "Scapula Pulls",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats",
@@ -6370,7 +6370,7 @@
   },
   {
     "name": "Pin Bench Press BB",
-    "category": "chest",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "chest",
@@ -6384,7 +6384,7 @@
   },
   {
     "name": "Pin Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "hamstrings",
@@ -6401,7 +6401,7 @@
   },
   {
     "name": "Clean",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "glutes",
@@ -6420,7 +6420,7 @@
   },
   {
     "name": "Pin OHP",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders",
@@ -6434,7 +6434,7 @@
   },
   {
     "name": "Push OHP",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders",
@@ -6451,7 +6451,7 @@
   },
   {
     "name": "Incline OHP DB",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders"
@@ -6466,7 +6466,7 @@
   },
   {
     "name": "Kreis Press DB",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders"
@@ -6484,7 +6484,7 @@
   },
   {
     "name": "Shoulder Raise Side and Front DB",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders"
@@ -6497,7 +6497,7 @@
   },
   {
     "name": "Incline Chest Press DB",
-    "category": "chest",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "chest"
@@ -6512,7 +6512,7 @@
   },
   {
     "name": "Jerk OL",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders"
@@ -6529,7 +6529,7 @@
   },
   {
     "name": "Clean and Jerk OL",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders",
@@ -6551,7 +6551,7 @@
   },
   {
     "name": "Snatch OL",
-    "category": "back",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders",
@@ -6570,7 +6570,7 @@
   },
   {
     "name": "Seated W Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "biceps"
@@ -6605,7 +6605,7 @@
   },
   {
     "name": "Cobra Stretch",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -6625,7 +6625,7 @@
   },
   {
     "name": "Torso rotation stretch",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -6650,7 +6650,7 @@
   },
   {
     "name": "Knee to Chest Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes"
@@ -6670,7 +6670,7 @@
   },
   {
     "name": "Towel Superman",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -6687,7 +6687,7 @@
   },
   {
     "name": "Cable Press Around",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders",
@@ -6711,7 +6711,7 @@
   },
   {
     "name": "Cross-Body Cable Y-Raise",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders",
@@ -6727,7 +6727,7 @@
   },
   {
     "name": "No Leg Drive Dumbbell Chest Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "chest"
@@ -6743,7 +6743,7 @@
   },
   {
     "name": "punches",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "shoulders",
@@ -6757,7 +6757,7 @@
   },
   {
     "name": "Dumbbell Underhand Dead Row",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -6782,7 +6782,7 @@
   },
   {
     "name": "Pause Hack Squats",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "quadriceps"
@@ -6800,7 +6800,7 @@
   },
   {
     "name": "Spider Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "biceps"
@@ -6832,7 +6832,7 @@
   },
   {
     "name": "Calf Raise using Hack Squat Machine",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "calves"
@@ -6845,7 +6845,7 @@
   },
   {
     "name": "Incline Close Grip Barbell Bench Press",
-    "category": "arms",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "triceps"
@@ -6861,7 +6861,7 @@
   },
   {
     "name": "Floor Skull Crusher",
-    "category": "arms",
+    "category": "strength",
     "equipment": "e-z curl bar",
     "primaryMuscles": [
       "triceps"
@@ -6874,7 +6874,7 @@
   },
   {
     "name": "Bent over Cable Flye",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -6887,7 +6887,7 @@
   },
   {
     "name": "1-Arm Half-Kneeling Lat Pulldown",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -6901,7 +6901,7 @@
   },
   {
     "name": "Kroc Row",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats",
@@ -6915,7 +6915,7 @@
   },
   {
     "name": "Cable Shrug-In",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "traps"
@@ -6928,7 +6928,7 @@
   },
   {
     "name": "Reverse Cable Flye",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -6944,7 +6944,7 @@
   },
   {
     "name": "W-Raise",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -6961,7 +6961,7 @@
   },
   {
     "name": "Black Widow Knee Slides",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -6977,7 +6977,7 @@
   },
   {
     "name": "Butterfly Sit Up",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -6993,7 +6993,7 @@
   },
   {
     "name": "Seated Corkscrew",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -7009,7 +7009,7 @@
   },
   {
     "name": "Levitation Crunch",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -7025,7 +7025,7 @@
   },
   {
     "name": "Sit Up Elbow Thrust",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -7042,7 +7042,7 @@
   },
   {
     "name": "Lying Triceps Extensions",
-    "category": "arms",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "triceps"
@@ -7063,7 +7063,7 @@
   },
   {
     "name": "Drag Pushdown",
-    "category": "arms",
+    "category": "strength",
     "equipment": "e-z curl bar",
     "primaryMuscles": [
       "triceps"
@@ -7081,7 +7081,7 @@
   },
   {
     "name": "Dumbbell Cheat Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -7103,7 +7103,7 @@
   },
   {
     "name": "Bizeps Curls Trifecta",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -7126,7 +7126,7 @@
   },
   {
     "name": "Omni Cable Cross-over",
-    "category": "chest",
+    "category": "strength",
     "equipment": "e-z curl bar",
     "primaryMuscles": [
       "chest"
@@ -7154,7 +7154,7 @@
   },
   {
     "name": "Rocking Triceps Pushdown",
-    "category": "arms",
+    "category": "strength",
     "equipment": "e-z curl bar",
     "primaryMuscles": [
       "triceps"
@@ -7171,7 +7171,7 @@
   },
   {
     "name": "Alternating High Cable Row",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -7193,7 +7193,7 @@
   },
   {
     "name": "Hyper Y W Combo",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -7211,7 +7211,7 @@
   },
   {
     "name": "Dumbbell Pullover",
-    "category": "back",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "lats"
@@ -7231,7 +7231,7 @@
   },
   {
     "name": "Plank Jacks",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes",
@@ -7248,7 +7248,7 @@
   },
   {
     "name": "Lying Triceps Kickback",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "triceps"
@@ -7266,7 +7266,7 @@
   },
   {
     "name": "Remada unilateral no cabo",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats"
@@ -7281,7 +7281,7 @@
   },
   {
     "name": "High Row",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -7294,7 +7294,7 @@
   },
   {
     "name": "Bayesian Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "biceps"
@@ -7307,7 +7307,7 @@
   },
   {
     "name": "DB Upper Chest Variation",
-    "category": "chest",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "chest"
@@ -7322,7 +7322,7 @@
   },
   {
     "name": "DB Underhand bench press",
-    "category": "chest",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "chest"
@@ -7337,7 +7337,7 @@
   },
   {
     "name": "Elbows Tucked DB Bench Press",
-    "category": "arms",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "triceps"
@@ -7353,7 +7353,7 @@
   },
   {
     "name": "DB UCV",
-    "category": "chest",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "chest"
@@ -7369,7 +7369,7 @@
   },
   {
     "name": "Alternative DB Gorilla rows",
-    "category": "back",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "lats"
@@ -7383,7 +7383,7 @@
   },
   {
     "name": "DB Cross Body Hammer Curls",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -7396,7 +7396,7 @@
   },
   {
     "name": "Dumbbell Frog Press",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "glutes"
@@ -7409,7 +7409,7 @@
   },
   {
     "name": "Dumbbell Bradford press",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders"
@@ -7422,7 +7422,7 @@
   },
   {
     "name": "Cable Fly Middle Chest",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -7442,7 +7442,7 @@
   },
   {
     "name": "Cable Fly Upper Chest",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -7463,7 +7463,7 @@
   },
   {
     "name": "High-Incline Smith Machine Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders",
@@ -7479,7 +7479,7 @@
   },
   {
     "name": "Cable Tricep Kickback",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -7493,7 +7493,7 @@
   },
   {
     "name": "Neutral Grip Lat Pulldown",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -7506,7 +7506,7 @@
   },
   {
     "name": "Kong Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -7523,7 +7523,7 @@
   },
   {
     "name": "Drop Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -7541,7 +7541,7 @@
   },
   {
     "name": "Overhead Cable Tricep Extension",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -7555,7 +7555,7 @@
   },
   {
     "name": "Lateral Walk",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes"
@@ -7570,7 +7570,7 @@
   },
   {
     "name": "Leg Press Toe Press",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "calves"
@@ -7583,7 +7583,7 @@
   },
   {
     "name": "Handstand",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -7596,7 +7596,7 @@
   },
   {
     "name": "Cable Fly Lower Chest",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -7617,7 +7617,7 @@
   },
   {
     "name": "Incline Smith Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "chest"
@@ -7636,7 +7636,7 @@
   },
   {
     "name": "Overhead Triceps Extension",
-    "category": "arms",
+    "category": "strength",
     "equipment": "e-z curl bar",
     "primaryMuscles": [
       "traps"
@@ -7663,7 +7663,7 @@
   },
   {
     "name": "Incline Static Hold",
-    "category": "chest",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "chest"
@@ -7683,7 +7683,7 @@
   },
   {
     "name": "Pendular hack",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -7696,7 +7696,7 @@
   },
   {
     "name": "Flat Machine Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "chest"
@@ -7832,7 +7832,7 @@
   },
   {
     "name": "Pendulum Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "quadriceps"
@@ -7850,7 +7850,7 @@
   },
   {
     "name": "Glute Drive",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes"
@@ -7868,7 +7868,7 @@
   },
   {
     "name": "Toes to bar",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -7881,7 +7881,7 @@
   },
   {
     "name": "Lying Dumbbell Curls",
-    "category": "arms",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "biceps"
@@ -7898,7 +7898,7 @@
   },
   {
     "name": "Cable Curls",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "biceps"
@@ -7912,7 +7912,7 @@
   },
   {
     "name": "Pull-Ups (Wide Grip)",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "lats"
@@ -7931,7 +7931,7 @@
   },
   {
     "name": "Barbell Row (Overhand)",
-    "category": "back",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "lats"
@@ -7946,7 +7946,7 @@
   },
   {
     "name": "Barbell Row (Underhand)",
-    "category": "back",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "lats"
@@ -7961,7 +7961,7 @@
   },
   {
     "name": "Delt Stretch",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -7974,7 +7974,7 @@
   },
   {
     "name": "Pull-up Isometric Hold",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "biceps",
@@ -7989,7 +7989,7 @@
   },
   {
     "name": "Barbell Romanian Deadlift (RDL)",
-    "category": "back",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "lats"
@@ -8005,7 +8005,7 @@
   },
   {
     "name": "One-Arm Heavy Row",
-    "category": "back",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "lats"
@@ -8021,7 +8021,7 @@
   },
   {
     "name": "Jalón al pecho con agarre ancho",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats",
@@ -8040,7 +8040,7 @@
   },
   {
     "name": "Patadas traseras",
-    "category": "arms",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "triceps"
@@ -8056,7 +8056,7 @@
   },
   {
     "name": "Wide Pull Up",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats"
@@ -8070,7 +8070,7 @@
   },
   {
     "name": "Tuck L-sit",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "abdominals"
@@ -8092,7 +8092,7 @@
   },
   {
     "name": "Archer Pull Up",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -8118,7 +8118,7 @@
   },
   {
     "name": "Larsen Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "chest"
@@ -8133,7 +8133,7 @@
   },
   {
     "name": "Bulgarian Squat with Dumbbells",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "glutes",
@@ -8169,7 +8169,7 @@
   },
   {
     "name": "Elevación lateral polea",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "shoulders"
@@ -8182,7 +8182,7 @@
   },
   {
     "name": "Butchers Block Stretch",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats"
@@ -8200,7 +8200,7 @@
   },
   {
     "name": "Clap Push-UP",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "chest"
@@ -8227,7 +8227,7 @@
   },
   {
     "name": "Sleeper Stretch",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "shoulders"
@@ -8246,7 +8246,7 @@
   },
   {
     "name": "Devil’s Press",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders",
@@ -8277,7 +8277,7 @@
   },
   {
     "name": "Bird Dog",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -8304,7 +8304,7 @@
   },
   {
     "name": "Ab wheel",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -8342,7 +8342,7 @@
   },
   {
     "name": "Standing Dowel Shoulder press",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -8353,7 +8353,7 @@
   },
   {
     "name": "Snap Down",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "hamstrings",
@@ -8379,7 +8379,7 @@
   },
   {
     "name": "Bretzel stretch",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes"
@@ -8405,7 +8405,7 @@
   },
   {
     "name": "Hip hinge",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "hamstrings",
@@ -8440,7 +8440,7 @@
   },
   {
     "name": "Perpendicular Unilateral Landmine Row",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders",
@@ -8455,7 +8455,7 @@
   },
   {
     "name": "Trap press",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "traps"
@@ -8470,7 +8470,7 @@
   },
   {
     "name": "Side-laying interior rotation",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "traps"
@@ -8486,7 +8486,7 @@
   },
   {
     "name": "Supine press",
-    "category": "back",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "traps"
@@ -8521,7 +8521,7 @@
   },
   {
     "name": "Estiramiento de piernas y cadera",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings",
@@ -8538,7 +8538,7 @@
   },
   {
     "name": "Estiramiento de brazos y cuello",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "shoulders",
@@ -8556,7 +8556,7 @@
   },
   {
     "name": "Respiración profunda (de pie o sentado)",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -8580,7 +8580,7 @@
   },
   {
     "name": "Smith Machine Split Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "hamstrings",
@@ -8598,7 +8598,7 @@
   },
   {
     "name": "Pull-Ups (Neutral Grip)",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -8617,7 +8617,7 @@
   },
   {
     "name": "Reverse Fly Standing",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "bands",
     "primaryMuscles": [
       "shoulders",
@@ -8637,7 +8637,7 @@
   },
   {
     "name": "Horizontal Shoulder Flexion Stretch",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "chest"
@@ -8654,7 +8654,7 @@
   },
   {
     "name": "Jalon caballero unialteral",
-    "category": "back",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps",
@@ -8668,7 +8668,7 @@
   },
   {
     "name": "Cat-Cow",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -8681,7 +8681,7 @@
   },
   {
     "name": "Dumbbell Scaption",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "traps"
@@ -8709,7 +8709,7 @@
   },
   {
     "name": "Leg curl with elastic",
-    "category": "calves",
+    "category": "strength",
     "equipment": "bands",
     "primaryMuscles": [
       "calves"
@@ -8724,7 +8724,7 @@
   },
   {
     "name": "Sliding Lateral Lunge",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "hamstrings",
@@ -8750,7 +8750,7 @@
   },
   {
     "name": "Copenhagen Adduction Exercise",
-    "category": "legs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "glutes",
@@ -8771,7 +8771,7 @@
   },
   {
     "name": "Arm Raises (T/Y/I)",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "shoulders",
@@ -8794,7 +8794,7 @@
   },
   {
     "name": "Typewriter Pull-ups",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "biceps",
@@ -8814,7 +8814,7 @@
   },
   {
     "name": "Bodyweight Biceps Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "biceps"
@@ -8832,7 +8832,7 @@
   },
   {
     "name": "Glute Kickback (Machine)",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes"
@@ -8846,7 +8846,7 @@
   },
   {
     "name": "Standing Adduction (Cable)",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -8858,7 +8858,7 @@
   },
   {
     "name": "Seated Row (Machine)",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -8877,7 +8877,7 @@
   },
   {
     "name": "kettlebell sumo deadlift",
-    "category": "legs",
+    "category": "strength",
     "equipment": "kettlebells",
     "primaryMuscles": [
       "hamstrings",
@@ -8898,7 +8898,7 @@
   },
   {
     "name": "rubber band glute kickback",
-    "category": "legs",
+    "category": "strength",
     "equipment": "bands",
     "primaryMuscles": [
       "glutes"
@@ -8936,7 +8936,7 @@
   },
   {
     "name": "Patada de burro con mancuerna",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "hamstrings",
@@ -8962,7 +8962,7 @@
   },
   {
     "name": "SMR Glutes (lax ball)",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -8994,7 +8994,7 @@
   },
   {
     "name": "Straight-Arm Pulldown (Cable)",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -9010,7 +9010,7 @@
   },
   {
     "name": "Seated Dumbbell Calf Raise",
-    "category": "calves",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "calves"
@@ -9026,7 +9026,7 @@
   },
   {
     "name": "Unilateral Cable row",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats",
@@ -9040,7 +9040,7 @@
   },
   {
     "name": "Side Straight-Arm Pulldown (Cable)",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -9054,7 +9054,7 @@
   },
   {
     "name": "Shoulder Internal Rotation (Cable)",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -9068,7 +9068,7 @@
   },
   {
     "name": "Shoulder External Rotation (Cable)",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -9082,7 +9082,7 @@
   },
   {
     "name": "Side Lateral Raise (Cable)",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -9096,7 +9096,7 @@
   },
   {
     "name": "Front Raise (Cable)",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -9110,7 +9110,7 @@
   },
   {
     "name": "Face pulls with yellow/green band",
-    "category": "back",
+    "category": "strength",
     "equipment": "bands",
     "primaryMuscles": [
       "lats"
@@ -9129,7 +9129,7 @@
   },
   {
     "name": "Isometric Squat to Failure",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes",
@@ -9145,7 +9145,7 @@
   },
   {
     "name": "Single-Leg Lunge with Kettlebell:",
-    "category": "legs",
+    "category": "strength",
     "equipment": "kettlebells",
     "primaryMuscles": [
       "calves",
@@ -9166,7 +9166,7 @@
   },
   {
     "name": "Single-leg side glute press",
-    "category": "legs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "calves",
@@ -9188,7 +9188,7 @@
   },
   {
     "name": "Assisted chin-ups",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9199,7 +9199,7 @@
   },
   {
     "name": "Neutral-grip pull-ups or TRX rows",
-    "category": "arms",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats"
@@ -9216,7 +9216,7 @@
   },
   {
     "name": "Shrimp Squad",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9227,7 +9227,7 @@
   },
   {
     "name": "L-Sit Pull-ups",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9238,7 +9238,7 @@
   },
   {
     "name": "Back Lever",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9249,7 +9249,7 @@
   },
   {
     "name": "Windshield Wipers",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "abdominals"
@@ -9263,7 +9263,7 @@
   },
   {
     "name": "Machine Side Lateral Raises",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -9284,7 +9284,7 @@
   },
   {
     "name": "Cable Front Raise with a small bar",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -9307,7 +9307,7 @@
   },
   {
     "name": "Smith machine squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes",
@@ -9324,7 +9324,7 @@
   },
   {
     "name": "Cable pull through",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes"
@@ -9346,7 +9346,7 @@
   },
   {
     "name": "Side lateral raise - Front (Cable)",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -9359,7 +9359,7 @@
   },
   {
     "name": "Side lateral raise - Back (Cable)",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -9373,7 +9373,7 @@
   },
   {
     "name": "45° lateral raises",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9384,7 +9384,7 @@
   },
   {
     "name": "Shoulder Y-pull cable",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9395,7 +9395,7 @@
   },
   {
     "name": "Plank Reach",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9409,7 +9409,7 @@
   },
   {
     "name": "bicep",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9420,7 +9420,7 @@
   },
   {
     "name": "cabel",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9431,7 +9431,7 @@
   },
   {
     "name": "Reverse crunch",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -9449,7 +9449,7 @@
   },
   {
     "name": "Legend Incline Bench Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -9465,7 +9465,7 @@
   },
   {
     "name": "Single-Leg Deadlift with Dumbbell",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "hamstrings",
@@ -9489,7 +9489,7 @@
   },
   {
     "name": "Single Leg Glute Bridge",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes"
@@ -9502,7 +9502,7 @@
   },
   {
     "name": "Machine Hip Abduction",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes"
@@ -9517,7 +9517,7 @@
   },
   {
     "name": "Wrist curl, cable",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [
@@ -9536,7 +9536,7 @@
   },
   {
     "name": "Chair dips",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9554,7 +9554,7 @@
   },
   {
     "name": "Pec deck rear delt fly",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9565,7 +9565,7 @@
   },
   {
     "name": "Deficit Push ups",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "chest"
@@ -9580,7 +9580,7 @@
   },
   {
     "name": "Butterfly Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9595,7 +9595,7 @@
   },
   {
     "name": "Frog Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes"
@@ -9613,7 +9613,7 @@
   },
   {
     "name": "Supino inclinado",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9624,7 +9624,7 @@
   },
   {
     "name": "Landmine Rotation",
-    "category": "abs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9636,7 +9636,7 @@
   },
   {
     "name": "Supino Inclinado",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9647,7 +9647,7 @@
   },
   {
     "name": "unilateral cross body cable pull down",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -9661,7 +9661,7 @@
   },
   {
     "name": "Supino Inclinado",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9672,7 +9672,7 @@
   },
   {
     "name": "Trap Bar Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "quadriceps"
@@ -9687,7 +9687,7 @@
   },
   {
     "name": "ankle dorsiflexion rocks",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "calves"
@@ -9703,7 +9703,7 @@
   },
   {
     "name": "Lat Pull Down",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -9722,7 +9722,7 @@
   },
   {
     "name": "Parallel Bar Hold",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders",
@@ -9747,7 +9747,7 @@
   },
   {
     "name": "Reverse Hyperextension",
-    "category": "legs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "hamstrings",
@@ -9767,7 +9767,7 @@
   },
   {
     "name": "Sphinx",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -9783,7 +9783,7 @@
   },
   {
     "name": "Open Book",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9806,7 +9806,7 @@
   },
   {
     "name": "Dumbell Tate Press",
-    "category": "arms",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "triceps"
@@ -9831,7 +9831,7 @@
   },
   {
     "name": "Chest-Supported Rear Delt Raise",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "shoulders"
@@ -9848,7 +9848,7 @@
   },
   {
     "name": "Band pull-apart with external rotation",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "bands",
     "primaryMuscles": [
       "shoulders"
@@ -9869,7 +9869,7 @@
   },
   {
     "name": "Double-Leg Abdominal Press",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "abdominals"
@@ -9886,7 +9886,7 @@
   },
   {
     "name": "Abdominal Draw-In",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -9900,7 +9900,7 @@
   },
   {
     "name": "Landmine Squat to Press",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders",
@@ -9931,7 +9931,7 @@
   },
   {
     "name": "Barbell Step Back Lunge",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "quadriceps"
@@ -9952,7 +9952,7 @@
   },
   {
     "name": "Hammerstrength Decline Chest Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -9979,7 +9979,7 @@
   },
   {
     "name": "Ring Support Hold",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -9992,7 +9992,7 @@
   },
   {
     "name": "Floor Glider Hamstring Curls",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10005,7 +10005,7 @@
   },
   {
     "name": "Trap-3 Raise",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "traps"
@@ -10023,7 +10023,7 @@
   },
   {
     "name": "External Rotation Stretch",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders",
@@ -10046,7 +10046,7 @@
   },
   {
     "name": "Banded Shoulder Drills",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "bands",
     "primaryMuscles": [
       "shoulders",
@@ -10065,7 +10065,7 @@
   },
   {
     "name": "Solo Hip Flexor Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10076,7 +10076,7 @@
   },
   {
     "name": "Bent-Leg Hamstring Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10087,7 +10087,7 @@
   },
   {
     "name": "Seated Shoulder Extension Stretch",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "lats",
@@ -10109,7 +10109,7 @@
   },
   {
     "name": "Horse Stance (Side Splits)",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes"
@@ -10129,7 +10129,7 @@
   },
   {
     "name": "Calves foam roller",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "calves"
@@ -10144,7 +10144,7 @@
   },
   {
     "name": "Hamstring Foam roller",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10157,7 +10157,7 @@
   },
   {
     "name": "Foam Roller Anterior tibialis",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10171,7 +10171,7 @@
   },
   {
     "name": "Foam Roller Iliotibial band",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "quadriceps"
@@ -10187,7 +10187,7 @@
   },
   {
     "name": "Foam Roller quadriceps",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "quadriceps"
@@ -10203,7 +10203,7 @@
   },
   {
     "name": "Foam Roller Gluteus",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes"
@@ -10219,7 +10219,7 @@
   },
   {
     "name": "Foam Roller Adductors",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10233,7 +10233,7 @@
   },
   {
     "name": "Side stretch",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10246,7 +10246,7 @@
   },
   {
     "name": "Hip Circles",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10259,7 +10259,7 @@
   },
   {
     "name": "Hip Crossover",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10272,7 +10272,7 @@
   },
   {
     "name": "Ankle Roll",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10285,7 +10285,7 @@
   },
   {
     "name": "Banded Ankle Mobility",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10298,7 +10298,7 @@
   },
   {
     "name": "Hip Flexor Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10311,7 +10311,7 @@
   },
   {
     "name": "Lunge with Twist Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10324,7 +10324,7 @@
   },
   {
     "name": "Lying Figure Four Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10337,7 +10337,7 @@
   },
   {
     "name": "Lying Hamstring Stretch with Band",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10350,7 +10350,7 @@
   },
   {
     "name": "Lying Knee to Chest Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10363,7 +10363,7 @@
   },
   {
     "name": "Pigeon Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10376,7 +10376,7 @@
   },
   {
     "name": "Quad Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10389,7 +10389,7 @@
   },
   {
     "name": "Runners Lunge Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10402,7 +10402,7 @@
   },
   {
     "name": "Standing IT Band Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10415,7 +10415,7 @@
   },
   {
     "name": "Supported Calf Stretch",
-    "category": "calves",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10428,7 +10428,7 @@
   },
   {
     "name": "Banded Scapular Retraction",
-    "category": "back",
+    "category": "strength",
     "equipment": "bands",
     "primaryMuscles": [
       "shoulders",
@@ -10446,7 +10446,7 @@
   },
   {
     "name": "Incline DB Y-Raise",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders"
@@ -10476,7 +10476,7 @@
   },
   {
     "name": "DB Wrist Extension",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10488,7 +10488,7 @@
   },
   {
     "name": "High-Cable Lateral Raise",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -10510,7 +10510,7 @@
   },
   {
     "name": "Machine Chest Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "chest"
@@ -10540,7 +10540,7 @@
   },
   {
     "name": "Suitcase Carry",
-    "category": "abs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10551,7 +10551,7 @@
   },
   {
     "name": "Behind the Back Cable Lateral Raise",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -10566,7 +10566,7 @@
   },
   {
     "name": "Clamshell",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes",
@@ -10582,7 +10582,7 @@
   },
   {
     "name": "Banded Clamshell",
-    "category": "legs",
+    "category": "strength",
     "equipment": "bands",
     "primaryMuscles": [
       "glutes",
@@ -10601,7 +10601,7 @@
   },
   {
     "name": "Standing Pancake Good Morning",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings"
@@ -10616,7 +10616,7 @@
   },
   {
     "name": "Seated Pancake Good Morning",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes"
@@ -10634,7 +10634,7 @@
   },
   {
     "name": "Shinbox IR Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes",
@@ -10654,7 +10654,7 @@
   },
   {
     "name": "YTWL Exercise",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders",
@@ -10682,7 +10682,7 @@
   },
   {
     "name": "Supine Hip Abduction",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "glutes",
@@ -10702,7 +10702,7 @@
   },
   {
     "name": "Neck CARs",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10715,7 +10715,7 @@
   },
   {
     "name": "Neck CARs",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10728,7 +10728,7 @@
   },
   {
     "name": "dumbbell snatch",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "hamstrings",
@@ -10749,7 +10749,7 @@
   },
   {
     "name": "1 Leg Box Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings",
@@ -10766,7 +10766,7 @@
   },
   {
     "name": "Overhead Barbell Press",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders"
@@ -10785,7 +10785,7 @@
   },
   {
     "name": "Limber 11",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10807,7 +10807,7 @@
   },
   {
     "name": "Foam Roll IT Band",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10818,7 +10818,7 @@
   },
   {
     "name": "Bent-knee Iron Cross",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10829,7 +10829,7 @@
   },
   {
     "name": "Close-Grip Bench Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "triceps"
@@ -10849,7 +10849,7 @@
   },
   {
     "name": "Fire Hydrant Circles",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10860,7 +10860,7 @@
   },
   {
     "name": "Seated Piriformis Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -10871,7 +10871,7 @@
   },
   {
     "name": "Tricep Rope Pushdowns",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -10891,7 +10891,7 @@
   },
   {
     "name": "Clean and Press",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders"
@@ -10911,7 +10911,7 @@
   },
   {
     "name": "Weighted push-ups",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "chest"
@@ -10931,7 +10931,7 @@
   },
   {
     "name": "Walking Lunges",
-    "category": "legs",
+    "category": "strength",
     "equipment": "bands",
     "primaryMuscles": [
       "quadriceps"
@@ -10951,7 +10951,7 @@
   },
   {
     "name": "Pec Deck",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -10964,7 +10964,7 @@
   },
   {
     "name": "Pullback",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "biceps",
@@ -10981,7 +10981,7 @@
   },
   {
     "name": "Hip Bridge",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes",
@@ -10998,7 +10998,7 @@
   },
   {
     "name": "Unilateral Lunges",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes",
@@ -11014,7 +11014,7 @@
   },
   {
     "name": "Butterfly Superman",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "traps"
@@ -11027,7 +11027,7 @@
   },
   {
     "name": "Leg Wheel",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -11041,7 +11041,7 @@
   },
   {
     "name": "Kneeling Superman",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings",
@@ -11059,7 +11059,7 @@
   },
   {
     "name": "Cat Plank",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "quadriceps",
@@ -11076,7 +11076,7 @@
   },
   {
     "name": "Core Rotation",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "quadriceps",
@@ -11093,7 +11093,7 @@
   },
   {
     "name": "Unilateral Hip Thrust",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes"
@@ -11108,7 +11108,7 @@
   },
   {
     "name": "Isometria alle parallele",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest",
@@ -11123,7 +11123,7 @@
   },
   {
     "name": "Quadruped Hip Abduction",
-    "category": "calves",
+    "category": "strength",
     "equipment": "bands",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11139,7 +11139,7 @@
   },
   {
     "name": "Tuck planche",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "shoulders",
@@ -11160,7 +11160,7 @@
   },
   {
     "name": "Legend Chest Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11171,7 +11171,7 @@
   },
   {
     "name": "Extreme Pec Stretch",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11182,7 +11182,7 @@
   },
   {
     "name": "Extreme Shoulder Stretch",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11193,7 +11193,7 @@
   },
   {
     "name": "Extreme Lat Stretch",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11204,7 +11204,7 @@
   },
   {
     "name": "Seated Cable chest fly",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -11231,7 +11231,7 @@
   },
   {
     "name": "3008 Abdominal Crunch",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -11244,7 +11244,7 @@
   },
   {
     "name": "Barbell Silverback Shrug",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "traps"
@@ -11265,7 +11265,7 @@
   },
   {
     "name": "Inverted Lat Pull Down",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats",
@@ -11284,7 +11284,7 @@
   },
   {
     "name": "Seated V-Grip Row",
-    "category": "back",
+    "category": "strength",
     "equipment": "bands",
     "primaryMuscles": [
       "lats",
@@ -11304,7 +11304,7 @@
   },
   {
     "name": "Assisted Pull-Up",
-    "category": "back",
+    "category": "strength",
     "equipment": "bands",
     "primaryMuscles": [
       "lats",
@@ -11324,7 +11324,7 @@
   },
   {
     "name": "Dumbbell Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -11341,7 +11341,7 @@
   },
   {
     "name": "Abdominal Crunch",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "abdominals"
@@ -11358,7 +11358,7 @@
   },
   {
     "name": "Belt Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes",
@@ -11376,7 +11376,7 @@
   },
   {
     "name": "Arnold Shoulder Press",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11388,7 +11388,7 @@
   },
   {
     "name": "Barbell Hack Squats",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11399,7 +11399,7 @@
   },
   {
     "name": "Dumbbell Push-Up",
-    "category": "chest",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11410,7 +11410,7 @@
   },
   {
     "name": "Barbell Lunges Standing",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "quadriceps"
@@ -11429,7 +11429,7 @@
   },
   {
     "name": "Barbell Lunges Walking",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11438,7 +11438,7 @@
   },
   {
     "name": "Barbell Triceps Extension",
-    "category": "arms",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "triceps"
@@ -11462,7 +11462,7 @@
   },
   {
     "name": "Barbell Reverse Wrist Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11476,7 +11476,7 @@
   },
   {
     "name": "Lunges",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11499,7 +11499,7 @@
   },
   {
     "name": "Side split squats left",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11518,7 +11518,7 @@
   },
   {
     "name": "Side split squats right",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11537,7 +11537,7 @@
   },
   {
     "name": "Bulgarian split squats left",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11556,7 +11556,7 @@
   },
   {
     "name": "Bulgarian split squats right",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11573,7 +11573,7 @@
   },
   {
     "name": "Split squats left",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11591,7 +11591,7 @@
   },
   {
     "name": "Split squats right",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11609,7 +11609,7 @@
   },
   {
     "name": "Forward arm circles",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11624,7 +11624,7 @@
   },
   {
     "name": "Backward arm circles",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11639,7 +11639,7 @@
   },
   {
     "name": "Reverse lunges",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11661,7 +11661,7 @@
   },
   {
     "name": "High plank",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11674,7 +11674,7 @@
   },
   {
     "name": "Biceps Curls With Dumbbell",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -11697,7 +11697,7 @@
   },
   {
     "name": "Bent Over Rowing",
-    "category": "back",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "lats"
@@ -11728,7 +11728,7 @@
   },
   {
     "name": "Bent Over Dumbbell Rows",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats"
@@ -11745,7 +11745,7 @@
   },
   {
     "name": "Biceps Curls With SZ-bar",
-    "category": "arms",
+    "category": "strength",
     "equipment": "e-z curl bar",
     "primaryMuscles": [
       "biceps"
@@ -11765,7 +11765,7 @@
   },
   {
     "name": "Bent-over Lateral Raises",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11778,7 +11778,7 @@
   },
   {
     "name": "Benchpress Dumbbells",
-    "category": "chest",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "chest"
@@ -11800,7 +11800,7 @@
   },
   {
     "name": "Biceps Curls With Barbell",
-    "category": "arms",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "biceps"
@@ -11821,7 +11821,7 @@
   },
   {
     "name": "Decline Bench Leg Raise",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "abdominals"
@@ -11840,7 +11840,7 @@
   },
   {
     "name": "Cable Rear-Delt Fly (single arm)",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11854,7 +11854,7 @@
   },
   {
     "name": "Wide-grip Pulldown",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -11877,7 +11877,7 @@
   },
   {
     "name": "Bench Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "chest"
@@ -11901,7 +11901,7 @@
   },
   {
     "name": "Bench Press Narrow Grip",
-    "category": "arms",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "triceps"
@@ -11923,7 +11923,7 @@
   },
   {
     "name": "Biceps Curl With Cable",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "biceps"
@@ -11941,7 +11941,7 @@
   },
   {
     "name": "One Arm Triceps Extensions on Cable",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11950,7 +11950,7 @@
   },
   {
     "name": "Forward shoulder rotation",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11965,7 +11965,7 @@
   },
   {
     "name": "Backward shoulder rotation",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11980,7 +11980,7 @@
   },
   {
     "name": "Left neck stretch",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -11999,7 +11999,7 @@
   },
   {
     "name": "Right neck stretch",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -12018,7 +12018,7 @@
   },
   {
     "name": "Cable Rear Delt Fly",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders",
@@ -12048,7 +12048,7 @@
   },
   {
     "name": "Seated Hip Adduction",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes"
@@ -12065,7 +12065,7 @@
   },
   {
     "name": "Abdominal Stabilization",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "abdominals"
@@ -12078,7 +12078,7 @@
   },
   {
     "name": "Left levator scapulae stretch",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -12097,7 +12097,7 @@
   },
   {
     "name": "Right levator scapulae stretch",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -12116,7 +12116,7 @@
   },
   {
     "name": "Clockwise neck circles",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -12135,7 +12135,7 @@
   },
   {
     "name": "Counterclockwise neck circles",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -12154,7 +12154,7 @@
   },
   {
     "name": "Neck half circles",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -12173,7 +12173,7 @@
   },
   {
     "name": "Side plank right",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -12187,7 +12187,7 @@
   },
   {
     "name": "Pistol squats right",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -12205,7 +12205,7 @@
   },
   {
     "name": "Calf raises, right leg",
-    "category": "calves",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -12224,7 +12224,7 @@
   },
   {
     "name": "Glute Bridge",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes"
@@ -12241,7 +12241,7 @@
   },
   {
     "name": "Close-grip Lat Pull Down",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -12259,7 +12259,7 @@
   },
   {
     "name": "Braced Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "quadriceps"
@@ -12278,7 +12278,7 @@
   },
   {
     "name": "Barbell Wrist Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders",
@@ -12300,7 +12300,7 @@
   },
   {
     "name": "Calf Press Using Leg Press Machine",
-    "category": "calves",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "calves"
@@ -12317,7 +12317,7 @@
   },
   {
     "name": "Calf Raises on Hackenschmitt Machine",
-    "category": "calves",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "calves"
@@ -12336,7 +12336,7 @@
   },
   {
     "name": "Butterfly Narrow Grip",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -12352,7 +12352,7 @@
   },
   {
     "name": "Ball crunches",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -12361,7 +12361,7 @@
   },
   {
     "name": "Butterfly",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -12382,7 +12382,7 @@
   },
   {
     "name": "Crunches on Machine",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -12399,7 +12399,7 @@
   },
   {
     "name": "Incline Crunches",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "abdominals"
@@ -12418,7 +12418,7 @@
   },
   {
     "name": "Butterfly Reverse",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -12429,7 +12429,7 @@
   },
   {
     "name": "Crunches",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "abdominals"
@@ -12450,7 +12450,7 @@
   },
   {
     "name": "Crunches With Legs Up",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -12465,7 +12465,7 @@
   },
   {
     "name": "Deficit Deadlift",
-    "category": "back",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [],
     "secondaryMuscles": [
@@ -12499,7 +12499,7 @@
   },
   {
     "name": "Flutter Kicks",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -12519,7 +12519,7 @@
   },
   {
     "name": "Deadlifts",
-    "category": "back",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "lats"
@@ -12544,7 +12544,7 @@
   },
   {
     "name": "Diagonal Shoulder Press",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -12560,7 +12560,7 @@
   },
   {
     "name": "Dumbbell Goblet Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "quadriceps"
@@ -12584,7 +12584,7 @@
   },
   {
     "name": "Decline Bench Press Barbell",
-    "category": "chest",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "chest"
@@ -12603,7 +12603,7 @@
   },
   {
     "name": "Decline Bench Press Dumbbell",
-    "category": "chest",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "chest"
@@ -12618,7 +12618,7 @@
   },
   {
     "name": "Dumbbell Lunges Standing",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "quadriceps"
@@ -12633,7 +12633,7 @@
   },
   {
     "name": "Decline Pushups",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "chest"
@@ -12649,7 +12649,7 @@
   },
   {
     "name": "Fly With Cable",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -12663,7 +12663,7 @@
   },
   {
     "name": "Dumbbell Lunges Walking",
-    "category": "legs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "quadriceps"
@@ -12686,7 +12686,7 @@
   },
   {
     "name": "Fly With Dumbbells, Decline Bench",
-    "category": "chest",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "chest"
@@ -12702,7 +12702,7 @@
   },
   {
     "name": "Fly With Dumbbells",
-    "category": "chest",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "chest"
@@ -12721,7 +12721,7 @@
   },
   {
     "name": "Dumbbell Incline Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -12741,7 +12741,7 @@
   },
   {
     "name": "Dumbbell Triceps Extension",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "triceps"
@@ -12761,7 +12761,7 @@
   },
   {
     "name": "Dips",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "chest",
@@ -12780,7 +12780,7 @@
   },
   {
     "name": "Dips Between Two Benches",
-    "category": "arms",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "triceps"
@@ -12799,7 +12799,7 @@
   },
   {
     "name": "Front Raises with Plates",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders",
@@ -12811,7 +12811,7 @@
   },
   {
     "name": "Hanging Leg Raises",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "abdominals"
@@ -12824,7 +12824,7 @@
   },
   {
     "name": "Front Raises",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders"
@@ -12846,7 +12846,7 @@
   },
   {
     "name": "Hindu Squats",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "quadriceps"
@@ -12864,7 +12864,7 @@
   },
   {
     "name": "Front Squats",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "glutes"
@@ -12883,7 +12883,7 @@
   },
   {
     "name": "Hammercurls on Cable",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "biceps"
@@ -12905,7 +12905,7 @@
   },
   {
     "name": "Hammer Curls",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -12924,7 +12924,7 @@
   },
   {
     "name": "Skullcrusher Dumbbells",
-    "category": "arms",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "triceps"
@@ -12942,7 +12942,7 @@
   },
   {
     "name": "Skullcrusher SZ-bar",
-    "category": "arms",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "triceps"
@@ -12961,7 +12961,7 @@
   },
   {
     "name": "Front Pull narrow",
-    "category": "back",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "lats"
@@ -12974,7 +12974,7 @@
   },
   {
     "name": "Front pull wide",
-    "category": "back",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "lats"
@@ -12988,7 +12988,7 @@
   },
   {
     "name": "Handstand Pushup",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "traps",
@@ -13005,7 +13005,7 @@
   },
   {
     "name": "Leg Curls (laying)",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "hamstrings"
@@ -13024,7 +13024,7 @@
   },
   {
     "name": "Lat Pull Down (Leaning Back)",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -13037,7 +13037,7 @@
   },
   {
     "name": "Lat Pull Down (Straight Back)",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -13050,7 +13050,7 @@
   },
   {
     "name": "Leg Curls (sitting)",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "hamstrings"
@@ -13064,7 +13064,7 @@
   },
   {
     "name": "Lateral Rows on Cable, One Armed",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -13082,7 +13082,7 @@
   },
   {
     "name": "Lateral Raises",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders"
@@ -13103,7 +13103,7 @@
   },
   {
     "name": "Leg Curl",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "hamstrings",
@@ -13121,7 +13121,7 @@
   },
   {
     "name": "Lateral-to-Front Raises",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders",
@@ -13141,7 +13141,7 @@
   },
   {
     "name": "Incline Push up",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -13156,7 +13156,7 @@
   },
   {
     "name": "Squats on Multipress",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "quadriceps"
@@ -13169,7 +13169,7 @@
   },
   {
     "name": "Incline Dumbbell Fly",
-    "category": "chest",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "chest"
@@ -13184,7 +13184,7 @@
   },
   {
     "name": "Incline Plank With Alternate Floor Touch",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -13202,7 +13202,7 @@
   },
   {
     "name": "Kettlebell Swings",
-    "category": "legs",
+    "category": "strength",
     "equipment": "kettlebells",
     "primaryMuscles": [
       "glutes"
@@ -13225,7 +13225,7 @@
   },
   {
     "name": "Leverage Machine Iso Row",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -13238,7 +13238,7 @@
   },
   {
     "name": "Negative Crunches",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -13256,7 +13256,7 @@
   },
   {
     "name": "Military Press mit SZ-Bar",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "e-z curl bar",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -13272,7 +13272,7 @@
   },
   {
     "name": "Diamond push ups",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "chest"
@@ -13292,7 +13292,7 @@
   },
   {
     "name": "Leg Raises, Standing",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -13309,7 +13309,7 @@
   },
   {
     "name": "Leverage Machine Chest Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "chest"
@@ -13322,7 +13322,7 @@
   },
   {
     "name": "Leg Raises, Lying",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "abdominals"
@@ -13345,7 +13345,7 @@
   },
   {
     "name": "Leg Raise",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -13359,7 +13359,7 @@
   },
   {
     "name": "Low Box Squat - Wide Stance",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "glutes",
@@ -13377,7 +13377,7 @@
   },
   {
     "name": "Leg Curls (standing)",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "hamstrings"
@@ -13391,7 +13391,7 @@
   },
   {
     "name": "Leg Press on Hackenschmidt Machine",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "quadriceps"
@@ -13405,7 +13405,7 @@
   },
   {
     "name": "Leg Presses (narrow)",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "quadriceps"
@@ -13426,7 +13426,7 @@
   },
   {
     "name": "Leg Presses (wide)",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "quadriceps"
@@ -13445,7 +13445,7 @@
   },
   {
     "name": "Leg Press",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "hamstrings",
@@ -13466,7 +13466,7 @@
   },
   {
     "name": "Pendelay Rows",
-    "category": "back",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "lats",
@@ -13484,7 +13484,7 @@
   },
   {
     "name": "Rack Deadlift",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "glutes"
@@ -13505,7 +13505,7 @@
   },
   {
     "name": "Push Press",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "traps"
@@ -13525,7 +13525,7 @@
   },
   {
     "name": "Pause Bench",
-    "category": "chest",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "chest"
@@ -13543,7 +13543,7 @@
   },
   {
     "name": "Preacher Curls",
-    "category": "arms",
+    "category": "strength",
     "equipment": "e-z curl bar",
     "primaryMuscles": [
       "biceps"
@@ -13566,7 +13566,7 @@
   },
   {
     "name": "Rear Delt Raises",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -13577,7 +13577,7 @@
   },
   {
     "name": "Pistol Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "hamstrings",
@@ -13608,7 +13608,7 @@
   },
   {
     "name": "Pull Ups on Machine",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -13623,7 +13623,7 @@
   },
   {
     "name": "Pull-ups",
-    "category": "back",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "lats"
@@ -13644,7 +13644,7 @@
   },
   {
     "name": "Plank",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -13674,7 +13674,7 @@
   },
   {
     "name": "Scissors",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -13690,7 +13690,7 @@
   },
   {
     "name": "Rowing seated, narrow grip",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -13705,7 +13705,7 @@
   },
   {
     "name": "Reverse Bar Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "e-z curl bar",
     "primaryMuscles": [
       "biceps"
@@ -13718,7 +13718,7 @@
   },
   {
     "name": "Renegade Row",
-    "category": "back",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "lats",
@@ -13735,7 +13735,7 @@
   },
   {
     "name": "Rowing, T-bar",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -13760,7 +13760,7 @@
   },
   {
     "name": "Seated Triceps Press",
-    "category": "arms",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "triceps"
@@ -13775,7 +13775,7 @@
   },
   {
     "name": "Row",
-    "category": "back",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "lats",
@@ -13793,7 +13793,7 @@
   },
   {
     "name": "Rowing, Lying on Bench",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -13804,7 +13804,7 @@
   },
   {
     "name": "Ring Dips",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -13817,7 +13817,7 @@
   },
   {
     "name": "Romanian Deadlift",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -13828,7 +13828,7 @@
   },
   {
     "name": "Shoulder Press, on Machine",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -13844,7 +13844,7 @@
   },
   {
     "name": "Reverse Grip Bench Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "chest",
@@ -13871,7 +13871,7 @@
   },
   {
     "name": "Incline Bench Press - Barbell",
-    "category": "chest",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "chest"
@@ -13891,7 +13891,7 @@
   },
   {
     "name": "Shotgun Row",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -13914,7 +13914,7 @@
   },
   {
     "name": "Splinter Sit-ups",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -13930,7 +13930,7 @@
   },
   {
     "name": "Speed Deadlift",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -13941,7 +13941,7 @@
   },
   {
     "name": "Shoulder Press, on Multi Press",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -13957,7 +13957,7 @@
   },
   {
     "name": "Sit-ups",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -13974,7 +13974,7 @@
   },
   {
     "name": "Shoulder Press, Dumbbells",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders"
@@ -13993,7 +13993,7 @@
   },
   {
     "name": "Shoulder Press, Barbell",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders"
@@ -14012,7 +14012,7 @@
   },
   {
     "name": "Single-arm Preacher Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -14026,7 +14026,7 @@
   },
   {
     "name": "Sitting Calf Raises",
-    "category": "calves",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "calves"
@@ -14043,7 +14043,7 @@
   },
   {
     "name": "Side to Side Push Ups",
-    "category": "chest",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders",
@@ -14059,7 +14059,7 @@
   },
   {
     "name": "Smith Machine Close-grip Bench Press",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -14074,7 +14074,7 @@
   },
   {
     "name": "Side Crunch",
-    "category": "abs",
+    "category": "strength",
     "equipment": "other",
     "primaryMuscles": [
       "abdominals"
@@ -14094,7 +14094,7 @@
   },
   {
     "name": "Shrugs, Barbells",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "shoulders"
@@ -14113,7 +14113,7 @@
   },
   {
     "name": "Shrugs on Multipress",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders"
@@ -14126,7 +14126,7 @@
   },
   {
     "name": "Shrugs, Dumbbells",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders"
@@ -14145,7 +14145,7 @@
   },
   {
     "name": "Shoulder Shrug",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "traps"
@@ -14163,7 +14163,7 @@
   },
   {
     "name": "Side Plank",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -14179,7 +14179,7 @@
   },
   {
     "name": "Straight-arm Pull Down (bar Attachment)",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -14196,7 +14196,7 @@
   },
   {
     "name": "Sumo Squats",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes",
@@ -14213,7 +14213,7 @@
   },
   {
     "name": "Straight-arm Pull Down (rope Attachment)",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -14230,7 +14230,7 @@
   },
   {
     "name": "Sumo Deadlift",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "quadriceps"
@@ -14259,7 +14259,7 @@
   },
   {
     "name": "Squat Thrust",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "glutes",
@@ -14280,7 +14280,7 @@
   },
   {
     "name": "Stiff-legged Deadlifts",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "hamstrings"
@@ -14295,7 +14295,7 @@
   },
   {
     "name": "Standing Calf Raises",
-    "category": "calves",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "calves"
@@ -14317,7 +14317,7 @@
   },
   {
     "name": "Squat Jumps",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "quadriceps"
@@ -14330,7 +14330,7 @@
   },
   {
     "name": "Squats",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "quadriceps"
@@ -14350,7 +14350,7 @@
   },
   {
     "name": "Standing Bicep Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -14366,7 +14366,7 @@
   },
   {
     "name": "Triceps Extensions on Cable With Bar",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -14381,7 +14381,7 @@
   },
   {
     "name": "Wall Handstand",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -14392,7 +14392,7 @@
   },
   {
     "name": "Underhand Lat Pull Down",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "lats"
@@ -14409,7 +14409,7 @@
   },
   {
     "name": "Upright Row w/ Dumbbells",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "shoulders",
@@ -14431,7 +14431,7 @@
   },
   {
     "name": "V-Bar Pulldown",
-    "category": "back",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -14442,7 +14442,7 @@
   },
   {
     "name": "Calf raises, one legged",
-    "category": "calves",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "calves"
@@ -14453,7 +14453,7 @@
   },
   {
     "name": "Upright Row, SZ-bar",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": "e-z curl bar",
     "primaryMuscles": [
       "shoulders",
@@ -14475,7 +14475,7 @@
   },
   {
     "name": "Wall Pushup",
-    "category": "arms",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "shoulders",
@@ -14495,7 +14495,7 @@
   },
   {
     "name": "Upright Row, on Multi Press",
-    "category": "shoulders",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "shoulders",
@@ -14519,7 +14519,7 @@
   },
   {
     "name": "Dumbbell Concentration Curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -14537,7 +14537,7 @@
   },
   {
     "name": "Overhead Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -14559,7 +14559,7 @@
   },
   {
     "name": "Incline Bench Press - Dumbbell",
-    "category": "chest",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "chest"
@@ -14578,7 +14578,7 @@
   },
   {
     "name": "Triceps Extensions on Cable",
-    "category": "arms",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "triceps"
@@ -14595,7 +14595,7 @@
   },
   {
     "name": "Rowing with TRX band",
-    "category": "back",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -14606,7 +14606,7 @@
   },
   {
     "name": "Wall Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "hamstrings",
@@ -14623,7 +14623,7 @@
   },
   {
     "name": "Crunches With Cable",
-    "category": "abs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "abdominals"
@@ -14639,7 +14639,7 @@
   },
   {
     "name": "Alternating dumbbell hammer curl",
-    "category": "arms",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "biceps"
@@ -14655,7 +14655,7 @@
   },
   {
     "name": "Straddle L-Sit",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "abdominals"
@@ -14675,7 +14675,7 @@
   },
   {
     "name": "L-sit",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "lats",
@@ -14695,7 +14695,7 @@
   },
   {
     "name": "L-Sit (Foot Supported)",
-    "category": "abs",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "lats",
@@ -14726,7 +14726,7 @@
   },
   {
     "name": "Foam Roll Adductors",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -14737,7 +14737,7 @@
   },
   {
     "name": "Roll-overs into V-sits",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -14748,7 +14748,7 @@
   },
   {
     "name": "Rear-foot-elevated Hip Flexor Stretch",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -14759,7 +14759,7 @@
   },
   {
     "name": "Dumbbell Floor Press",
-    "category": "chest",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [
       "chest"
@@ -14782,7 +14782,7 @@
   },
   {
     "name": "Flexión lateral",
-    "category": "abs",
+    "category": "strength",
     "equipment": "dumbbell",
     "primaryMuscles": [],
     "secondaryMuscles": [],
@@ -14796,7 +14796,7 @@
   },
   {
     "name": "Barbell Full Squat",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "hamstrings",
@@ -14821,7 +14821,7 @@
   },
   {
     "name": "Push-Up",
-    "category": "chest",
+    "category": "strength",
     "equipment": "body only",
     "primaryMuscles": [
       "chest"
@@ -14849,7 +14849,7 @@
   },
   {
     "name": "Kickstand RDL",
-    "category": "legs",
+    "category": "strength",
     "equipment": "barbell",
     "primaryMuscles": [
       "hamstrings"
@@ -14862,7 +14862,7 @@
   },
   {
     "name": "Single Leg Extension",
-    "category": "legs",
+    "category": "strength",
     "equipment": null,
     "primaryMuscles": [
       "quadriceps"

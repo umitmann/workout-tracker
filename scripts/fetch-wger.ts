@@ -23,6 +23,20 @@ const MUSCLE_MAP: Record<number, string> = {
   15: 'calves',      // Soleus
 }
 
+// wger category name → canonical workout-type category
+// wger uses body-part names; we use workout types (strength, cardio, etc.)
+// Body-part categories default to "strength" since the muscle filter already handles body-part filtering.
+const CATEGORY_MAP: Record<string, string> = {
+  abs: 'strength',
+  arms: 'strength',
+  back: 'strength',
+  calves: 'strength',
+  cardio: 'cardio',
+  chest: 'strength',
+  legs: 'strength',
+  shoulders: 'strength',
+}
+
 // wger equipment ID → our existing equipment name strings
 const EQUIPMENT_MAP: Record<number, string> = {
   1: 'barbell',
@@ -123,7 +137,7 @@ async function main() {
     return [
       {
         name: translation.name.trim(),
-        category: e.category.name.toLowerCase(),
+        category: CATEGORY_MAP[e.category.name.toLowerCase()] ?? e.category.name.toLowerCase(),
         equipment,
         primaryMuscles,
         secondaryMuscles,
