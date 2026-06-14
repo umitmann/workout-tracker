@@ -12,6 +12,7 @@
     "exercises:merge": "tsx scripts/merge-exercises.ts",
     "exercises:verify": "tsx scripts/verify-exercises.ts",
     "exercises:normalize-categories": "tsx scripts/normalize-categories.ts",
+    "exercises:seed-bodyweight": "tsx scripts/seed-bodyweight.ts",
     "exercises:import": "npm run exercises:fetch-wger && npm run exercises:merge && npm run exercises:verify && npm run seed:exercises"
   },
   "dependencies": {

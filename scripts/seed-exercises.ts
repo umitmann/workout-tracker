@@ -38,19 +38,24 @@ async function seed() {
   const raw = rawExercises as RawExercise[]
   console.log(`Loaded ${raw.length} exercises from JSON`)
 
-  // Fetch all existing names so we can skip duplicates without needing a DB unique constraint
-  const { data: existing, error: fetchError } = await supabase
-    .from('exercises')
-    .select('name')
+  // Fetch all existing names — paginate to avoid the 1000-row default cap
+  const existingNames = new Set<string>()
+  let from = 0
+  while (true) {
+    const { data, error: fetchError } = await supabase
+      .from('exercises')
+      .select('name')
+      .range(from, from + 999)
 
-  if (fetchError) {
-    console.error('Failed to fetch existing exercises:', fetchError.message)
-    process.exit(1)
+    if (fetchError) {
+      console.error('Failed to fetch existing exercises:', fetchError.message)
+      process.exit(1)
+    }
+
+    for (const e of data ?? []) existingNames.add(e.name.toLowerCase().trim())
+    if (!data || data.length < 1000) break
+    from += data.length
   }
-
-  const existingNames = new Set(
-    (existing ?? []).map((e: { name: string }) => e.name.toLowerCase().trim()),
-  )
   console.log(`Existing in DB: ${existingNames.size}`)
 
   const exercises = raw
