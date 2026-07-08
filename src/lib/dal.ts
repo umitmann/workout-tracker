@@ -118,31 +118,51 @@ export async function getExerciseDetails(id: number) {
   return data
 }
 
+const TEMPLATE_COLS = (setDetails: boolean) =>
+  `id, name, created_at, routine_exercises(id, exercise_id, sets, reps, weight, duration_minutes, distance,${setDetails ? ' set_details,' : ''} order, exercises(id, name, category))`
+
 export async function getUserTemplates() {
   const { supabase, user } = await getAuthContext()
   if (!user) return []
 
-  const { data } = await supabase
+  let result = await supabase
     .from('routines')
-    .select('id, name, created_at, routine_exercises(id, exercise_id, sets, reps, weight, duration_minutes, distance, order, exercises(id, name, category))')
+    .select(TEMPLATE_COLS(true))
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
-  return (data ?? []) as unknown as RoutineWithExercises[]
+  if (result.error && isMissingColumnError(result.error, 'set_details')) {
+    result = await supabase
+      .from('routines')
+      .select(TEMPLATE_COLS(false))
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+  }
+
+  return (result.data ?? []) as unknown as RoutineWithExercises[]
 }
 
 export async function getTemplate(routineId: string | number) {
   const { supabase, user } = await getAuthContext()
   if (!user) return null
 
-  const { data } = await supabase
+  let result = await supabase
     .from('routines')
-    .select('id, name, created_at, routine_exercises(id, exercise_id, sets, reps, weight, duration_minutes, distance, order, exercises(id, name, category))')
+    .select(TEMPLATE_COLS(true))
     .eq('id', routineId)
     .eq('user_id', user.id)
     .single()
 
-  return data as unknown as RoutineWithExercises | null
+  if (result.error && isMissingColumnError(result.error, 'set_details')) {
+    result = await supabase
+      .from('routines')
+      .select(TEMPLATE_COLS(false))
+      .eq('id', routineId)
+      .eq('user_id', user.id)
+      .single()
+  }
+
+  return result.data as unknown as RoutineWithExercises | null
 }
 
 export type WorkoutStatus = 'planned' | 'in_progress' | 'completed'
@@ -517,6 +537,8 @@ export async function getRecentBodyWeights(limit = 30): Promise<BodyWeightRow[]>
   return (data ?? []) as BodyWeightRow[]
 }
 
+export type SetDetail = { reps: number | null; weight: number | null }
+
 export type RoutineExerciseRow = {
   id: number
   exercise_id: number
@@ -525,6 +547,7 @@ export type RoutineExerciseRow = {
   weight: number | null
   duration_minutes: number | null
   distance: number | null
+  set_details: SetDetail[] | null
   order: number
   exercises: { id: number; name: string; category: string | null }
 }

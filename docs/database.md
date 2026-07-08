@@ -363,6 +363,23 @@ notify pgrst, 'reload schema';
 
 ---
 
+## Phase 5 — Per-set targets (dropsets / pyramids)
+
+### `routine_exercises.set_details` (migration)
+
+Optional per-set target scheme. When present it's a JSON array with one entry
+per planned set — `[{ "reps": 8, "weight": 60 }, { "reps": 8, "weight": 50 }, …]`
+— which lets a template schedule dropsets or pyramids instead of a single
+uniform `sets × reps @ weight`. Null = uniform (use the existing `sets`/`reps`/
+`weight` columns). Reads and writes degrade gracefully if the column is missing.
+
+```sql
+alter table routine_exercises add column set_details jsonb;
+notify pgrst, 'reload schema';
+```
+
+---
+
 ## Future — Admin & Trainer Tables
 
 Not needed now. Documented in [../examples/admin-groups.md](../examples/admin-groups.md) for reference.

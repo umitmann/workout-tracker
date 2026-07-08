@@ -95,13 +95,19 @@ export default function WorkoutLogger({
       const sorted = [...initialTemplate.routine_exercises].sort((a, b) => a.order - b.order)
       return sorted.flatMap((ex) => {
         const name = ex.exercises?.name ?? String(ex.exercise_id)
-        return Array.from({ length: ex.sets || 1 }, () => ({
+        const category = ex.exercises?.category ?? null
+        // Per-set scheme (dropset/pyramid) if scheduled, else uniform sets.
+        const scheme =
+          ex.set_details && ex.set_details.length > 0
+            ? ex.set_details.map((d) => ({ weight: d.weight, reps: d.reps }))
+            : Array.from({ length: ex.sets || 1 }, () => ({ weight: ex.weight, reps: ex.reps }))
+        return scheme.map((d) => ({
           localId: crypto.randomUUID(),
           exerciseId: ex.exercise_id,
           exerciseName: name,
-          exerciseCategory: ex.exercises?.category ?? null,
-          weight: ex.weight,
-          reps: ex.reps,
+          exerciseCategory: category,
+          weight: d.weight,
+          reps: d.reps,
           duration_minutes: ex.duration_minutes ?? null,
           distance: ex.distance ?? null,
           rest_seconds: null,
@@ -443,14 +449,19 @@ export default function WorkoutLogger({
     const sorted = [...template.routine_exercises].sort((a, b) => a.order - b.order)
     for (const ex of sorted) {
       const name = ex.exercises?.name ?? String(ex.exercise_id)
-      for (let i = 0; i < (ex.sets || 1); i++) {
+      const category = ex.exercises?.category ?? null
+      const scheme =
+        ex.set_details && ex.set_details.length > 0
+          ? ex.set_details.map((d) => ({ weight: d.weight, reps: d.reps }))
+          : Array.from({ length: ex.sets || 1 }, () => ({ weight: ex.weight, reps: ex.reps }))
+      for (const d of scheme) {
         newSets.push({
           localId: crypto.randomUUID(),
           exerciseId: ex.exercise_id,
           exerciseName: name,
-          exerciseCategory: ex.exercises?.category ?? null,
-          weight: ex.weight,
-          reps: ex.reps,
+          exerciseCategory: category,
+          weight: d.weight,
+          reps: d.reps,
           duration_minutes: ex.duration_minutes ?? null,
           distance: ex.distance ?? null,
           rest_seconds: null,

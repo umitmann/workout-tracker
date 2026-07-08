@@ -1,7 +1,7 @@
 'use server'
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { getUserTemplates, RoutineWithExercises } from '@/lib/dal'
+import { getUserTemplates, isMissingColumnError, RoutineWithExercises, SetDetail } from '@/lib/dal'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -12,6 +12,7 @@ export type TemplateExercisePayload = {
   weight: number | null
   duration_minutes: number | null
   distance: number | null
+  set_details: SetDetail[] | null
   order: number
 }
 
@@ -56,19 +57,26 @@ export async function saveTemplateExercises(
   await supabase.from('routine_exercises').delete().eq('routine_id', routineId)
 
   if (exercises.length > 0) {
-    const { error } = await supabase.from('routine_exercises').insert(
-      exercises.map((e) => ({
-        routine_id: routineId,
-        exercise_id: e.exerciseId,
-        sets: e.sets,
-        reps: e.reps,
-        weight: e.weight,
-        duration_minutes: e.duration_minutes,
-        distance: e.distance,
-        order: e.order,
-      })),
-    )
-    if (error) return { error: error.message }
+    const rows = exercises.map((e) => ({
+      routine_id: routineId,
+      exercise_id: e.exerciseId,
+      sets: e.sets,
+      reps: e.reps,
+      weight: e.weight,
+      duration_minutes: e.duration_minutes,
+      distance: e.distance,
+      set_details: e.set_details,
+      order: e.order,
+    }))
+    const { error } = await supabase.from('routine_exercises').insert(rows)
+    if (error && isMissingColumnError(error, 'set_details')) {
+      // set_details column not migrated yet — save without per-set targets.
+      const stripped = rows.map(({ set_details, ...rest }) => rest)
+      const retry = await supabase.from('routine_exercises').insert(stripped)
+      if (retry.error) return { error: retry.error.message }
+    } else if (error) {
+      return { error: error.message }
+    }
   }
 
   revalidatePath('/workouts')

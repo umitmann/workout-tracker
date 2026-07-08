@@ -32,6 +32,7 @@ export default function PasteTemplateButton() {
           weight: e.weight,
           duration_minutes: null,
           distance: null,
+          set_details: null,
           order: i,
         })),
       )

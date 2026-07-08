@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createTemplate, saveTemplateExercises, deleteTemplate, TemplateExercisePayload } from '@/app/actions/templates'
 import { startWorkoutFromTemplate, startPlannedWorkout, scheduleWorkout } from '@/app/actions/workouts'
 import { fetchExerciseDetails, fetchLastExercisePerformance, fetchBestExercisePerformance, fetchBestExercisePerformance60Days } from '@/app/actions/exercises'
-import { LastExercisePerformance, RoutineWithExercises } from '@/lib/dal'
+import { LastExercisePerformance, RoutineWithExercises, SetDetail } from '@/lib/dal'
 import ExercisePickerSheet, { SlimExercise } from '@/app/workout/[id]/ExercisePickerSheet'
 import ExerciseInfoModal from '@/app/workout/[id]/ExerciseInfoModal'
 import LastPerfModal from '@/app/workout/[id]/LastPerfModal'
@@ -22,6 +22,7 @@ type TemplateExercise = {
   weight: number | null
   duration_minutes: number | null
   distance: number | null
+  setDetails: SetDetail[] | null // per-set targets (dropset/pyramid); null = uniform
 }
 
 type ExerciseDetails = {
@@ -71,6 +72,7 @@ export default function TemplateEditor({
           weight: e.weight,
           duration_minutes: e.duration_minutes ?? null,
           distance: e.distance ?? null,
+          setDetails: e.set_details ?? null,
         })) ?? [],
   )
 
@@ -100,9 +102,59 @@ export default function TemplateEditor({
         weight: null,
         duration_minutes: isCardio ? 30 : null,
         distance: null,
+        setDetails: null,
       },
     ])
     setShowPicker(false)
+  }
+
+  // ── Per-set / dropset editing ──────────────────────────────────────────────
+
+  function toggleDropset(localId: string) {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.localId !== localId) return i
+        if (i.setDetails) return { ...i, setDetails: null } // back to uniform
+        // Seed per-set rows from the current uniform target
+        const rows: SetDetail[] = Array.from({ length: Math.max(1, i.sets) }, () => ({
+          reps: i.reps,
+          weight: i.weight,
+        }))
+        return { ...i, setDetails: rows }
+      }),
+    )
+  }
+
+  function updateSetDetail(localId: string, idx: number, patch: Partial<SetDetail>) {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.localId !== localId || !i.setDetails) return i
+        const next = i.setDetails.map((d, j) => (j === idx ? { ...d, ...patch } : d))
+        return { ...i, setDetails: next, sets: next.length }
+      }),
+    )
+  }
+
+  function addSetDetail(localId: string) {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.localId !== localId || !i.setDetails) return i
+        const last = i.setDetails[i.setDetails.length - 1] ?? { reps: i.reps, weight: i.weight }
+        const next = [...i.setDetails, { ...last }]
+        return { ...i, setDetails: next, sets: next.length }
+      }),
+    )
+  }
+
+  function removeSetDetail(localId: string, idx: number) {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.localId !== localId || !i.setDetails) return i
+        const next = i.setDetails.filter((_, j) => j !== idx)
+        if (next.length === 0) return { ...i, setDetails: null } // no rows → uniform
+        return { ...i, setDetails: next, sets: next.length }
+      }),
+    )
   }
 
   function handleRemove(localId: string) {
@@ -179,24 +231,32 @@ export default function TemplateEditor({
         weight: entry.weight,
         duration_minutes: null,
         distance: null,
+        setDetails: null,
       })),
     )
     setShowPasteConfirm(false)
+  }
+
+  function buildPayload(): TemplateExercisePayload[] {
+    return items.map((item, i) => ({
+      exerciseId: item.exerciseId,
+      // When per-set targets exist, keep sets/reps/weight in sync with the first
+      // row so non-migrated readers still get a sensible uniform fallback.
+      sets: item.setDetails ? item.setDetails.length : item.sets,
+      reps: item.setDetails ? item.setDetails[0]?.reps ?? null : item.reps,
+      weight: item.setDetails ? item.setDetails[0]?.weight ?? null : item.weight,
+      duration_minutes: item.duration_minutes,
+      distance: item.distance,
+      set_details: item.setDetails,
+      order: i,
+    }))
   }
 
   function handleSave() {
     if (!name.trim()) { setError('Give your workout a name'); return }
     setError(null)
 
-    const payload: TemplateExercisePayload[] = items.map((item, i) => ({
-      exerciseId: item.exerciseId,
-      sets: item.sets,
-      reps: item.reps,
-      weight: item.weight,
-      duration_minutes: item.duration_minutes,
-      distance: item.distance,
-      order: i,
-    }))
+    const payload = buildPayload()
 
     startTransition(async () => {
       if (template) {
@@ -215,15 +275,7 @@ export default function TemplateEditor({
     if (!name.trim()) { setError('Give your workout a name'); return }
     setError(null)
 
-    const payload: TemplateExercisePayload[] = items.map((item, i) => ({
-      exerciseId: item.exerciseId,
-      sets: item.sets,
-      reps: item.reps,
-      weight: item.weight,
-      duration_minutes: item.duration_minutes,
-      distance: item.distance,
-      order: i,
-    }))
+    const payload = buildPayload()
 
     startTransition(async () => {
       let routineId: string | number
@@ -396,63 +448,108 @@ export default function TemplateEditor({
               </div>
             </div>
 
-            {/* Sets + cardio-aware target inputs — steppers match the logger's arrows */}
-            <div className="grid grid-cols-3 gap-3 items-end">
-              <Stepper
-                label="Sets"
-                value={item.sets}
-                min={1}
-                max={10}
-                onChange={(v) => updateItem(item.localId, { sets: Math.max(1, v) })}
-              />
-              {item.exerciseCategory === 'cardio' ? (
-                <>
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Duration (min)</span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={item.duration_minutes ?? ''}
-                      placeholder="—"
-                      onChange={(e) => updateItem(item.localId, { duration_minutes: e.target.value ? Number(e.target.value) : null })}
-                      className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Distance (km)</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={item.distance ?? ''}
-                      placeholder="—"
-                      onChange={(e) => updateItem(item.localId, { distance: e.target.value ? Number(e.target.value) : null })}
-                      className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
-                    />
-                  </label>
-                </>
-              ) : (
-                <>
-                  <Stepper
-                    label="Reps"
-                    value={item.reps ?? 0}
-                    min={0}
-                    max={30}
-                    onChange={(v) => updateItem(item.localId, { reps: v > 0 ? v : null })}
+            {item.exerciseCategory === 'cardio' ? (
+              /* Cardio: uniform sets + duration/distance (no dropset) */
+              <div className="grid grid-cols-3 gap-3 items-end">
+                <Stepper label="Sets" value={item.sets} min={1} max={10} onChange={(v) => updateItem(item.localId, { sets: Math.max(1, v) })} />
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Duration (min)</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={item.duration_minutes ?? ''}
+                    placeholder="—"
+                    onChange={(e) => updateItem(item.localId, { duration_minutes: e.target.value ? Number(e.target.value) : null })}
+                    className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
                   />
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Weight (kg)</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={item.weight ?? ''}
-                      placeholder="—"
-                      onChange={(e) => updateItem(item.localId, { weight: e.target.value ? Number(e.target.value) : null })}
-                      className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
-                    />
-                  </label>
-                </>
-              )}
-            </div>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Distance (km)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={item.distance ?? ''}
+                    placeholder="—"
+                    onChange={(e) => updateItem(item.localId, { distance: e.target.value ? Number(e.target.value) : null })}
+                    className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
+                  />
+                </label>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">
+                    {item.setDetails ? 'Per-set targets' : 'Targets'}
+                  </span>
+                  <button
+                    onClick={() => toggleDropset(item.localId)}
+                    className={`text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full border transition-colors ${
+                      item.setDetails
+                        ? 'border-orange-400 text-orange-500 bg-orange-50 dark:bg-orange-950/20'
+                        : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-orange-400 hover:text-orange-500'
+                    }`}
+                  >
+                    {item.setDetails ? 'Uniform sets' : 'Dropset / per-set'}
+                  </button>
+                </div>
+
+                {item.setDetails ? (
+                  <div className="flex flex-col gap-2">
+                    {item.setDetails.map((d, idx) => (
+                      <div key={idx} className="flex items-end gap-2">
+                        <span className="text-xs font-bold text-zinc-400 w-8 pb-2">#{idx + 1}</span>
+                        <Stepper
+                          label="Reps"
+                          value={d.reps ?? 0}
+                          min={0}
+                          max={30}
+                          onChange={(v) => updateSetDetail(item.localId, idx, { reps: v > 0 ? v : null })}
+                        />
+                        <label className="flex-1 flex flex-col gap-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400 text-center">kg</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={d.weight ?? ''}
+                            placeholder="—"
+                            onChange={(e) => updateSetDetail(item.localId, idx, { weight: e.target.value ? Number(e.target.value) : null })}
+                            className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-2 py-2 text-sm text-center outline-none focus:border-orange-400"
+                          />
+                        </label>
+                        <button
+                          onClick={() => removeSetDetail(item.localId, idx)}
+                          className="text-zinc-300 hover:text-red-500 dark:text-zinc-700 pb-2 text-lg leading-none"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => addSetDetail(item.localId)}
+                      className="self-start rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+                    >
+                      + Add set
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-3 items-end">
+                    <Stepper label="Sets" value={item.sets} min={1} max={10} onChange={(v) => updateItem(item.localId, { sets: Math.max(1, v) })} />
+                    <Stepper label="Reps" value={item.reps ?? 0} min={0} max={30} onChange={(v) => updateItem(item.localId, { reps: v > 0 ? v : null })} />
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Weight (kg)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={item.weight ?? ''}
+                        placeholder="—"
+                        onChange={(e) => updateItem(item.localId, { weight: e.target.value ? Number(e.target.value) : null })}
+                        className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))}
 
