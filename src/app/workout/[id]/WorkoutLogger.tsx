@@ -160,6 +160,12 @@ export default function WorkoutLogger({
   const [restForSet, setRestForSet] = useState<string | null>(null)
   // exerciseId currently being guided as a whole (full-screen set→rest→set…)
   const [guidingExerciseId, setGuidingExerciseId] = useState<number | null>(null)
+  // Setup screen for the whole-exercise guide (edit per-set reps/weight + tempo)
+  const [guideSetup, setGuideSetup] = useState<{
+    exerciseId: number
+    exerciseName: string
+    rows: { localId: string; reps: number; weight: number }[]
+  } | null>(null)
 
   // Sheets & modals
   const [showPicker, setShowPicker] = useState(false)
@@ -400,6 +406,38 @@ export default function WorkoutLogger({
     return localSets
       .filter((s) => s.exerciseId === exerciseId)
       .map((s) => ({ localId: s.localId, goalReps: Math.max(1, s.reps ?? 8), weight: s.weight }))
+  }
+
+  // Open the whole-exercise guide SETUP (review/edit each set's reps + weight,
+  // and the tempo) before starting — mirrors the single-set guided setup.
+  function openGuideSetup(exerciseId: number) {
+    const name = grouped[exerciseId]?.name ?? ''
+    const rows = localSets
+      .filter((s) => s.exerciseId === exerciseId)
+      .map((s) => ({ localId: s.localId, reps: s.reps ?? 8, weight: s.weight ?? 0 }))
+    if (rows.length === 0) return
+    setGuideSetup({ exerciseId, exerciseName: name, rows })
+  }
+
+  function updateGuideRow(localId: string, patch: Partial<{ reps: number; weight: number }>) {
+    setGuideSetup((g) =>
+      g ? { ...g, rows: g.rows.map((r) => (r.localId === localId ? { ...r, ...patch } : r)) } : g,
+    )
+  }
+
+  // Apply the edited per-set targets back onto the sets, then launch the guide.
+  function startGuideAll() {
+    if (!guideSetup) return
+    if (repDuration(tempo) <= 0) return
+    const byId = new Map(guideSetup.rows.map((r) => [r.localId, r]))
+    const nextSets = localSets.map((s) => {
+      const r = byId.get(s.localId)
+      return r ? { ...s, reps: r.reps, weight: r.weight || null } : s
+    })
+    setLocalSets(nextSets)
+    persist(nextSets)
+    setGuidingExerciseId(guideSetup.exerciseId)
+    setGuideSetup(null)
   }
 
   // Called when the whole-exercise guide finishes/exits — write actual reps and
@@ -1059,7 +1097,7 @@ export default function WorkoutLogger({
                   </>
                 )}
                 <button
-                  onClick={() => setGuidingExerciseId(exerciseId)}
+                  onClick={() => openGuideSetup(exerciseId)}
                   title="Guide whole exercise (all sets, with rests)"
                   className="flex items-center gap-1 h-8 px-2.5 rounded-full border border-orange-400 text-orange-500 hover:bg-orange-500 hover:text-white transition-colors text-xs font-bold leading-none"
                 >
@@ -1544,6 +1582,54 @@ export default function WorkoutLogger({
           onStop={handleGuidedStop}
           onCancel={() => setRunningDruh(null)}
         />
+      )}
+
+      {/* Whole-exercise guide SETUP */}
+      {guideSetup && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[75] px-4">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl max-h-[85vh] overflow-y-auto">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-1">Guide exercise</p>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white truncate">{guideSetup.exerciseName}</h3>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Tempo</span>
+              <div className="grid grid-cols-4 gap-2">
+                <Stepper label="Down" sublabel="lower" value={tempo.down} min={0} max={10} onChange={(v) => setTempo((t) => ({ ...t, down: v }))} />
+                <Stepper label="Rest" sublabel="bottom" value={tempo.rest} min={0} max={10} onChange={(v) => setTempo((t) => ({ ...t, rest: v }))} />
+                <Stepper label="Up" sublabel="lift" value={tempo.up} min={0} max={10} onChange={(v) => setTempo((t) => ({ ...t, up: v }))} />
+                <Stepper label="Hold" sublabel="top" value={tempo.hold} min={0} max={10} onChange={(v) => setTempo((t) => ({ ...t, hold: v }))} />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Per-set goals</span>
+              {guideSetup.rows.map((r, i) => (
+                <div key={r.localId} className="flex items-end gap-3">
+                  <span className="text-xs font-bold text-zinc-400 w-8 pb-2">#{i + 1}</span>
+                  <Stepper label="Reps" value={r.reps} min={1} max={50} onChange={(v) => updateGuideRow(r.localId, { reps: v })} />
+                  <Stepper label="Weight" sublabel="kg" value={r.weight} min={0} max={500} step={2.5} onChange={(v) => updateGuideRow(r.localId, { weight: v })} />
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setGuideSetup(null)}
+                className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-2.5 text-sm font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={startGuideAll}
+                className="flex-1 rounded-xl bg-orange-500 hover:bg-orange-600 py-2.5 text-sm font-bold text-white transition-colors"
+              >
+                Start guide
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Whole-exercise guide (set → rest → set …) */}
