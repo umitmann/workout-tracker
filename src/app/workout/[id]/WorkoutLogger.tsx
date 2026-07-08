@@ -13,6 +13,7 @@ import RestTimer from './RestTimer'
 import Stepper from './Stepper'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 import { TempoConfig, repDuration, formatTempo } from '@/lib/tempo'
+import { startsRestOnComplete } from '@/lib/restTimer'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -238,7 +239,7 @@ export default function WorkoutLogger({
     const nextSets = [...localSets, newSet]
     setLocalSets(nextSets)
     // Completing a set (plain add) auto-starts rest for it.
-    if (!isCardio) setRestForSet(newSet.localId)
+    if (startsRestOnComplete(selectedExercise.category)) setRestForSet(newSet.localId)
     setWeight('')
     setReps('')
     setDuration('')
@@ -261,17 +262,17 @@ export default function WorkoutLogger({
   // Tapping a set's ✓ commits it (done) and auto-starts rest for that set.
   function toggleDone(localId: string) {
     let becameDone = false
-    let isCardio = false
+    let category: string | null = null
     const nextSets = localSets.map((s) => {
       if (s.localId !== localId) return s
       becameDone = !s.done
-      isCardio = s.exerciseCategory === 'cardio'
+      category = s.exerciseCategory
       return { ...s, done: !s.done }
     })
     setLocalSets(nextSets)
     setSavedOnce(true)
     persist(nextSets)
-    if (becameDone && !isCardio) setRestForSet(localId)
+    if (becameDone && startsRestOnComplete(category)) setRestForSet(localId)
   }
 
   // ── Guided set (DRUH) ──────────────────────────────────────────────────────

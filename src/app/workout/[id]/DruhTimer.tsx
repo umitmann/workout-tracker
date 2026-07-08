@@ -1,15 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import {
-  TempoConfig,
-  TempoPhase,
-  TEMPO_PHASE_CUE,
-  phaseAt,
-  repDuration,
-  secondsLeft,
-  formatTempo,
-} from '@/lib/tempo'
+import { TempoConfig, TempoPhase, TEMPO_PHASE_CUE, repDuration, formatTempo } from '@/lib/tempo'
+import { guidedStateAt, stopEarlyReps, isTickSecond } from '@/lib/guidedTimer'
 
 // Full-bleed background colour per phase so the phase is readable peripherally,
 // across the room, and through sweat/glare. Paired with the verb (never colour
@@ -56,10 +49,11 @@ export default function DruhTimer({
   onStop: (completedReps: number) => void
   onCancel: () => void
 }) {
+  const initial = guidedStateAt(tempo, goalReps, 0)
   const [audio, setAudio] = useState(audioDefault)
-  const [rep, setRep] = useState(1)
-  const [phase, setPhase] = useState<TempoPhase>('down')
-  const [secs, setSecs] = useState(secondsLeft(tempo.down || repDuration(tempo)))
+  const [rep, setRep] = useState(initial.rep)
+  const [phase, setPhase] = useState<TempoPhase>(initial.phase)
+  const [secs, setSecs] = useState(initial.secondsLeft)
 
   const rafRef = useRef<number | null>(null)
   const startRef = useRef<number>(0)
@@ -82,35 +76,32 @@ export default function DruhTimer({
 
     function frame(now: number) {
       const elapsed = (now - startRef.current) / 1000
-      const completed = Math.floor(elapsed / repDur)
-      const inRep = elapsed - completed * repDur
-      const currentRep = completed + 1
+      const s = guidedStateAt(tempo, goalReps, elapsed)
 
-      if (currentRep > goalReps) {
+      if (s.finished) {
         finish(goalReps)
         return
       }
 
-      const state = phaseAt(tempo, inRep)
-      const left = secondsLeft(state.remaining)
-      const phaseKey = `${currentRep}:${state.phase}`
+      const left = s.secondsLeft
+      const phaseKey = `${s.rep}:${s.phase}`
 
       // Transition tone + haptic on phase change
       if (phaseKey !== lastPhaseRef.current) {
         lastPhaseRef.current = phaseKey
         lastTickRef.current = left // seed so we don't also tick this same second
-        if (audioRef.current && ctxRef.current) tone(ctxRef.current, PHASE_TONE[state.phase], 140)
+        if (audioRef.current && ctxRef.current) tone(ctxRef.current, PHASE_TONE[s.phase], 140)
         if (audioRef.current && typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(45)
       } else if (left !== lastTickRef.current) {
         // Per-second tick on the final 3 seconds of a phase ("get ready")
-        if (left >= 1 && left <= 3 && audioRef.current && ctxRef.current) {
+        if (isTickSecond(left) && audioRef.current && ctxRef.current) {
           tone(ctxRef.current, 700 + (3 - left) * 120, 70, 0.18)
         }
         lastTickRef.current = left
       }
 
-      setRep(currentRep)
-      setPhase(state.phase)
+      setRep(s.rep)
+      setPhase(s.phase)
       setSecs(left)
       rafRef.current = requestAnimationFrame(frame)
     }
@@ -132,8 +123,7 @@ export default function DruhTimer({
 
   function handleStopEarly() {
     const elapsed = (performance.now() - startRef.current) / 1000
-    const completed = Math.min(goalReps, Math.floor(elapsed / repDur))
-    finish(completed)
+    finish(stopEarlyReps(tempo, goalReps, elapsed))
   }
 
   const cue = TEMPO_PHASE_CUE[phase]

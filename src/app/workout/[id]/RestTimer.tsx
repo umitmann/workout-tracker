@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { restViewAt } from '@/lib/restTimer'
 
 function beep() {
   if (typeof window === 'undefined' || !('AudioContext' in window)) return
@@ -17,13 +18,6 @@ function beep() {
   osc.start()
   osc.stop(ctx.currentTime + 0.4)
   osc.onended = () => ctx.close().catch(() => {})
-}
-
-function fmt(sec: number): string {
-  const s = Math.max(0, Math.round(sec))
-  const m = Math.floor(s / 60)
-  const r = s % 60
-  return `${m}:${String(r).padStart(2, '0')}`
 }
 
 // Non-blocking, self-contained rest timer docked in the exercise panel.
@@ -60,7 +54,8 @@ export default function RestTimer({
     function frame(now: number) {
       const e = (now - startRef.current) / 1000
       setElapsed(e)
-      if (modeRef.current === 'fixed' && !alertedRef.current && e >= targetRef.current) {
+      const { alarmDue } = restViewAt(modeRef.current, targetRef.current, e)
+      if (alarmDue && !alertedRef.current) {
         alertedRef.current = true
         if (audio) beep()
         if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([80, 40, 80])
@@ -84,9 +79,7 @@ export default function RestTimer({
     onSettingsChange?.(m, targetRef.current)
   }
 
-  const remaining = target - elapsed
-  const overtime = mode === 'fixed' && remaining < 0
-  const display = mode === 'fixed' ? fmt(Math.abs(remaining)) : fmt(elapsed)
+  const { display, overtime } = restViewAt(mode, target, elapsed)
 
   return (
     <div className="rounded-2xl border-2 border-orange-400 bg-orange-50 dark:bg-orange-950/20 px-4 py-3 flex flex-col gap-2">
