@@ -68,7 +68,7 @@ export default function RestTimer({
   }, [])
 
   function adjust(delta: number) {
-    const next = Math.max(15, targetRef.current + delta)
+    const next = Math.max(5, targetRef.current + delta)
     if (next > elapsed) alertedRef.current = false // re-arm the alert
     setTarget(next)
     onSettingsChange?.(modeRef.current, next)
@@ -108,8 +108,8 @@ export default function RestTimer({
         </button>
         {mode === 'fixed' && (
           <>
-            <button onClick={() => adjust(-15)} className="rounded-full border border-orange-300 dark:border-orange-800 w-8 py-1 font-bold text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors">−15</button>
-            <button onClick={() => adjust(15)} className="rounded-full border border-orange-300 dark:border-orange-800 w-8 py-1 font-bold text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors">+15</button>
+            <button onClick={() => adjust(-5)} className="rounded-full border border-orange-300 dark:border-orange-800 w-8 py-1 font-bold text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors">−5</button>
+            <button onClick={() => adjust(5)} className="rounded-full border border-orange-300 dark:border-orange-800 w-8 py-1 font-bold text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors">+5</button>
             <span className="text-orange-500/70 font-semibold">target {target}s</span>
           </>
         )}

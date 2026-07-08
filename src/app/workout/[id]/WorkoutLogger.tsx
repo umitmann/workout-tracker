@@ -145,6 +145,7 @@ export default function WorkoutLogger({
     exercise: SlimExercise
     goalReps: string
     weight: string
+    targetLocalId?: string // adjust + run guided for an existing (scheduled) set
   } | null>(null)
   const [runningDruh, setRunningDruh] = useState<{
     exercise: SlimExercise
@@ -311,20 +312,33 @@ export default function WorkoutLogger({
       exercise: guidedSetup.exercise,
       goalReps: goal,
       weight: guidedSetup.weight ? Number(guidedSetup.weight) : null,
+      targetLocalId: guidedSetup.targetLocalId,
     })
     setGuidedSetup(null)
   }
 
-  // Start a guided set for an EXISTING (usually template-scheduled) set row,
-  // using its scheduled reps/weight as the goal and the current tempo.
-  function startGuidedForSet(s: LocalSet) {
-    if (repDuration(tempo) <= 0) return
+  // Open the adjustable guided setup (tempo/reps/weight) for an existing set.
+  function openGuidedSetupForSet(s: LocalSet) {
     const ex = exercises.find((e) => e.id === s.exerciseId)
     if (!ex) return
-    setRunningDruh({
+    setGuidedSetup({
       exercise: ex,
-      goalReps: Math.max(1, s.reps ?? 8),
-      weight: s.weight,
+      goalReps: s.reps != null ? String(s.reps) : '8',
+      weight: s.weight != null ? String(s.weight) : '',
+      targetLocalId: s.localId,
+    })
+  }
+
+  // From the inline set editor: persist the currently-typed weight/reps, then
+  // open guided setup seeded with those values (same interface as elsewhere).
+  function guidedFromEdit(s: LocalSet) {
+    saveEditSet(s.localId)
+    const ex = exercises.find((e) => e.id === s.exerciseId)
+    if (!ex) return
+    setGuidedSetup({
+      exercise: ex,
+      goalReps: editReps || (s.reps != null ? String(s.reps) : '8'),
+      weight: editWeight || (s.weight != null ? String(s.weight) : ''),
       targetLocalId: s.localId,
     })
   }
@@ -1076,6 +1090,15 @@ export default function WorkoutLogger({
                         </>
                       )}
                     </div>
+                    {s.exerciseCategory !== 'cardio' && (
+                      <button
+                        onMouseDown={(e) => { e.preventDefault(); guidedFromEdit(s) }}
+                        title="Guided set (adjust tempo, reps, weight)"
+                        className="shrink-0 rounded-md border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/20 px-2 py-1 text-xs font-bold transition-colors leading-none"
+                      >
+                        ▶
+                      </button>
+                    )}
                     <button onClick={() => setEditingId(null)} className="text-zinc-300 dark:text-zinc-700 hover:text-red-500 transition-colors text-sm shrink-0">✕</button>
                   </div>
                 ) : (
@@ -1134,8 +1157,8 @@ export default function WorkoutLogger({
                     <div className="flex items-center gap-1.5 justify-end">
                       {!s.done && s.exerciseCategory !== 'cardio' && (
                         <button
-                          onClick={(e) => { e.stopPropagation(); startGuidedForSet(s) }}
-                          title="Guided set (tempo timer)"
+                          onClick={(e) => { e.stopPropagation(); openGuidedSetupForSet(s) }}
+                          title="Guided set (adjust tempo, reps, weight)"
                           className="shrink-0 rounded-md border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/20 px-2 py-1 text-xs font-bold transition-colors leading-none"
                         >
                           ▶
@@ -1192,6 +1215,32 @@ export default function WorkoutLogger({
             + Add exercise
           </button>
         )}
+
+        {/* Rest settings — always adjustable, not just after a set */}
+        <div className="flex items-center gap-2 text-xs flex-wrap">
+          <span className="font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Rest</span>
+          <button
+            onClick={() => setRestMode((m) => (m === 'fixed' ? 'variable' : 'fixed'))}
+            className="rounded-full border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+          >
+            {restMode === 'fixed' ? 'Fixed' : 'Variable'}
+          </button>
+          {restMode === 'fixed' && (
+            <div className="flex items-center gap-1">
+              <button onClick={() => setRestTarget((t) => Math.max(5, t - 5))} className="rounded-full border border-zinc-200 dark:border-zinc-700 w-8 py-1.5 font-bold text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors">−5</button>
+              <span className="font-black tabular-nums text-zinc-700 dark:text-zinc-300 w-12 text-center">{restTarget}s</span>
+              <button onClick={() => setRestTarget((t) => t + 5)} className="rounded-full border border-zinc-200 dark:border-zinc-700 w-8 py-1.5 font-bold text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors">+5</button>
+            </div>
+          )}
+          {restForSet === null && localSets.length > 0 && (
+            <button
+              onClick={() => setRestForSet(localSets[localSets.length - 1].localId)}
+              className="ml-auto rounded-full bg-orange-500 hover:bg-orange-600 px-4 py-1.5 font-bold uppercase tracking-wide text-white transition-colors"
+            >
+              Start rest
+            </button>
+          )}
+        </div>
 
       </main>
 
