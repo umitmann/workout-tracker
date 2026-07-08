@@ -425,18 +425,64 @@ export default function WorkoutLogger({
     )
   }
 
-  // Apply the edited per-set targets back onto the sets, then launch the guide.
+  function addGuideRow() {
+    setGuideSetup((g) => {
+      if (!g) return g
+      const last = g.rows[g.rows.length - 1] ?? { reps: 8, weight: 0 }
+      return { ...g, rows: [...g.rows, { localId: crypto.randomUUID(), reps: last.reps, weight: last.weight }] }
+    })
+  }
+
+  function removeGuideRow(localId: string) {
+    setGuideSetup((g) => {
+      if (!g || g.rows.length <= 1) return g // keep at least one set
+      return { ...g, rows: g.rows.filter((r) => r.localId !== localId) }
+    })
+  }
+
+  // Apply the edited per-set targets back onto the sets (adding/removing rows as
+  // needed), then launch the guide.
   function startGuideAll() {
     if (!guideSetup) return
     if (repDuration(tempo) <= 0) return
-    const byId = new Map(guideSetup.rows.map((r) => [r.localId, r]))
-    const nextSets = localSets.map((s) => {
-      const r = byId.get(s.localId)
-      return r ? { ...s, reps: r.reps, weight: r.weight || null } : s
+    const exerciseId = guideSetup.exerciseId
+    const category = exercises.find((e) => e.id === exerciseId)?.category ?? null
+
+    // Build the exercise's set list from the setup rows (reuse existing sets by
+    // localId, create new ones for added rows).
+    const rebuilt: LocalSet[] = guideSetup.rows.map((r) => {
+      const existing = localSets.find((s) => s.localId === r.localId)
+      if (existing) return { ...existing, reps: r.reps, weight: r.weight || null }
+      return {
+        localId: r.localId,
+        exerciseId,
+        exerciseName: guideSetup.exerciseName,
+        exerciseCategory: category,
+        weight: r.weight || null,
+        reps: r.reps,
+        duration_minutes: null,
+        distance: null,
+        rest_seconds: null,
+        done: false,
+      }
     })
+
+    // Splice the rebuilt sets into localSets at the exercise's first position,
+    // dropping the exercise's old sets.
+    const nextSets: LocalSet[] = []
+    let inserted = false
+    for (const s of localSets) {
+      if (s.exerciseId === exerciseId) {
+        if (!inserted) { nextSets.push(...rebuilt); inserted = true }
+      } else {
+        nextSets.push(s)
+      }
+    }
+    if (!inserted) nextSets.push(...rebuilt)
+
     setLocalSets(nextSets)
     persist(nextSets)
-    setGuidingExerciseId(guideSetup.exerciseId)
+    setGuidingExerciseId(exerciseId)
     setGuideSetup(null)
   }
 
@@ -1610,8 +1656,21 @@ export default function WorkoutLogger({
                   <span className="text-xs font-bold text-zinc-400 w-8 pb-2">#{i + 1}</span>
                   <Stepper label="Reps" value={r.reps} min={1} max={50} onChange={(v) => updateGuideRow(r.localId, { reps: v })} />
                   <Stepper label="Weight" sublabel="kg" value={r.weight} min={0} max={500} step={2.5} onChange={(v) => updateGuideRow(r.localId, { weight: v })} />
+                  <button
+                    onClick={() => removeGuideRow(r.localId)}
+                    disabled={guideSetup.rows.length <= 1}
+                    className="text-zinc-300 hover:text-red-500 dark:text-zinc-700 pb-2 text-lg leading-none disabled:opacity-30"
+                  >
+                    ✕
+                  </button>
                 </div>
               ))}
+              <button
+                onClick={addGuideRow}
+                className="self-start rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+              >
+                + Add set
+              </button>
             </div>
 
             <div className="flex gap-2">
