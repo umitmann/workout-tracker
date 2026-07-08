@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-const { parseTempo, formatTempo, repDuration, phaseAt, TEMPO_PHASES } = await import(
+const { parseTempo, formatTempo, repDuration, phaseAt, TEMPO_PHASES, TEMPO_PHASE_CUE, secondsLeft } = await import(
   '../src/lib/tempo.ts'
 )
 
@@ -60,4 +60,23 @@ test('phaseAt clamps out-of-range elapsed into the rep', () => {
 
 test('TEMPO_PHASES is the canonical order', () => {
   assert.deepEqual(TEMPO_PHASES, ['down', 'rest', 'up', 'hold'])
+})
+
+test('every phase has a plain-language action verb', () => {
+  for (const p of TEMPO_PHASES) {
+    assert.ok(TEMPO_PHASE_CUE[p].verb.length > 0)
+  }
+  assert.equal(TEMPO_PHASE_CUE.down.verb, 'LOWER')
+  assert.equal(TEMPO_PHASE_CUE.up.verb, 'LIFT')
+  // "let go" is intentionally avoided (implies dropping the weight)
+  for (const p of TEMPO_PHASES) assert.notEqual(TEMPO_PHASE_CUE[p].verb.toLowerCase(), 'let go')
+})
+
+test('secondsLeft counts down in whole seconds, never fractional', () => {
+  assert.equal(secondsLeft(3), 3)
+  assert.equal(secondsLeft(2.9), 3)
+  assert.equal(secondsLeft(2.1), 3)
+  assert.equal(secondsLeft(2.0), 2)
+  assert.equal(secondsLeft(0.4), 1)
+  assert.equal(secondsLeft(0), 0)
 })

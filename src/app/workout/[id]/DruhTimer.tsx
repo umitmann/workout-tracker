@@ -4,13 +4,24 @@ import { useEffect, useRef, useState } from 'react'
 import {
   TempoConfig,
   TempoPhase,
-  TEMPO_PHASE_LABEL,
+  TEMPO_PHASE_CUE,
   phaseAt,
   repDuration,
+  secondsLeft,
   formatTempo,
 } from '@/lib/tempo'
 
-// Distinct tones per phase so the athlete can keep tempo without looking.
+// Full-bleed background colour per phase so the phase is readable peripherally,
+// across the room, and through sweat/glare. Paired with the verb (never colour
+// alone) for colourblind safety.
+const PHASE_BG: Record<TempoPhase, string> = {
+  down: 'bg-sky-600',
+  rest: 'bg-amber-500',
+  up: 'bg-emerald-600',
+  hold: 'bg-amber-500',
+}
+
+// Distinct transition tone per phase so it's identifiable by ear alone.
 const PHASE_TONE: Record<TempoPhase, number> = {
   down: 392, // G4
   rest: 330, // E4
@@ -18,14 +29,14 @@ const PHASE_TONE: Record<TempoPhase, number> = {
   hold: 440, // A4
 }
 
-function beep(ctx: AudioContext, freq: number, ms = 120) {
+function tone(ctx: AudioContext, freq: number, ms: number, volume = 0.25) {
   const osc = ctx.createOscillator()
   const gain = ctx.createGain()
   osc.frequency.value = freq
   osc.type = 'sine'
-  gain.gain.setValueAtTime(0.001, ctx.currentTime)
-  gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01)
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + ms / 1000)
+  gain.gain.setValueAtTime(0.0001, ctx.currentTime)
+  gain.gain.exponentialRampToValueAtTime(volume, ctx.currentTime + 0.01)
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + ms / 1000)
   osc.connect(gain)
   gain.connect(ctx.destination)
   osc.start()
@@ -48,25 +59,23 @@ export default function DruhTimer({
   const [audio, setAudio] = useState(audioDefault)
   const [rep, setRep] = useState(1)
   const [phase, setPhase] = useState<TempoPhase>('down')
-  const [remaining, setRemaining] = useState(0)
+  const [secs, setSecs] = useState(secondsLeft(tempo.down || repDuration(tempo)))
 
   const rafRef = useRef<number | null>(null)
   const startRef = useRef<number>(0)
   const lastPhaseRef = useRef<string>('')
+  const lastTickRef = useRef<number>(-1)
   const audioRef = useRef(audio)
   const ctxRef = useRef<AudioContext | null>(null)
   const doneRef = useRef(false)
 
   audioRef.current = audio
-
   const repDur = repDuration(tempo)
 
   useEffect(() => {
     if (repDur <= 0) return
-    // Lazily create the audio context on mount (inside a user-gesture-opened modal).
     if (typeof window !== 'undefined' && 'AudioContext' in window) {
       ctxRef.current = new AudioContext()
-      // Autoplay policies can start the context suspended; resume it.
       ctxRef.current.resume?.().catch(() => {})
     }
     startRef.current = performance.now()
@@ -77,25 +86,32 @@ export default function DruhTimer({
       const inRep = elapsed - completed * repDur
       const currentRep = completed + 1
 
-      // Reached the goal — stop automatically.
       if (currentRep > goalReps) {
         finish(goalReps)
         return
       }
 
       const state = phaseAt(tempo, inRep)
-      const key = `${currentRep}:${state.phase}`
-      if (key !== lastPhaseRef.current) {
-        lastPhaseRef.current = key
-        if (audioRef.current && ctxRef.current) beep(ctxRef.current, PHASE_TONE[state.phase])
-        if (audioRef.current && typeof navigator !== 'undefined' && navigator.vibrate) {
-          navigator.vibrate(40)
+      const left = secondsLeft(state.remaining)
+      const phaseKey = `${currentRep}:${state.phase}`
+
+      // Transition tone + haptic on phase change
+      if (phaseKey !== lastPhaseRef.current) {
+        lastPhaseRef.current = phaseKey
+        lastTickRef.current = left // seed so we don't also tick this same second
+        if (audioRef.current && ctxRef.current) tone(ctxRef.current, PHASE_TONE[state.phase], 140)
+        if (audioRef.current && typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(45)
+      } else if (left !== lastTickRef.current) {
+        // Per-second tick on the final 3 seconds of a phase ("get ready")
+        if (left >= 1 && left <= 3 && audioRef.current && ctxRef.current) {
+          tone(ctxRef.current, 700 + (3 - left) * 120, 70, 0.18)
         }
+        lastTickRef.current = left
       }
 
       setRep(currentRep)
       setPhase(state.phase)
-      setRemaining(state.remaining)
+      setSecs(left)
       rafRef.current = requestAnimationFrame(frame)
     }
 
@@ -115,58 +131,50 @@ export default function DruhTimer({
   }
 
   function handleStopEarly() {
-    // Record fully completed reps only (current rep is in progress).
     const elapsed = (performance.now() - startRef.current) / 1000
     const completed = Math.min(goalReps, Math.floor(elapsed / repDur))
     finish(completed)
   }
 
+  const cue = TEMPO_PHASE_CUE[phase]
+
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[80] px-4">
-      <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col items-center gap-5 shadow-2xl">
-        <div className="w-full flex items-center justify-between">
-          <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
-            Tempo {formatTempo(tempo)}
-          </p>
-          <button
-            onClick={() => setAudio((a) => !a)}
-            className={`text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full border transition-colors ${
-              audio
-                ? 'border-orange-400 text-orange-500'
-                : 'border-zinc-300 dark:border-zinc-700 text-zinc-400'
-            }`}
-          >
-            {audio ? '🔊 Audio on' : '🔇 Audio off'}
-          </button>
-        </div>
-
-        <div className="flex flex-col items-center gap-1">
-          <p className="text-6xl font-black text-orange-500 tabular-nums leading-none">
-            {TEMPO_PHASE_LABEL[phase]}
-          </p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-white tabular-nums">
-            {remaining.toFixed(1)}s
-          </p>
-        </div>
-
-        <p className="text-sm font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+    <div className={`fixed inset-0 z-[80] flex flex-col ${PHASE_BG[phase]} transition-colors duration-150 text-white`}>
+      {/* Top bar: exercise progress + audio toggle */}
+      <div className="flex items-center justify-between px-6 pt-6">
+        <p className="text-sm font-bold uppercase tracking-widest text-white/80">
           Rep {Math.min(rep, goalReps)} / {goalReps}
         </p>
+        <button
+          onClick={() => setAudio((a) => !a)}
+          className="text-xs font-bold uppercase tracking-wide px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 transition-colors"
+        >
+          {audio ? '🔊 Audio on' : '🔇 Audio off'}
+        </button>
+      </div>
 
-        <div className="flex gap-2 w-full">
-          <button
-            onClick={onCancel}
-            className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-3 text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleStopEarly}
-            className="flex-1 rounded-xl bg-orange-500 hover:bg-orange-600 py-3 text-sm font-bold text-white transition-colors"
-          >
-            Stop &amp; log
-          </button>
-        </div>
+      {/* Center: giant verb + whole-second countdown */}
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 px-6 text-center">
+        <p className="text-6xl sm:text-7xl font-black tracking-tight leading-none drop-shadow">{cue.verb}</p>
+        <p className="text-lg font-semibold text-white/80">{cue.sub}</p>
+        <p className="mt-6 text-[8rem] leading-none font-black tabular-nums drop-shadow">{secs}</p>
+        <p className="mt-4 text-sm font-bold uppercase tracking-[0.3em] text-white/70">Tempo {formatTempo(tempo)}</p>
+      </div>
+
+      {/* Bottom: actions */}
+      <div className="flex gap-3 px-6 pb-8">
+        <button
+          onClick={onCancel}
+          className="flex-1 rounded-2xl bg-white/15 hover:bg-white/25 py-4 text-base font-bold transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleStopEarly}
+          className="flex-1 rounded-2xl bg-white py-4 text-base font-black text-zinc-900 transition-colors hover:bg-white/90"
+        >
+          Stop &amp; log
+        </button>
       </div>
     </div>
   )

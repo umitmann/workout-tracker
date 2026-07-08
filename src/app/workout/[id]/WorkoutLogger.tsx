@@ -10,8 +10,9 @@ import ExerciseInfoModal from './ExerciseInfoModal'
 import LastPerfModal from './LastPerfModal'
 import DruhTimer from './DruhTimer'
 import RestTimer from './RestTimer'
+import Stepper from './Stepper'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
-import { TempoConfig, repDuration } from '@/lib/tempo'
+import { TempoConfig, repDuration, formatTempo } from '@/lib/tempo'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ type LocalSet = {
   duration_minutes: number | null
   distance: number | null
   rest_seconds: number | null
+  done: boolean
 }
 
 type ExerciseDetails = {
@@ -85,6 +87,7 @@ export default function WorkoutLogger({
         duration_minutes: s.duration_minutes,
         distance: s.distance,
         rest_seconds: s.rest_seconds ?? null,
+        done: true,
       }))
     }
     if (initialTemplate && workout.status !== 'completed') {
@@ -101,6 +104,7 @@ export default function WorkoutLogger({
           duration_minutes: ex.duration_minutes ?? null,
           distance: ex.distance ?? null,
           rest_seconds: null,
+          done: false,
         }))
       })
     }
@@ -229,9 +233,12 @@ export default function WorkoutLogger({
       duration_minutes: isCardio && duration ? Number(duration) : null,
       distance: isCardio && distance ? Number(distance) : null,
       rest_seconds: null,
+      done: true,
     }
     const nextSets = [...localSets, newSet]
     setLocalSets(nextSets)
+    // Completing a set (plain add) auto-starts rest for it.
+    if (!isCardio) setRestForSet(newSet.localId)
     setWeight('')
     setReps('')
     setDuration('')
@@ -249,6 +256,22 @@ export default function WorkoutLogger({
 
   function handleDeleteSet(localId: string) {
     setLocalSets((prev) => prev.filter((s) => s.localId !== localId))
+  }
+
+  // Tapping a set's ✓ commits it (done) and auto-starts rest for that set.
+  function toggleDone(localId: string) {
+    let becameDone = false
+    let isCardio = false
+    const nextSets = localSets.map((s) => {
+      if (s.localId !== localId) return s
+      becameDone = !s.done
+      isCardio = s.exerciseCategory === 'cardio'
+      return { ...s, done: !s.done }
+    })
+    setLocalSets(nextSets)
+    setSavedOnce(true)
+    persist(nextSets)
+    if (becameDone && !isCardio) setRestForSet(localId)
   }
 
   // ── Guided set (DRUH) ──────────────────────────────────────────────────────
@@ -290,6 +313,7 @@ export default function WorkoutLogger({
       duration_minutes: null,
       distance: null,
       rest_seconds: null,
+      done: true,
     }
     const nextSets = [...localSets, newSet]
     setLocalSets(nextSets)
@@ -302,11 +326,6 @@ export default function WorkoutLogger({
   }
 
   // ── Rest timer ─────────────────────────────────────────────────────────────
-
-  function startRestForLastSet() {
-    const last = localSets[localSets.length - 1]
-    setRestForSet(last ? last.localId : '')
-  }
 
   function finishRest(elapsedSeconds: number) {
     const target = restForSet
@@ -389,6 +408,7 @@ export default function WorkoutLogger({
           duration_minutes: ex.duration_minutes ?? null,
           distance: ex.distance ?? null,
           rest_seconds: null,
+          done: false,
         })
       }
     }
@@ -469,6 +489,7 @@ export default function WorkoutLogger({
         duration_minutes: null,
         distance: null,
         rest_seconds: null,
+        done: false,
       })),
     )
     setLocalSets(newSets)
@@ -602,10 +623,10 @@ export default function WorkoutLogger({
             />
             <button
               onClick={openGuidedSetup}
-              title="Guided set with tempo timer"
+              title="Guided set with DRUH tempo timer"
               className="shrink-0 rounded-lg border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/20 px-3 py-2 text-sm font-bold transition-colors"
             >
-              ▶ Start
+              ▶ Guided
             </button>
             <button
               onClick={handleAddSet}
@@ -828,9 +849,10 @@ export default function WorkoutLogger({
         {restForSet !== null && (
           <RestTimer
             key={restForSet}
-            mode={restMode}
-            targetSeconds={restTarget}
+            initialMode={restMode}
+            initialTarget={restTarget}
             onDone={finishRest}
+            onSettingsChange={(m, t) => { setRestMode(m); setRestTarget(t) }}
           />
         )}
 
@@ -984,9 +1006,24 @@ export default function WorkoutLogger({
                 ) : (
                   <div
                     key={s.localId}
-                    className="grid grid-cols-[2rem_1fr_1fr_2rem] items-center gap-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-4 py-3 cursor-pointer hover:border-orange-400 dark:hover:border-orange-500 transition-colors"
+                    className={`grid grid-cols-[1.75rem_1.75rem_1fr_1fr_1.75rem] items-center gap-2 rounded-xl border px-3 py-3 cursor-pointer transition-colors ${
+                      s.done
+                        ? 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-orange-400 dark:hover:border-orange-500'
+                        : 'bg-zinc-50/60 dark:bg-zinc-900/40 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-orange-400'
+                    }`}
                     onClick={() => startEditSet(s)}
                   >
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleDone(s.localId) }}
+                      title={s.done ? 'Completed — tap to undo' : 'Mark set done (starts rest)'}
+                      className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${
+                        s.done
+                          ? 'bg-emerald-500 border-emerald-500 text-white'
+                          : 'border-zinc-300 dark:border-zinc-600 text-transparent hover:border-emerald-400'
+                      }`}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6l3 3 5-6" /></svg>
+                    </button>
                     <span className="text-xs font-bold text-zinc-400 dark:text-zinc-600">#{i + 1}</span>
                     {s.exerciseCategory === 'cardio' ? (
                       <>
@@ -1070,36 +1107,6 @@ export default function WorkoutLogger({
           </button>
         )}
 
-        {/* Rest timer controls */}
-        <div className="flex items-center gap-2 text-xs">
-          <span className="font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Rest</span>
-          <button
-            onClick={() => setRestMode((m) => (m === 'fixed' ? 'variable' : 'fixed'))}
-            disabled={restForSet !== null}
-            className="rounded-full border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 disabled:opacity-40 transition-colors"
-          >
-            {restMode === 'fixed' ? 'Fixed' : 'Variable'}
-          </button>
-          {restMode === 'fixed' && (
-            <select
-              value={restTarget}
-              onChange={(e) => setRestTarget(Number(e.target.value))}
-              disabled={restForSet !== null}
-              className="rounded-full border border-zinc-200 dark:border-zinc-700 bg-transparent px-2 py-1.5 font-bold text-zinc-600 dark:text-zinc-400 disabled:opacity-40"
-            >
-              {[30, 45, 60, 90, 120, 180].map((s) => (
-                <option key={s} value={s}>{s}s</option>
-              ))}
-            </select>
-          )}
-          <button
-            onClick={startRestForLastSet}
-            disabled={restForSet !== null}
-            className="ml-auto rounded-full bg-orange-500 hover:bg-orange-600 px-4 py-1.5 font-bold uppercase tracking-wide text-white disabled:opacity-40 transition-colors"
-          >
-            Start rest
-          </button>
-        </div>
       </main>
 
       {/* Exercise info spinner + modal */}
@@ -1335,20 +1342,15 @@ export default function WorkoutLogger({
               </label>
             </div>
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Tempo (sec per phase)</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Tempo (sec per phase)</span>
+                <span className="text-xs font-black tabular-nums text-orange-500">{formatTempo(tempo)}</span>
+              </div>
               <div className="grid grid-cols-4 gap-2">
-                {(['down', 'rest', 'up', 'hold'] as const).map((phase) => (
-                  <label key={phase} className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400 text-center">{phase}</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={tempo[phase]}
-                      onChange={(e) => setTempo((t) => ({ ...t, [phase]: Math.max(0, Number(e.target.value) || 0) }))}
-                      className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-2 py-2 text-sm text-center outline-none focus:border-orange-400"
-                    />
-                  </label>
-                ))}
+                <Stepper label="Down" sublabel="lower" value={tempo.down} min={0} max={10} onChange={(v) => setTempo((t) => ({ ...t, down: v }))} />
+                <Stepper label="Rest" sublabel="bottom" value={tempo.rest} min={0} max={10} onChange={(v) => setTempo((t) => ({ ...t, rest: v }))} />
+                <Stepper label="Up" sublabel="lift" value={tempo.up} min={0} max={10} onChange={(v) => setTempo((t) => ({ ...t, up: v }))} />
+                <Stepper label="Hold" sublabel="top" value={tempo.hold} min={0} max={10} onChange={(v) => setTempo((t) => ({ ...t, hold: v }))} />
               </div>
             </div>
             <div className="flex gap-2">
