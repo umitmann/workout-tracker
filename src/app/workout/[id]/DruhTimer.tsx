@@ -143,12 +143,13 @@ export default function DruhTimer({
         </button>
       </div>
 
-      {/* Center: giant verb + whole-second countdown */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-2 px-6 text-center">
+      {/* Center: direction symbol + giant verb + whole-second countdown */}
+      <div className="flex-1 flex flex-col items-center justify-center gap-1 px-6 text-center">
+        <p className={`text-7xl leading-none drop-shadow ${phase === 'down' ? 'translate-y-1' : phase === 'up' ? '-translate-y-1' : ''} transition-transform`}>{cue.icon}</p>
         <p className="text-6xl sm:text-7xl font-black tracking-tight leading-none drop-shadow">{cue.verb}</p>
         <p className="text-lg font-semibold text-white/80">{cue.sub}</p>
-        <p className="mt-6 text-[8rem] leading-none font-black tabular-nums drop-shadow">{secs}</p>
-        <p className="mt-4 text-sm font-bold uppercase tracking-[0.3em] text-white/70">Tempo {formatTempo(tempo)}</p>
+        <p className="mt-5 text-[8rem] leading-none font-black tabular-nums drop-shadow">{secs}</p>
+        <p className="mt-3 text-sm font-bold uppercase tracking-[0.3em] text-white/70">Tempo {formatTempo(tempo)}</p>
       </div>
 
       {/* Bottom: actions */}

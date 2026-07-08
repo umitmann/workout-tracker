@@ -20,11 +20,12 @@ export const TEMPO_PHASE_LABEL: Record<TempoPhase, string> = {
 
 // Plain-language action cues shown BIG during a guided set. "Lower" (not "let
 // go") communicates a controlled eccentric; both pauses are isometric "holds".
-export const TEMPO_PHASE_CUE: Record<TempoPhase, { verb: string; sub: string }> = {
-  down: { verb: 'LOWER', sub: 'control it down' },
-  rest: { verb: 'HOLD', sub: 'pause at the bottom' },
-  up: { verb: 'LIFT', sub: 'drive up' },
-  hold: { verb: 'HOLD', sub: 'squeeze at the top' },
+// `icon` is a directional symbol reinforcing the verb (↓ lower, ↑ lift, ⏸ hold).
+export const TEMPO_PHASE_CUE: Record<TempoPhase, { verb: string; sub: string; icon: string }> = {
+  down: { verb: 'LOWER', sub: 'control it down', icon: '↓' },
+  rest: { verb: 'HOLD', sub: 'pause at the bottom', icon: '⏸' },
+  up: { verb: 'LIFT', sub: 'drive up', icon: '↑' },
+  hold: { verb: 'HOLD', sub: 'squeeze at the top', icon: '⏸' },
 }
 
 // Whole seconds remaining in a phase, counting down (3 → 2 → 1); never fractional.

@@ -17,6 +17,7 @@ export type GuidedState = {
   phase: TempoPhase
   verb: string
   sub: string
+  icon: string // directional symbol (↓ ↑ ⏸)
   secondsLeft: number // whole seconds, counting down
   completedReps: number // fully finished reps so far (capped at goal)
   finished: boolean // goal reached (or degenerate zero-length tempo)
@@ -51,6 +52,7 @@ export function guidedStateAt(tempo: TempoConfig, goalReps: number, elapsed: num
       phase: 'hold',
       verb: cue.verb,
       sub: cue.sub,
+      icon: cue.icon,
       secondsLeft: 0,
       completedReps: Math.min(goalReps, completed),
       finished: true,
@@ -65,6 +67,7 @@ export function guidedStateAt(tempo: TempoConfig, goalReps: number, elapsed: num
     phase: state.phase,
     verb: cue.verb,
     sub: cue.sub,
+    icon: cue.icon,
     secondsLeft: secondsLeft(state.remaining),
     completedReps: completed,
     finished: false,

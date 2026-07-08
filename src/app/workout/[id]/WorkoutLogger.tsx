@@ -144,7 +144,10 @@ export default function WorkoutLogger({
     exercise: SlimExercise
     goalReps: number
     weight: number | null
+    targetLocalId?: string // when set, fill this existing (pending) set instead of appending
   } | null>(null)
+  // Inline "last session" per exercise, for at-a-glance comparison
+  const [lastPerf, setLastPerf] = useState<Record<number, LastExercisePerformance | null>>({})
   // localId of the set the active rest timer will attach its elapsed time to
   const [restForSet, setRestForSet] = useState<string | null>(null)
 
@@ -195,6 +198,17 @@ export default function WorkoutLogger({
     },
     { grouped: {}, exerciseOrder: [] },
   )
+
+  // Fetch last-session performance for each exercise present, once per exercise.
+  const exerciseKey = exerciseOrder.join(',')
+  useEffect(() => {
+    exerciseOrder.forEach((id) => {
+      if (id in lastPerf) return
+      setLastPerf((prev) => ({ ...prev, [id]: null })) // mark in-flight to avoid dupes
+      fetchLastExercisePerformance(id).then((data) => setLastPerf((prev) => ({ ...prev, [id]: data })))
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exerciseKey])
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -295,9 +309,40 @@ export default function WorkoutLogger({
     setGuidedSetup(null)
   }
 
+  // Start a guided set for an EXISTING (usually template-scheduled) set row,
+  // using its scheduled reps/weight as the goal and the current tempo.
+  function startGuidedForSet(s: LocalSet) {
+    if (repDuration(tempo) <= 0) return
+    const ex = exercises.find((e) => e.id === s.exerciseId)
+    if (!ex) return
+    setRunningDruh({
+      exercise: ex,
+      goalReps: Math.max(1, s.reps ?? 8),
+      weight: s.weight,
+      targetLocalId: s.localId,
+    })
+  }
+
   // Called when the DRUH timer stops (goal reached or stopped early)
   function handleGuidedStop(completedReps: number) {
     if (!runningDruh) return
+    const targetId = runningDruh.targetLocalId
+    const goalWeight = runningDruh.weight
+
+    // Filling an existing scheduled set: record actual reps, mark done, rest.
+    if (targetId) {
+      setRunningDruh(null)
+      if (completedReps <= 0) return // did nothing → leave the set pending
+      const nextSets = localSets.map((s) =>
+        s.localId === targetId ? { ...s, reps: completedReps, weight: goalWeight, done: true } : s,
+      )
+      setLocalSets(nextSets)
+      setSavedOnce(true)
+      persist(nextSets)
+      setRestForSet(targetId)
+      return
+    }
+
     // Stopped before completing a single rep — log nothing.
     if (completedReps <= 0) {
       setRunningDruh(null)
@@ -428,6 +473,18 @@ export default function WorkoutLogger({
     } else {
       window.location.href = '/dashboard'
     }
+  }
+
+  function fmtLastPerf(p: LastExercisePerformance | null | undefined): string | null {
+    if (!p || !p.sets.length) return null
+    return p.sets
+      .map((s) => {
+        if (s.weight != null && s.reps != null) return `${s.weight}×${s.reps}`
+        if (s.weight != null) return `${s.weight}kg`
+        if (s.reps != null) return `${s.reps}`
+        return '—'
+      })
+      .join(' · ')
   }
 
   function toPayload(s: LocalSet): SetPayload {
@@ -936,6 +993,12 @@ export default function WorkoutLogger({
               </div>
             </div>
 
+            {fmtLastPerf(lastPerf[exerciseId]) && (
+              <p className="text-xs font-medium text-zinc-400 dark:text-zinc-500">
+                <span className="uppercase tracking-wide font-bold">Last:</span> {fmtLastPerf(lastPerf[exerciseId])}
+              </p>
+            )}
+
             <div className="flex flex-col gap-1.5">
               {group.sets.map((s, i) =>
                 editingId === s.localId ? (
@@ -1007,7 +1070,7 @@ export default function WorkoutLogger({
                 ) : (
                   <div
                     key={s.localId}
-                    className={`grid grid-cols-[1.75rem_1.75rem_1fr_1fr_1.75rem] items-center gap-2 rounded-xl border px-3 py-3 cursor-pointer transition-colors ${
+                    className={`grid grid-cols-[1.5rem_1.25rem_1fr_1fr_auto] items-center gap-2 rounded-xl border px-3 py-3 cursor-pointer transition-colors ${
                       s.done
                         ? 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-orange-400 dark:hover:border-orange-500'
                         : 'bg-zinc-50/60 dark:bg-zinc-900/40 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-orange-400'
@@ -1057,12 +1120,23 @@ export default function WorkoutLogger({
                         </div>
                       </>
                     )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteSet(s.localId) }}
-                      className="text-zinc-300 hover:text-red-500 dark:text-zinc-700 dark:hover:text-red-500 transition-colors"
-                    >
-                      ✕
-                    </button>
+                    <div className="flex items-center gap-1.5 justify-end">
+                      {!s.done && s.exerciseCategory !== 'cardio' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); startGuidedForSet(s) }}
+                          title="Guided set (tempo timer)"
+                          className="shrink-0 rounded-md border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/20 px-2 py-1 text-xs font-bold transition-colors leading-none"
+                        >
+                          ▶
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteSet(s.localId) }}
+                        className="text-zinc-300 hover:text-red-500 dark:text-zinc-700 dark:hover:text-red-500 transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 ),
               )}
