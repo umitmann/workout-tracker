@@ -10,6 +10,7 @@ import ExerciseInfoModal from './ExerciseInfoModal'
 import LastPerfModal from './LastPerfModal'
 import DruhTimer from './DruhTimer'
 import RestTimer from './RestTimer'
+import ExerciseGuide, { GuideSet } from './ExerciseGuide'
 import Stepper from './Stepper'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 import { TempoConfig, repDuration, formatTempo } from '@/lib/tempo'
@@ -157,6 +158,8 @@ export default function WorkoutLogger({
   const [lastPerf, setLastPerf] = useState<Record<number, LastExercisePerformance | null>>({})
   // localId of the set the active rest timer will attach its elapsed time to
   const [restForSet, setRestForSet] = useState<string | null>(null)
+  // exerciseId currently being guided as a whole (full-screen set→rest→set…)
+  const [guidingExerciseId, setGuidingExerciseId] = useState<number | null>(null)
 
   // Sheets & modals
   const [showPicker, setShowPicker] = useState(false)
@@ -389,6 +392,28 @@ export default function WorkoutLogger({
     persist(nextSets)
     // Roll straight into rest for this set
     setRestForSet(newSet.localId)
+  }
+
+  // ── Guide whole exercise ────────────────────────────────────────────────────
+
+  function guideSetsFor(exerciseId: number): GuideSet[] {
+    return localSets
+      .filter((s) => s.exerciseId === exerciseId)
+      .map((s) => ({ localId: s.localId, goalReps: Math.max(1, s.reps ?? 8), weight: s.weight }))
+  }
+
+  // Called when the whole-exercise guide finishes/exits — write actual reps and
+  // mark each guided set done.
+  function handleGuideDone(results: { localId: string; reps: number }[]) {
+    setGuidingExerciseId(null)
+    if (results.length === 0) return
+    const byId = new Map(results.map((r) => [r.localId, r.reps]))
+    const nextSets = localSets.map((s) =>
+      byId.has(s.localId) ? { ...s, reps: byId.get(s.localId)!, done: true } : s,
+    )
+    setLocalSets(nextSets)
+    setSavedOnce(true)
+    persist(nextSets)
   }
 
   // ── Rest timer ─────────────────────────────────────────────────────────────
@@ -928,16 +953,43 @@ export default function WorkoutLogger({
 
       <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-6">
 
-        {/* Rest timer — non-blocking; set entry stays available underneath */}
-        {restForSet !== null && (
-          <RestTimer
-            key={restForSet}
-            initialMode={restMode}
-            initialTarget={restTarget}
-            onDone={finishRest}
-            onSettingsChange={(m, t) => { setRestMode(m); setRestTarget(t) }}
-          />
-        )}
+        {/* Rest — sticky at top. Running timer when resting, else settings. */}
+        <div className="sticky top-0 z-20 -mx-6 px-6 py-2 bg-zinc-50/95 dark:bg-black/95 backdrop-blur border-b border-zinc-200/60 dark:border-zinc-800/60">
+          {restForSet !== null ? (
+            <RestTimer
+              key={restForSet}
+              initialMode={restMode}
+              initialTarget={restTarget}
+              onDone={finishRest}
+              onSettingsChange={(m, t) => { setRestMode(m); setRestTarget(t) }}
+            />
+          ) : (
+            <div className="flex items-center gap-2 text-xs flex-wrap">
+              <span className="font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Rest</span>
+              <button
+                onClick={() => setRestMode((m) => (m === 'fixed' ? 'variable' : 'fixed'))}
+                className="rounded-full border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+              >
+                {restMode === 'fixed' ? 'Fixed' : 'Variable'}
+              </button>
+              {restMode === 'fixed' && (
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setRestTarget((t) => Math.max(5, t - 5))} className="rounded-full border border-zinc-200 dark:border-zinc-700 w-8 py-1.5 font-bold text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors">−5</button>
+                  <span className="font-black tabular-nums text-zinc-700 dark:text-zinc-300 w-12 text-center">{restTarget}s</span>
+                  <button onClick={() => setRestTarget((t) => t + 5)} className="rounded-full border border-zinc-200 dark:border-zinc-700 w-8 py-1.5 font-bold text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors">+5</button>
+                </div>
+              )}
+              {localSets.length > 0 && (
+                <button
+                  onClick={() => setRestForSet(localSets[localSets.length - 1].localId)}
+                  className="ml-auto rounded-full bg-orange-500 hover:bg-orange-600 px-4 py-1.5 font-bold uppercase tracking-wide text-white transition-colors"
+                >
+                  Start rest
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Exercise groups */}
         {exerciseOrder.map((exerciseId, exIdx) => {
@@ -1006,6 +1058,13 @@ export default function WorkoutLogger({
                     </button>
                   </>
                 )}
+                <button
+                  onClick={() => setGuidingExerciseId(exerciseId)}
+                  title="Guide whole exercise (all sets, with rests)"
+                  className="flex items-center gap-1 h-8 px-2.5 rounded-full border border-orange-400 text-orange-500 hover:bg-orange-500 hover:text-white transition-colors text-xs font-bold leading-none"
+                >
+                  ▶ All
+                </button>
                 <button
                   onClick={() => {
                     const ex = exercises.find((e) => e.id === exerciseId)
@@ -1215,32 +1274,6 @@ export default function WorkoutLogger({
             + Add exercise
           </button>
         )}
-
-        {/* Rest settings — always adjustable, not just after a set */}
-        <div className="flex items-center gap-2 text-xs flex-wrap">
-          <span className="font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Rest</span>
-          <button
-            onClick={() => setRestMode((m) => (m === 'fixed' ? 'variable' : 'fixed'))}
-            className="rounded-full border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
-          >
-            {restMode === 'fixed' ? 'Fixed' : 'Variable'}
-          </button>
-          {restMode === 'fixed' && (
-            <div className="flex items-center gap-1">
-              <button onClick={() => setRestTarget((t) => Math.max(5, t - 5))} className="rounded-full border border-zinc-200 dark:border-zinc-700 w-8 py-1.5 font-bold text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors">−5</button>
-              <span className="font-black tabular-nums text-zinc-700 dark:text-zinc-300 w-12 text-center">{restTarget}s</span>
-              <button onClick={() => setRestTarget((t) => t + 5)} className="rounded-full border border-zinc-200 dark:border-zinc-700 w-8 py-1.5 font-bold text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors">+5</button>
-            </div>
-          )}
-          {restForSet === null && localSets.length > 0 && (
-            <button
-              onClick={() => setRestForSet(localSets[localSets.length - 1].localId)}
-              className="ml-auto rounded-full bg-orange-500 hover:bg-orange-600 px-4 py-1.5 font-bold uppercase tracking-wide text-white transition-colors"
-            >
-              Start rest
-            </button>
-          )}
-        </div>
 
       </main>
 
@@ -1456,25 +1489,22 @@ export default function WorkoutLogger({
               <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-1">Guided set</p>
               <h3 className="text-base font-bold text-zinc-900 dark:text-white truncate">{guidedSetup.exercise.name}</h3>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="flex flex-col gap-1">
-                <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Goal reps</span>
-                <input
-                  type="number"
-                  value={guidedSetup.goalReps}
-                  onChange={(e) => setGuidedSetup((g) => (g ? { ...g, goalReps: e.target.value } : g))}
-                  className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-orange-400"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Weight (kg)</span>
-                <input
-                  type="number"
-                  value={guidedSetup.weight}
-                  onChange={(e) => setGuidedSetup((g) => (g ? { ...g, weight: e.target.value } : g))}
-                  className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-orange-400"
-                />
-              </label>
+            <div className="grid grid-cols-2 gap-4">
+              <Stepper
+                label="Goal reps"
+                value={Number(guidedSetup.goalReps) || 0}
+                min={1}
+                max={50}
+                onChange={(v) => setGuidedSetup((g) => (g ? { ...g, goalReps: String(v) } : g))}
+              />
+              <Stepper
+                label="Weight (kg)"
+                value={Number(guidedSetup.weight) || 0}
+                min={0}
+                max={500}
+                step={2.5}
+                onChange={(v) => setGuidedSetup((g) => (g ? { ...g, weight: v > 0 ? String(v) : '' } : g))}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
@@ -1513,6 +1543,17 @@ export default function WorkoutLogger({
           goalReps={runningDruh.goalReps}
           onStop={handleGuidedStop}
           onCancel={() => setRunningDruh(null)}
+        />
+      )}
+
+      {/* Whole-exercise guide (set → rest → set …) */}
+      {guidingExerciseId != null && (
+        <ExerciseGuide
+          exerciseName={grouped[guidingExerciseId]?.name ?? ''}
+          tempo={tempo}
+          sets={guideSetsFor(guidingExerciseId)}
+          restSeconds={restTarget}
+          onDone={handleGuideDone}
         />
       )}
     </div>

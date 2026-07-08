@@ -36,12 +36,17 @@ export default function Stepper({
   }
 
   const btn =
-    'w-full h-9 flex items-center justify-center rounded-lg text-lg leading-none select-none ' +
-    'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 ' +
+    'w-full h-6 flex items-center justify-center rounded-md text-xs leading-none select-none ' +
+    'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 ' +
     'hover:bg-orange-500 hover:text-white active:bg-orange-600 disabled:opacity-30 disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800 transition-colors'
 
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <div className="flex flex-col items-center gap-1">
+      {/* Label on top */}
+      <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400 text-center leading-tight">
+        {label}
+        {sublabel && <span className="block text-zinc-300 dark:text-zinc-600 normal-case tracking-normal">{sublabel}</span>}
+      </span>
       <button
         type="button"
         aria-label={`Increase ${label}`}
@@ -60,7 +65,7 @@ export default function Stepper({
         aria-label={label}
         value={value}
         onChange={(e) => onChange(clamp(Number(e.target.value) || 0))}
-        className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-1 py-2 text-center text-lg font-black tabular-nums outline-none focus:border-orange-400"
+        className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-1 py-1.5 text-center text-base font-black tabular-nums outline-none focus:border-orange-400"
       />
       <button
         type="button"
@@ -74,10 +79,6 @@ export default function Stepper({
       >
         ▼
       </button>
-      <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400 text-center leading-tight">
-        {label}
-        {sublabel && <span className="block text-zinc-300 dark:text-zinc-600 normal-case tracking-normal">{sublabel}</span>}
-      </span>
     </div>
   )
 }
