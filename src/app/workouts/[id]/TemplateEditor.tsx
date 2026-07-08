@@ -9,6 +9,7 @@ import { LastExercisePerformance, RoutineWithExercises } from '@/lib/dal'
 import ExercisePickerSheet, { SlimExercise } from '@/app/workout/[id]/ExercisePickerSheet'
 import ExerciseInfoModal from '@/app/workout/[id]/ExerciseInfoModal'
 import LastPerfModal from '@/app/workout/[id]/LastPerfModal'
+import Stepper from '@/app/workout/[id]/Stepper'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 
 type TemplateExercise = {
@@ -395,18 +396,15 @@ export default function TemplateEditor({
               </div>
             </div>
 
-            {/* Sets + cardio-aware target inputs */}
-            <div className="grid grid-cols-3 gap-2">
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Sets</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={item.sets}
-                  onChange={(e) => updateItem(item.localId, { sets: Number(e.target.value) || 1 })}
-                  className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
-                />
-              </label>
+            {/* Sets + cardio-aware target inputs — steppers match the logger's arrows */}
+            <div className="grid grid-cols-3 gap-3 items-end">
+              <Stepper
+                label="Sets"
+                value={item.sets}
+                min={1}
+                max={10}
+                onChange={(v) => updateItem(item.localId, { sets: Math.max(1, v) })}
+              />
               {item.exerciseCategory === 'cardio' ? (
                 <>
                   <label className="flex flex-col gap-1">
@@ -434,17 +432,13 @@ export default function TemplateEditor({
                 </>
               ) : (
                 <>
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Reps</span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={item.reps ?? ''}
-                      placeholder="—"
-                      onChange={(e) => updateItem(item.localId, { reps: e.target.value ? Number(e.target.value) : null })}
-                      className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
-                    />
-                  </label>
+                  <Stepper
+                    label="Reps"
+                    value={item.reps ?? 0}
+                    min={0}
+                    max={30}
+                    onChange={(v) => updateItem(item.localId, { reps: v > 0 ? v : null })}
+                  />
                   <label className="flex flex-col gap-1">
                     <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Weight (kg)</span>
                     <input
