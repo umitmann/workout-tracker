@@ -3,6 +3,17 @@ import { cache } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { createServerSupabaseClient } from './supabase-server'
 
+// True only when a query failed because a column does not exist (e.g. a not-yet
+// migrated rest_seconds). Postgres undefined_column = 42703; PostgREST surfaces
+// it via code or a "does not exist" message mentioning the column.
+export function isMissingColumnError(error: unknown, column: string): boolean {
+  if (!error || typeof error !== 'object') return false
+  const e = error as { code?: string; message?: string }
+  if (e.code === '42703') return true
+  const msg = (e.message ?? '').toLowerCase()
+  return msg.includes(column.toLowerCase()) && msg.includes('does not exist')
+}
+
 // Service-role client — no cookies, safe to use inside unstable_cache
 function createServiceSupabaseClient() {
   return createClient(
@@ -36,7 +47,7 @@ export async function getWorkoutWithSets(workoutId: number) {
   const { supabase, user } = await getAuthContext()
   if (!user) return null
 
-  const [{ data: workout }, { data: sets }] = await Promise.all([
+  const [{ data: workout }, setsResult] = await Promise.all([
     supabase
       .from('workouts')
       .select('id, date, status, template_id')
@@ -45,12 +56,26 @@ export async function getWorkoutWithSets(workoutId: number) {
       .single(),
     supabase
       .from('sets')
-      .select('id, exercise_id, weight, reps, duration_minutes, distance, exercises(name, category)')
+      .select('id, exercise_id, weight, reps, duration_minutes, distance, rest_seconds, exercises(name, category)')
       .eq('workout_id', workoutId)
       .order('created_at', { ascending: true }),
   ])
 
   if (!workout) return null
+
+  // Fall back gracefully ONLY if the rest_seconds column has not been migrated
+  // yet — a genuine error must not silently blank out the sets (that could wipe
+  // real data on the next save).
+  let sets: any = setsResult.data
+  if (setsResult.error && isMissingColumnError(setsResult.error, 'rest_seconds')) {
+    const { data } = await supabase
+      .from('sets')
+      .select('id, exercise_id, weight, reps, duration_minutes, distance, exercises(name, category)')
+      .eq('workout_id', workoutId)
+      .order('created_at', { ascending: true })
+    sets = data
+  }
+
   return { ...workout, sets: sets ?? [] }
 }
 
@@ -397,6 +422,99 @@ export async function getExerciseHistory(exerciseId: number, limitDays = 90): Pr
       totalVolume: e.volumes.length > 0 ? e.volumes.reduce((a, b) => a + b, 0) : null,
       setCount: e.count,
     }))
+}
+
+// ─── Report / export queries ─────────────────────────────────────────────────
+
+export type RangeWorkoutRow = {
+  id: number
+  date: string
+  sets: {
+    exercise_id: number
+    weight: number | null
+    reps: number | null
+    duration_minutes: number | null
+    distance: number | null
+    rest_seconds: number | null
+    exercises: { name: string; category: string | null } | null
+  }[]
+}
+
+// Completed workouts (with sets + exercise names) between two YYYY-MM-DD dates.
+export async function getWorkoutsInRange(from: string, to: string): Promise<RangeWorkoutRow[]> {
+  const { supabase, user } = await getAuthContext()
+  if (!user) return []
+
+  const withRest =
+    'id, date, sets(exercise_id, weight, reps, duration_minutes, distance, rest_seconds, created_at, exercises(name, category))'
+  const withoutRest =
+    'id, date, sets(exercise_id, weight, reps, duration_minutes, distance, created_at, exercises(name, category))'
+
+  const build = (cols: string) =>
+    supabase
+      .from('workouts')
+      .select(cols)
+      .eq('user_id', user.id)
+      .eq('status', 'completed')
+      .gte('date', from)
+      .lte('date', to)
+      .order('date', { ascending: true })
+
+  let result = await build(withRest)
+  if (result.error && isMissingColumnError(result.error, 'rest_seconds')) {
+    result = await build(withoutRest) // rest_seconds not migrated yet
+  }
+
+  return ((result.data ?? []) as any[]).map((w: any) => ({
+    id: w.id,
+    date: w.date,
+    sets: [...(w.sets ?? [])]
+      .sort((a: any, b: any) => String(a.created_at).localeCompare(String(b.created_at)))
+      .map((s: any) => ({
+        exercise_id: s.exercise_id,
+        weight: s.weight,
+        reps: s.reps,
+        duration_minutes: s.duration_minutes,
+        distance: s.distance,
+        rest_seconds: s.rest_seconds ?? null,
+        exercises: s.exercises ?? null,
+      })),
+  }))
+}
+
+export type BodyWeightRow = { date: string; weight: number }
+
+// Bodyweight log entries between two dates. Tolerates the table not existing yet.
+export async function getBodyWeightsInRange(from: string, to: string): Promise<BodyWeightRow[]> {
+  const { supabase, user } = await getAuthContext()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('body_weights')
+    .select('date, weight')
+    .eq('user_id', user.id)
+    .gte('date', from)
+    .lte('date', to)
+    .order('date', { ascending: true })
+
+  if (error) return [] // table may not be migrated yet
+  return (data ?? []) as BodyWeightRow[]
+}
+
+// Recent bodyweight entries for the dashboard widget (newest first).
+export async function getRecentBodyWeights(limit = 30): Promise<BodyWeightRow[]> {
+  const { supabase, user } = await getAuthContext()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('body_weights')
+    .select('date, weight')
+    .eq('user_id', user.id)
+    .order('date', { ascending: false })
+    .limit(limit)
+
+  if (error) return []
+  return (data ?? []) as BodyWeightRow[]
 }
 
 export type RoutineExerciseRow = {

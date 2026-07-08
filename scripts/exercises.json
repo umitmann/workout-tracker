@@ -36509,5 +36509,27 @@
       "Repeat for the desired number of reps."
     ],
     "images": []
+  },
+  {
+    "name": "Cross Trainer",
+    "force": null,
+    "level": "beginner",
+    "mechanic": null,
+    "equipment": "machine",
+    "primaryMuscles": [
+      "quadriceps"
+    ],
+    "secondaryMuscles": [
+      "calves",
+      "glutes",
+      "hamstrings"
+    ],
+    "instructions": [
+      "Step onto the cross trainer (elliptical). Select a program or manual mode and set resistance/incline. Drive through the pedals in a smooth elliptical motion, using the moving handles for the upper body.",
+      "Cross trainer is the common name for the elliptical trainer."
+    ],
+    "category": "cardio",
+    "images": [],
+    "id": "Cross_Trainer"
   }
 ]

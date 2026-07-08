@@ -303,6 +303,66 @@ create policy "scheduled_workouts: users delete their own"
 
 ---
 
+## Phase 4 — Rest timer + bodyweight
+
+### `sets.rest_seconds` (migration)
+
+Records the **actual** elapsed rest taken after a set (seconds). Nullable — old
+rows and sets logged without a rest timer stay `null`. The app degrades
+gracefully if this column is missing (reads fall back, writes retry without it),
+so it can be added at any time.
+
+```sql
+alter table sets add column rest_seconds numeric;
+notify pgrst, 'reload schema';
+```
+
+### `body_weights` (new table)
+
+One bodyweight entry per user per day (kg). Upserted on `(user_id, date)`.
+
+```sql
+create table if not exists body_weights (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users on delete cascade,
+  date       date not null,
+  weight     numeric not null,
+  created_at timestamptz default now(),
+  unique (user_id, date)
+);
+
+alter table body_weights enable row level security;
+
+create policy "body_weights: users select their own"
+  on body_weights for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "body_weights: users insert their own"
+  on body_weights for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "body_weights: users update their own"
+  on body_weights for update
+  to authenticated
+  using  (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "body_weights: users delete their own"
+  on body_weights for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+notify pgrst, 'reload schema';
+```
+
+> The dashboard bodyweight widget and the PT export tolerate this table not
+> existing yet (reads return empty), but logging a weight will error until it is
+> created.
+
+---
+
 ## Future — Admin & Trainer Tables
 
 Not needed now. Documented in [../examples/admin-groups.md](../examples/admin-groups.md) for reference.

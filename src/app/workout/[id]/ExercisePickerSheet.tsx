@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { filterExercises } from '@/lib/filterExercises'
+import { MUSCLE_GROUPS, musclesForGroup, countByGroup } from '@/lib/muscleGroups'
 
 export type SlimExercise = {
   id: number
@@ -36,6 +37,7 @@ export default function ExercisePickerSheet({
 }) {
   const [search, setSearch] = useState('')
   const [openFilter, setOpenFilter] = useState<'muscle' | 'category' | null>(null)
+  const [hoverGroup, setHoverGroup] = useState<string | null>(null)
   const filterBarRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -65,10 +67,42 @@ export default function ExercisePickerSheet({
     return [...set].sort()
   }, [exercises])
 
-  const filtered = useMemo(
-    () => filterExercises(exercises, { text: search, muscles: activeMuscles, categories: activeCategories }),
-    [exercises, search, activeMuscles, activeCategories],
+  // Base list narrowed by text + category only — used to count what remains in
+  // each muscle group so the group chips show "what's left there".
+  const textCategoryFiltered = useMemo(
+    () => filterExercises(exercises, { text: search, muscles: [], categories: activeCategories }),
+    [exercises, search, activeCategories],
   )
+
+  const groupCounts = useMemo(() => countByGroup(textCategoryFiltered), [textCategoryFiltered])
+
+  // A group chip is "active" when the muscle filter exactly matches its muscles.
+  const activeGroupKey = useMemo(() => {
+    if (activeMuscles.length === 0) return null
+    const active = new Set(activeMuscles)
+    const match = MUSCLE_GROUPS.find(
+      (g) => g.muscles.length === active.size && g.muscles.every((m) => active.has(m)),
+    )
+    return match?.key ?? null
+  }, [activeMuscles])
+
+  // Hover (desktop) previews a group without committing; falls back to the
+  // committed muscle filter otherwise.
+  const effectiveMuscles = hoverGroup ? musclesForGroup(hoverGroup) : activeMuscles
+
+  const filtered = useMemo(
+    () => filterExercises(exercises, { text: search, muscles: effectiveMuscles, categories: activeCategories }),
+    [exercises, search, effectiveMuscles, activeCategories],
+  )
+
+  function toggleGroup(key: string) {
+    setHoverGroup(null)
+    if (activeGroupKey === key) {
+      onMusclesChange([])
+    } else {
+      onMusclesChange(musclesForGroup(key))
+    }
+  }
 
   function toggleMuscle(m: string) {
     onMusclesChange(
@@ -90,9 +124,13 @@ export default function ExercisePickerSheet({
     onMusclesChange([])
     onCategoriesChange([])
     setSearch('')
+    setHoverGroup(null)
   }
 
   const hasFilters = activeMuscles.length > 0 || activeCategories.length > 0 || search.length > 0
+  // The visible list uses effectiveMuscles (incl. hover preview); the empty-state
+  // message must key off the same set so results never blank out silently.
+  const listIsFiltered = hasFilters || effectiveMuscles.length > 0
 
   return (
     <div
@@ -113,6 +151,32 @@ export default function ExercisePickerSheet({
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-3 text-sm outline-none focus:border-orange-400 dark:focus:border-orange-500 transition-colors"
           />
+          {/* Muscle-group chips — hover (desktop) previews, tap selects. Count = what's left. */}
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1">
+            {MUSCLE_GROUPS.map((g) => {
+              const count = groupCounts[g.key] ?? 0
+              const isActive = activeGroupKey === g.key
+              return (
+                <button
+                  key={g.key}
+                  onClick={() => toggleGroup(g.key)}
+                  onPointerEnter={(e) => { if (e.pointerType === 'mouse') setHoverGroup(g.key) }}
+                  onPointerLeave={(e) => { if (e.pointerType === 'mouse') setHoverGroup((h) => (h === g.key ? null : h)) }}
+                  disabled={count === 0 && !isActive}
+                  className={`shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide transition-colors ${
+                    isActive
+                      ? 'bg-orange-500 text-white'
+                      : count === 0
+                      ? 'border border-zinc-100 dark:border-zinc-800 text-zinc-300 dark:text-zinc-700'
+                      : 'border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-orange-400 hover:text-orange-500'
+                  }`}
+                >
+                  {g.label}
+                  <span className={`rounded-full px-1 ${isActive ? 'bg-white/30' : 'text-zinc-400 dark:text-zinc-500'}`}>{count}</span>
+                </button>
+              )
+            })}
+          </div>
           {/* Filter type buttons + dropdowns */}
           <div ref={filterBarRef} className="relative">
             <div className="flex items-center gap-2">
@@ -212,7 +276,7 @@ export default function ExercisePickerSheet({
           </div>
         </div>
         <ul className="overflow-y-auto flex-1 min-h-0">
-          {filtered.length === 0 && hasFilters ? (
+          {filtered.length === 0 && listIsFiltered ? (
             <li className="flex flex-col items-center gap-3 py-10 px-4 text-center">
               <p className="text-sm text-zinc-500 dark:text-zinc-400">No exercises match your filters.</p>
               <button

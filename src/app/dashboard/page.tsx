@@ -3,8 +3,9 @@ import Link from 'next/link'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { signOut } from '@/app/actions/auth'
 import { startWorkout } from '@/app/actions/workouts'
-import { getMonthWorkoutsWithPreviews, getUserTemplates } from '@/lib/dal'
+import { getMonthWorkoutsWithPreviews, getUserTemplates, getRecentBodyWeights } from '@/lib/dal'
 import CalendarView from '@/app/workouts/CalendarView'
+import BodyweightCard from './BodyweightCard'
 
 export default async function Dashboard({
   searchParams,
@@ -20,9 +21,10 @@ export default async function Dashboard({
   const year = y ? Number(y) : now.getFullYear()
   const month = m ? Number(m) : now.getMonth() + 1
 
-  const [{ entries: workouts, previews: initialPreviews }, templates] = await Promise.all([
+  const [{ entries: workouts, previews: initialPreviews }, templates, bodyWeights] = await Promise.all([
     getMonthWorkoutsWithPreviews(year, month),
     getUserTemplates(),
+    getRecentBodyWeights(),
   ])
 
   const name = user.user_metadata?.full_name ?? user.email
@@ -71,6 +73,8 @@ export default async function Dashboard({
             Exercises
           </Link>
         </div>
+
+        <BodyweightCard initial={bodyWeights} />
 
         <CalendarView year={year} month={month} workouts={workouts} initialPreviews={initialPreviews} basePath="/dashboard" initialTemplates={templates} />
       </main>

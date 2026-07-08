@@ -8,7 +8,10 @@ import { LastExercisePerformance, RoutineWithExercises } from '@/lib/dal'
 import ExercisePickerSheet, { SlimExercise } from './ExercisePickerSheet'
 import ExerciseInfoModal from './ExerciseInfoModal'
 import LastPerfModal from './LastPerfModal'
+import DruhTimer from './DruhTimer'
+import RestTimer from './RestTimer'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
+import { TempoConfig, repDuration } from '@/lib/tempo'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -21,6 +24,7 @@ type LocalSet = {
   reps: number | null
   duration_minutes: number | null
   distance: number | null
+  rest_seconds: number | null
 }
 
 type ExerciseDetails = {
@@ -46,6 +50,7 @@ type Workout = {
     reps: number | null
     duration_minutes: number | null
     distance: number | null
+    rest_seconds?: number | null
     exercises: { name: string; category: string | null } | null
   }[]
 }
@@ -79,6 +84,7 @@ export default function WorkoutLogger({
         reps: s.reps,
         duration_minutes: s.duration_minutes,
         distance: s.distance,
+        rest_seconds: s.rest_seconds ?? null,
       }))
     }
     if (initialTemplate && workout.status !== 'completed') {
@@ -94,6 +100,7 @@ export default function WorkoutLogger({
           reps: ex.reps,
           duration_minutes: ex.duration_minutes ?? null,
           distance: ex.distance ?? null,
+          rest_seconds: null,
         }))
       })
     }
@@ -118,6 +125,23 @@ export default function WorkoutLogger({
   // Exercise picker filter state
   const [pickerActiveMuscles, setPickerActiveMuscles] = useState<string[]>([])
   const [pickerActiveCategories, setPickerActiveCategories] = useState<string[]>([])
+
+  // Guided set (DRUH tempo timer) + rest timer
+  const [tempo, setTempo] = useState<TempoConfig>({ down: 3, rest: 1, up: 2, hold: 1 })
+  const [restMode, setRestMode] = useState<'fixed' | 'variable'>('fixed')
+  const [restTarget, setRestTarget] = useState(90)
+  const [guidedSetup, setGuidedSetup] = useState<{
+    exercise: SlimExercise
+    goalReps: string
+    weight: string
+  } | null>(null)
+  const [runningDruh, setRunningDruh] = useState<{
+    exercise: SlimExercise
+    goalReps: number
+    weight: number | null
+  } | null>(null)
+  // localId of the set the active rest timer will attach its elapsed time to
+  const [restForSet, setRestForSet] = useState<string | null>(null)
 
   // Sheets & modals
   const [showPicker, setShowPicker] = useState(false)
@@ -204,6 +228,7 @@ export default function WorkoutLogger({
       reps: !isCardio && reps ? Number(reps) : null,
       duration_minutes: isCardio && duration ? Number(duration) : null,
       distance: isCardio && distance ? Number(distance) : null,
+      rest_seconds: null,
     }
     const nextSets = [...localSets, newSet]
     setLocalSets(nextSets)
@@ -213,19 +238,85 @@ export default function WorkoutLogger({
     setDistance('')
     setAddError(null)
     setSavedOnce(true)
+    persist(nextSets)
+  }
+
+  function persist(sets: LocalSet[]) {
     startTransition(async () => {
-      await saveWorkoutProgress(workout.id, nextSets.map((s) => ({
-        exercise_id: s.exerciseId,
-        weight: s.weight,
-        reps: s.reps,
-        duration_minutes: s.duration_minutes,
-        distance: s.distance,
-      })))
+      await saveWorkoutProgress(workout.id, sets.map(toPayload))
     })
   }
 
   function handleDeleteSet(localId: string) {
     setLocalSets((prev) => prev.filter((s) => s.localId !== localId))
+  }
+
+  // ── Guided set (DRUH) ──────────────────────────────────────────────────────
+
+  function openGuidedSetup() {
+    if (!selectedExercise) return
+    setGuidedSetup({ exercise: selectedExercise, goalReps: reps || '8', weight })
+  }
+
+  function startGuided() {
+    if (!guidedSetup) return
+    // A zero-length tempo would never advance a rep — refuse to start.
+    if (repDuration(tempo) <= 0) return
+    const goal = Math.max(1, Number(guidedSetup.goalReps) || 8)
+    setRunningDruh({
+      exercise: guidedSetup.exercise,
+      goalReps: goal,
+      weight: guidedSetup.weight ? Number(guidedSetup.weight) : null,
+    })
+    setGuidedSetup(null)
+  }
+
+  // Called when the DRUH timer stops (goal reached or stopped early)
+  function handleGuidedStop(completedReps: number) {
+    if (!runningDruh) return
+    // Stopped before completing a single rep — log nothing.
+    if (completedReps <= 0) {
+      setRunningDruh(null)
+      setSelectedExercise(null)
+      return
+    }
+    const newSet: LocalSet = {
+      localId: crypto.randomUUID(),
+      exerciseId: runningDruh.exercise.id,
+      exerciseName: runningDruh.exercise.name,
+      exerciseCategory: runningDruh.exercise.category,
+      weight: runningDruh.weight,
+      reps: completedReps,
+      duration_minutes: null,
+      distance: null,
+      rest_seconds: null,
+    }
+    const nextSets = [...localSets, newSet]
+    setLocalSets(nextSets)
+    setSavedOnce(true)
+    setRunningDruh(null)
+    setSelectedExercise(null)
+    persist(nextSets)
+    // Roll straight into rest for this set
+    setRestForSet(newSet.localId)
+  }
+
+  // ── Rest timer ─────────────────────────────────────────────────────────────
+
+  function startRestForLastSet() {
+    const last = localSets[localSets.length - 1]
+    setRestForSet(last ? last.localId : '')
+  }
+
+  function finishRest(elapsedSeconds: number) {
+    const target = restForSet
+    setRestForSet(null)
+    if (!target) return // rest with no set to attach to
+    const nextSets = localSets.map((s) =>
+      s.localId === target ? { ...s, rest_seconds: elapsedSeconds } : s,
+    )
+    setLocalSets(nextSets)
+    persist(nextSets)
   }
 
   function startEditSet(s: LocalSet) {
@@ -297,6 +388,7 @@ export default function WorkoutLogger({
           reps: ex.reps,
           duration_minutes: ex.duration_minutes ?? null,
           distance: ex.distance ?? null,
+          rest_seconds: null,
         })
       }
     }
@@ -317,14 +409,19 @@ export default function WorkoutLogger({
     }
   }
 
-  function buildPayload(): SetPayload[] {
-    return localSets.map((s) => ({
+  function toPayload(s: LocalSet): SetPayload {
+    return {
       exercise_id: s.exerciseId,
       weight: s.weight,
       reps: s.reps,
       duration_minutes: s.duration_minutes,
       distance: s.distance,
-    }))
+      rest_seconds: s.rest_seconds,
+    }
+  }
+
+  function buildPayload(): SetPayload[] {
+    return localSets.map(toPayload)
   }
 
   function handleSaveProgress() {
@@ -371,6 +468,7 @@ export default function WorkoutLogger({
         reps: entry.reps,
         duration_minutes: null,
         distance: null,
+        rest_seconds: null,
       })),
     )
     setLocalSets(newSets)
@@ -502,6 +600,13 @@ export default function WorkoutLogger({
               onKeyDown={(e) => e.key === 'Enter' && handleAddSet()}
               className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
             />
+            <button
+              onClick={openGuidedSetup}
+              title="Guided set with tempo timer"
+              className="shrink-0 rounded-lg border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/20 px-3 py-2 text-sm font-bold transition-colors"
+            >
+              ▶ Start
+            </button>
             <button
               onClick={handleAddSet}
               className="shrink-0 rounded-lg bg-orange-500 hover:bg-orange-600 px-4 py-2 text-sm font-bold text-white transition-colors"
@@ -718,6 +823,16 @@ export default function WorkoutLogger({
       </header>
 
       <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-6">
+
+        {/* Rest timer — non-blocking; set entry stays available underneath */}
+        {restForSet !== null && (
+          <RestTimer
+            key={restForSet}
+            mode={restMode}
+            targetSeconds={restTarget}
+            onDone={finishRest}
+          />
+        )}
 
         {/* Exercise groups */}
         {exerciseOrder.map((exerciseId, exIdx) => {
@@ -954,6 +1069,37 @@ export default function WorkoutLogger({
             + Add exercise
           </button>
         )}
+
+        {/* Rest timer controls */}
+        <div className="flex items-center gap-2 text-xs">
+          <span className="font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Rest</span>
+          <button
+            onClick={() => setRestMode((m) => (m === 'fixed' ? 'variable' : 'fixed'))}
+            disabled={restForSet !== null}
+            className="rounded-full border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 disabled:opacity-40 transition-colors"
+          >
+            {restMode === 'fixed' ? 'Fixed' : 'Variable'}
+          </button>
+          {restMode === 'fixed' && (
+            <select
+              value={restTarget}
+              onChange={(e) => setRestTarget(Number(e.target.value))}
+              disabled={restForSet !== null}
+              className="rounded-full border border-zinc-200 dark:border-zinc-700 bg-transparent px-2 py-1.5 font-bold text-zinc-600 dark:text-zinc-400 disabled:opacity-40"
+            >
+              {[30, 45, 60, 90, 120, 180].map((s) => (
+                <option key={s} value={s}>{s}s</option>
+              ))}
+            </select>
+          )}
+          <button
+            onClick={startRestForLastSet}
+            disabled={restForSet !== null}
+            className="ml-auto rounded-full bg-orange-500 hover:bg-orange-600 px-4 py-1.5 font-bold uppercase tracking-wide text-white disabled:opacity-40 transition-colors"
+          >
+            Start rest
+          </button>
+        </div>
       </main>
 
       {/* Exercise info spinner + modal */}
@@ -1158,6 +1304,79 @@ export default function WorkoutLogger({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Guided-set tempo setup */}
+      {guidedSetup && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[75] px-4">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-1">Guided set</p>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white truncate">{guidedSetup.exercise.name}</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Goal reps</span>
+                <input
+                  type="number"
+                  value={guidedSetup.goalReps}
+                  onChange={(e) => setGuidedSetup((g) => (g ? { ...g, goalReps: e.target.value } : g))}
+                  className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-orange-400"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Weight (kg)</span>
+                <input
+                  type="number"
+                  value={guidedSetup.weight}
+                  onChange={(e) => setGuidedSetup((g) => (g ? { ...g, weight: e.target.value } : g))}
+                  className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-orange-400"
+                />
+              </label>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Tempo (sec per phase)</span>
+              <div className="grid grid-cols-4 gap-2">
+                {(['down', 'rest', 'up', 'hold'] as const).map((phase) => (
+                  <label key={phase} className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400 text-center">{phase}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={tempo[phase]}
+                      onChange={(e) => setTempo((t) => ({ ...t, [phase]: Math.max(0, Number(e.target.value) || 0) }))}
+                      className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-2 py-2 text-sm text-center outline-none focus:border-orange-400"
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setGuidedSetup(null)}
+                className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-2.5 text-sm font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={startGuided}
+                className="flex-1 rounded-xl bg-orange-500 hover:bg-orange-600 py-2.5 text-sm font-bold text-white transition-colors"
+              >
+                Start
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Running DRUH timer */}
+      {runningDruh && (
+        <DruhTimer
+          tempo={tempo}
+          goalReps={runningDruh.goalReps}
+          onStop={handleGuidedStop}
+          onCancel={() => setRunningDruh(null)}
+        />
       )}
     </div>
   )
