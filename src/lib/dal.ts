@@ -2,6 +2,8 @@ import { unstable_cache } from 'next/cache'
 import { cache } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { createServerSupabaseClient } from './supabase-server'
+import { selectBestSession, aggregateHistory, buildPreviews } from './dalCores'
+import type { SessionSetRow, WorkoutRef, DatedSet } from './dalCores'
 
 // True only when a query failed because a column does not exist (e.g. a not-yet
 // migrated rest_seconds). Postgres undefined_column = 42703; PostgREST surfaces
@@ -237,37 +239,30 @@ export async function getMonthWorkoutsWithPreviews(
     .lte('date', to)
     .order('date', { ascending: true })
 
-  const entries: WorkoutCalendarEntry[] = []
-  const previews: Record<number, WorkoutPreviewExercise[]> = {}
+  const rows = (data ?? []) as any[]
 
-  for (const w of (data ?? []) as any[]) {
-    entries.push({
-      id: w.id,
-      date: w.date,
-      status: w.status as WorkoutStatus,
-      template_id: w.template_id ?? null,
-      set_count: w.sets?.length ?? 0,
-    })
+  const entries: WorkoutCalendarEntry[] = rows.map((w) => ({
+    id: w.id,
+    date: w.date,
+    status: w.status as WorkoutStatus,
+    template_id: w.template_id ?? null,
+    set_count: w.sets?.length ?? 0,
+  }))
 
-    if (w.status !== 'planned' && w.sets?.length > 0) {
-      const grouped = new Map<number, WorkoutPreviewExercise>()
-      for (const s of w.sets) {
-        const existing = grouped.get(s.exercise_id)
-        if (!existing) {
-          grouped.set(s.exercise_id, {
-            exerciseId: s.exercise_id,
-            exerciseName: s.exercises?.name ?? String(s.exercise_id),
-            setCount: 1,
-            firstSetReps: s.reps,
-            firstSetWeight: s.weight,
-          })
-        } else {
-          existing.setCount++
-        }
-      }
-      previews[w.id] = Array.from(grouped.values())
-    }
+  const setsByWorkout = new Map<number, { exercise_id: number; exercise_name: string; weight: number | null; reps: number | null }[]>()
+  for (const w of rows) {
+    setsByWorkout.set(
+      w.id,
+      (w.sets ?? []).map((s: any) => ({
+        exercise_id: s.exercise_id,
+        exercise_name: s.exercises?.name ?? String(s.exercise_id),
+        weight: s.weight,
+        reps: s.reps,
+      })),
+    )
   }
+
+  const previews = buildPreviews(rows, setsByWorkout)
 
   return { entries, previews }
 }
@@ -344,7 +339,6 @@ export async function getBestExercisePerformance(exerciseId: number, limitDays?:
   if (!completedWorkouts?.length) return null
 
   const workoutIds = completedWorkouts.map((w: any) => w.id)
-  const dateById = new Map(completedWorkouts.map((w: any) => [w.id, w.date as string]))
 
   const { data: sets } = await supabase
     .from('sets')
@@ -353,37 +347,7 @@ export async function getBestExercisePerformance(exerciseId: number, limitDays?:
     .in('workout_id', workoutIds)
     .order('id', { ascending: true })
 
-  if (!sets?.length) return null
-
-  // Find the workout with the highest single-set weight
-  let bestWorkoutId: number | null = null
-  let bestWeight = -Infinity
-  for (const s of sets as any[]) {
-    if (s.weight != null && s.weight > bestWeight) {
-      bestWeight = s.weight
-      bestWorkoutId = s.workout_id
-    }
-  }
-
-  // Fallback: if no weight data, use most recent workout that has this exercise
-  if (bestWorkoutId == null) {
-    const setsByWorkout = new Map<number, { weight: number | null; reps: number | null }[]>()
-    for (const s of sets as any[]) {
-      if (!setsByWorkout.has(s.workout_id)) setsByWorkout.set(s.workout_id, [])
-      setsByWorkout.get(s.workout_id)!.push({ weight: s.weight, reps: s.reps })
-    }
-    for (const w of completedWorkouts as any[]) {
-      if (setsByWorkout.has(w.id)) return { date: w.date, sets: setsByWorkout.get(w.id)! }
-    }
-    return null
-  }
-
-  return {
-    date: dateById.get(bestWorkoutId)!,
-    sets: (sets as any[])
-      .filter((s) => s.workout_id === bestWorkoutId)
-      .map((s) => ({ weight: s.weight, reps: s.reps })),
-  }
+  return selectBestSession((sets ?? []) as SessionSetRow[], completedWorkouts as WorkoutRef[])
 }
 
 export async function getExerciseHistory(exerciseId: number, limitDays = 90): Promise<ExerciseHistoryPoint[]> {
@@ -417,28 +381,11 @@ export async function getExerciseHistory(exerciseId: number, limitDays = 90): Pr
 
   if (!sets?.length) return []
 
-  // Group by date
-  const byDate = new Map<string, { weights: number[]; reps: number[]; volumes: number[]; count: number }>()
-  for (const s of sets as any[]) {
-    const date = dateById.get(s.workout_id)
-    if (!date) continue
-    if (!byDate.has(date)) byDate.set(date, { weights: [], reps: [], volumes: [], count: 0 })
-    const entry = byDate.get(date)!
-    entry.count++
-    if (s.weight != null) entry.weights.push(s.weight)
-    if (s.reps != null) entry.reps.push(s.reps)
-    if (s.weight != null && s.reps != null) entry.volumes.push(s.weight * s.reps)
-  }
+  const dated: DatedSet[] = (sets as any[])
+    .filter((s) => dateById.has(s.workout_id))
+    .map((s) => ({ date: dateById.get(s.workout_id)!, weight: s.weight, reps: s.reps }))
 
-  return Array.from(byDate.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, e]) => ({
-      date,
-      maxWeight: e.weights.length > 0 ? Math.max(...e.weights) : null,
-      maxReps: e.reps.length > 0 ? Math.max(...e.reps) : null,
-      totalVolume: e.volumes.length > 0 ? e.volumes.reduce((a, b) => a + b, 0) : null,
-      setCount: e.count,
-    }))
+  return aggregateHistory(dated)
 }
 
 // ─── Report / export queries ─────────────────────────────────────────────────
