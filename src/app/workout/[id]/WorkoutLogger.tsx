@@ -18,7 +18,7 @@ import Stepper from './Stepper'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 import { useWakeLock } from './useWakeLock'
 import { TempoConfig, repDuration, formatTempo, parseTempo } from '@/lib/tempo'
-import { startsRestOnComplete } from '@/lib/restTimer'
+import { startsRestOnComplete, formatRestRow } from '@/lib/restTimer'
 import { deriveInitialSets } from '@/lib/deriveInitialSets'
 import { expandTemplate } from '@/lib/expandTemplate'
 import {
@@ -1028,39 +1028,44 @@ export default function WorkoutLogger({
                 {group.sets.map((s, i) => (
                   <div
                     key={s.localId}
-                    className="grid grid-cols-[2rem_1fr_1fr] items-center gap-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-4 py-3"
+                    className="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-4 py-3"
                   >
-                    <span className="text-xs font-bold text-zinc-400 dark:text-zinc-600">#{i + 1}</span>
-                    {s.exerciseCategory === 'cardio' ? (
-                      <>
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Duration</p>
-                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                            {s.duration_minutes != null ? `${s.duration_minutes} min` : '—'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Distance</p>
-                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                            {s.distance != null ? `${s.distance} km` : '—'}
-                          </p>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Weight</p>
-                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                            {s.weight != null ? `${s.weight} kg` : '—'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Reps</p>
-                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                            {s.reps != null ? s.reps : '—'}
-                          </p>
-                        </div>
-                      </>
+                    <div className="grid grid-cols-[2rem_1fr_1fr] items-center gap-3">
+                      <span className="text-xs font-bold text-zinc-400 dark:text-zinc-600">#{i + 1}</span>
+                      {s.exerciseCategory === 'cardio' ? (
+                        <>
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Duration</p>
+                            <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                              {s.duration_minutes != null ? `${s.duration_minutes} min` : '—'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Distance</p>
+                            <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                              {s.distance != null ? `${s.distance} km` : '—'}
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Weight</p>
+                            <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                              {s.weight != null ? `${s.weight} kg` : '—'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Reps</p>
+                            <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                              {s.reps != null ? s.reps : '—'}
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {formatRestRow(s.rest_seconds) && (
+                      <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-1.5 pl-[2rem]">{formatRestRow(s.rest_seconds)}</p>
                     )}
                   </div>
                 ))}
@@ -1445,6 +1450,9 @@ export default function WorkoutLogger({
                         </IconHitTarget>
                       </div>
                     </div>
+                    {formatRestRow(s.rest_seconds) && (
+                      <p className="text-xs text-zinc-400 dark:text-zinc-600 pl-8">{formatRestRow(s.rest_seconds)}</p>
+                    )}
                     {/* ADR-0008 (WP-09): two-tap confirm, mirrors the calendar's Confirm/Cancel (§3.15-3.17) */}
                     {pendingDeleteId === s.localId && (
                       <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
