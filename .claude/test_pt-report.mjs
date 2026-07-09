@@ -313,7 +313,7 @@ test('distance unit: an unrecognised unit string falls back to km rather than th
 const SELF = fileURLToPath(import.meta.url)
 
 function runInChildTZ(tz) {
-  return spawnSync(process.execPath, ['--experimental-strip-types', SELF, '--tz-child'], {
+  return spawnSync(process.execPath, ['--import', 'tsx', SELF, '--tz-child'], {
     env: { ...process.env, TZ: tz },
     encoding: 'utf8',
   })
