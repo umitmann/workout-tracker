@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerSupabaseClient } from './supabase-server'
 import { selectBestSession, aggregateHistory, buildPreviews } from './dalCores'
 import type { SessionSetRow, WorkoutRef, DatedSet } from './dalCores'
+import { localDateStr, dateNDaysBefore } from './localDate'
 
 // True only when a query failed because a column does not exist (e.g. a not-yet
 // migrated rest_seconds). Postgres undefined_column = 42703; PostgREST surfaces
@@ -318,7 +319,14 @@ export async function getLastExercisePerformance(exerciseId: number): Promise<La
   return null
 }
 
-export async function getBestExercisePerformance(exerciseId: number, limitDays?: number): Promise<LastExercisePerformance | null> {
+// `today` is the caller's local calendar date (YYYY-MM-DD, from
+// localDateStr() client-side) — the "last N days" window is a user-facing
+// concept (checklist §7.8) so its boundary must be *my* days, not the
+// server process's own clock/timezone (ADR-0005). All current call sites
+// pass it explicitly; the fallback (localDateStr() evaluated here, on the
+// server) only protects a future caller that forgets to, and would use the
+// server's day rather than the user's — not a correct substitute.
+export async function getBestExercisePerformance(exerciseId: number, limitDays?: number, today?: string): Promise<LastExercisePerformance | null> {
   const { supabase, user } = await getAuthContext()
   if (!user) return null
 
@@ -330,9 +338,7 @@ export async function getBestExercisePerformance(exerciseId: number, limitDays?:
     .order('date', { ascending: false })
 
   if (limitDays != null) {
-    const since = new Date()
-    since.setDate(since.getDate() - limitDays)
-    query = (query as any).gte('date', since.toISOString().split('T')[0])
+    query = (query as any).gte('date', dateNDaysBefore(today ?? localDateStr(), limitDays))
   }
 
   const { data: completedWorkouts } = await query
@@ -350,13 +356,11 @@ export async function getBestExercisePerformance(exerciseId: number, limitDays?:
   return selectBestSession((sets ?? []) as SessionSetRow[], completedWorkouts as WorkoutRef[])
 }
 
-export async function getExerciseHistory(exerciseId: number, limitDays = 90): Promise<ExerciseHistoryPoint[]> {
+export async function getExerciseHistory(exerciseId: number, limitDays = 90, today?: string): Promise<ExerciseHistoryPoint[]> {
   const { supabase, user } = await getAuthContext()
   if (!user) return []
 
-  const since = new Date()
-  since.setDate(since.getDate() - limitDays)
-  const sinceStr = since.toISOString().split('T')[0]
+  const sinceStr = dateNDaysBefore(today ?? localDateStr(), limitDays)
 
   // Step 1: get completed workout IDs + dates for this user in the window
   const { data: completedWorkouts } = await supabase

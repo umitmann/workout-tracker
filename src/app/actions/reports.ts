@@ -3,24 +3,19 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getWorkoutsInRange, getBodyWeightsInRange } from '@/lib/dal'
 import { buildReport, ReportWorkout, ReportExercise } from '@/lib/buildReport'
+import { dateNDaysBefore } from '@/lib/localDate'
 
 export type ReportRange = 'week' | 'month'
 
-function isoDaysAgo(days: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() - days)
-  return d.toISOString().split('T')[0]
-}
-
 export async function exportReport(
   range: ReportRange,
+  to: string,
 ): Promise<{ filename: string; text: string } | { error: string }> {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
-  const to = new Date().toISOString().split('T')[0]
-  const from = range === 'week' ? isoDaysAgo(6) : isoDaysAgo(29)
+  const from = range === 'week' ? dateNDaysBefore(to, 6) : dateNDaysBefore(to, 29)
   const rangeLabel = range === 'week' ? 'Last 7 days' : 'Last 30 days'
 
   const [rows, bodyWeights] = await Promise.all([

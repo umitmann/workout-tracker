@@ -12,6 +12,7 @@ import LastPerfModal from '@/app/workout/[id]/LastPerfModal'
 import Stepper from '@/app/workout/[id]/Stepper'
 import { TempoConfig, parseTempo, formatTempo } from '@/lib/tempo'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
+import { localDateStr } from '@/lib/localDate'
 
 type TemplateExercise = {
   localId: string
@@ -55,7 +56,7 @@ export default function TemplateEditor({
   const [copied, setCopied] = useState(false)
   const [showPasteConfirm, setShowPasteConfirm] = useState(false)
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = localDateStr()
   const isScheduling = !!date && date > today
 
   const [name, setName] = useState(template?.name ?? '')
@@ -210,7 +211,7 @@ export default function TemplateEditor({
     let data: LastExercisePerformance | null = null
     if (mode === 'last') data = await fetchLastExercisePerformance(exerciseId)
     else if (mode === 'best') data = await fetchBestExercisePerformance(exerciseId)
-    else data = await fetchBestExercisePerformance60Days(exerciseId)
+    else data = await fetchBestExercisePerformance60Days(exerciseId, today)
     setPerfData(data)
     setPerfLoading(false)
   }
@@ -318,7 +319,11 @@ export default function TemplateEditor({
         if ('error' in result) { setError(result.error ?? 'Schedule failed'); return }
         router.push('/workouts')
       } else {
-        await startWorkoutFromTemplate(routineId, date)
+        // date is undefined when editing/creating a template outside the
+        // "start for a specific calendar day" flow (e.g. /workouts/new) —
+        // ADR-0005: the client always supplies its own local day explicitly,
+        // never relying on a server-side "today".
+        await startWorkoutFromTemplate(routineId, date ?? today)
       }
     })
   }
