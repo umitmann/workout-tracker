@@ -65,3 +65,20 @@ export function reorderExercise(
 export function recordRestForSet(sets: LocalSet[], localId: string, elapsedSeconds: number): LocalSet[] {
   return sets.map((s) => (s.localId === localId ? { ...s, rest_seconds: elapsedSeconds } : s))
 }
+
+export type SetDeleteRequest = { pendingId: string | null; confirmed: boolean }
+
+// ADR-0008 (WP-09): two-tap confirm transition for the set-delete ✕, mirroring
+// the calendar's confirmDeleteId pattern (§3.15-3.17). Tapping ✕ on a set with
+// nothing armed (or with a *different* set armed) arms confirmation on that
+// set; tapping ✕ again on the *same* armed set disarms and reports confirmed
+// so the caller can run deleteSet. Pure state transition — the component owns
+// the `pendingId` useState and calls deleteSet itself on `confirmed`.
+export function requestSetDelete(pendingId: string | null, localId: string): SetDeleteRequest {
+  if (pendingId === localId) return { pendingId: null, confirmed: true }
+  return { pendingId: localId, confirmed: false }
+}
+
+// Cancel always clears whatever is armed, regardless of target — mirrors the
+// calendar's Cancel button (§3.17).
+requestSetDelete.cancel = (): null => null

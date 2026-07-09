@@ -76,11 +76,14 @@ Run through this list manually after any change to routing, workout actions, dat
 
 | # | Scenario | Expected result |
 |---|----------|----------------|
-| 4.1 | View a set row (active workout) | Full-width row: set number, **Weight** label + value, **Reps** label + value, ✕ button |
+| 4.1 | View a set row (active workout) | Full-width row: set number, **Weight** label + value, **Reps** label + value, ✕ button (44×44 min hit area, ADR-0008) |
+| 4.1a | Tap the row's delete ✕ once | Confirm/Cancel buttons replace the row's action area in place (two-tap pattern, mirrors §3.15–3.17); set is **not yet** removed |
+| 4.1b | Tap Confirm after the delete ✕ | Set removed from local state (§15.7: not autosaved — persists on next Save/Done); marks the queue dirty |
+| 4.1c | Tap Cancel after the delete ✕ | Prompt dismissed, set unchanged |
 | 4.2 | Tap a set row (active workout) | Row expands into edit mode: two labeled inputs (Weight kg / Reps) |
 | 4.3 | Edit a set and tap elsewhere | Edit auto-saves to **local state** (not DB), row returns to display mode |
 | 4.4 | Edit a set and press Enter | Same as tapping elsewhere — saves to local state |
-| 4.5 | Tap ✕ while editing | Cancels edit, row reverts to previous values |
+| 4.5 | Tap ✕ while editing | Cancels edit, row reverts to previous values (this is the edit-mode cancel ✕, distinct from the delete ✕ in 4.1a — no confirm step, nothing destructive happens) |
 | 4.6 | View a set row (completed workout) | Same labeled row layout but no ✕ button and not tappable |
 | 4.7 | Set with null weight | Displays `—` for weight |
 | 4.8 | Set with null reps | Displays `—` for reps |

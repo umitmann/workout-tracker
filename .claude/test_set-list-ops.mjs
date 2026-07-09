@@ -6,7 +6,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-const { addSet, deleteSet, applyEdit, cancelEdit, reorderExercise, recordRestForSet } = await import(
+const { addSet, deleteSet, applyEdit, cancelEdit, reorderExercise, recordRestForSet, requestSetDelete } = await import(
   '../src/lib/setListOps.ts'
 )
 
@@ -130,4 +130,29 @@ test('recordRestForSet no-ops when the target localId is absent', () => {
   const sets = [set({ localId: 'a', rest_seconds: null })]
   const next = recordRestForSet(sets, 'missing', 62)
   assert.equal(next[0].rest_seconds, null)
+})
+
+// ─── requestSetDelete (WP-09: two-tap confirm state transition) ────────────
+// Mirrors the calendar's confirmDeleteId pattern (§3.15-3.17): first tap on a
+// localId arms confirmation; a second tap on the *same* armed localId confirms
+// (caller then performs the actual deleteSet); a tap on a *different* localId
+// re-arms on the new target rather than confirming the old one.
+
+test('requestSetDelete arms confirmation on first tap (nothing pending yet)', () => {
+  const result = requestSetDelete(null, 'a')
+  assert.deepEqual(result, { pendingId: 'a', confirmed: false })
+})
+
+test('requestSetDelete confirms on second tap of the same armed localId', () => {
+  const result = requestSetDelete('a', 'a')
+  assert.deepEqual(result, { pendingId: null, confirmed: true })
+})
+
+test('requestSetDelete re-arms on a different localId rather than confirming', () => {
+  const result = requestSetDelete('a', 'b')
+  assert.deepEqual(result, { pendingId: 'b', confirmed: false })
+})
+
+test('requestSetDelete.cancel clears pending unconditionally', () => {
+  assert.equal(requestSetDelete.cancel(), null)
 })
