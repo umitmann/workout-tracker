@@ -430,6 +430,75 @@ notify pgrst, 'reload schema';
 
 ---
 
+## Phase 8 — Atomic set-snapshot save (ADR-0004)
+
+### `save_workout_sets` (RPC function)
+
+Replaces the client's unconditional `delete().eq('workout_id', …)` +
+`insert()` pair (finding C1) with a single Postgres function executed in one
+transaction — a delete followed by an insert that fails partway can no
+longer leave the workout's sets empty. `p_sets` is the full snapshot to
+persist for the workout, as a JSON array of rows shaped like the `sets`
+table (minus `id`); ownership is re-checked inside the function (`p_user_id`
+must own `p_workout_id`) so this can't be used to write into another user's
+workout even though `security definer` bypasses RLS for the body.
+
+```sql
+create or replace function save_workout_sets(
+  p_workout_id bigint,
+  p_user_id uuid,
+  p_sets jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (
+    select 1 from workouts
+    where id = p_workout_id and user_id = p_user_id
+  ) then
+    raise exception 'workout % not found for user %', p_workout_id, p_user_id;
+  end if;
+
+  delete from sets where workout_id = p_workout_id and user_id = p_user_id;
+
+  insert into sets (workout_id, user_id, exercise_id, weight, reps, duration_minutes, distance, rest_seconds)
+  select
+    p_workout_id,
+    p_user_id,
+    (row->>'exercise_id')::bigint,
+    (row->>'weight')::numeric,
+    (row->>'reps')::integer,
+    (row->>'duration_minutes')::numeric,
+    (row->>'distance')::numeric,
+    (row->>'rest_seconds')::numeric
+  from jsonb_array_elements(p_sets) as row;
+end;
+$$;
+
+grant execute on function save_workout_sets(bigint, uuid, jsonb) to authenticated;
+
+notify pgrst, 'reload schema';
+```
+
+> **Client fallback:** until this migration is applied, `save_workout_sets`
+> does not exist and Supabase returns a missing-function error (PostgREST
+> `PGRST202` / Postgres `undefined_function` `42883`). The client detects
+> exactly that error (`isMissingFunctionError` in `src/lib/dal.ts`) and falls
+> back to **insert-new-before-delete-old**: it inserts the new snapshot
+> first, then deletes only the old rows (excluding the ids it just
+> inserted). If the insert fails, no delete fires — the previous snapshot is
+> left untouched. This is a deliberate trade-off versus this RPC: it can
+> leave duplicate rows behind if the cleanup delete itself fails, but it can
+> never leave the workout emptier than before the save. Apply this migration
+> to close that residual-duplicate window entirely. See
+> [ADR-0004](decisions/0004-atomic-workout-persistence.md) and
+> `src/app/actions/cores.ts` (`saveSetSnapshot`).
+
+---
+
 ## Future — Admin & Trainer Tables
 
 Not needed now. Documented in [../examples/admin-groups.md](../examples/admin-groups.md) for reference.

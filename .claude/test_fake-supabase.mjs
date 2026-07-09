@@ -131,3 +131,64 @@ test('missing user config (undefined) behaves the same as explicit null', async 
   const { data } = await fake.auth.getUser()
   assert.equal(data.user, null)
 })
+
+// ─── rpc() — WP-04 ──────────────────────────────────────────────────────────
+
+test('rpc() records the call under the function name, with its args as payload', async () => {
+  const fake = createFakeSupabaseClient({ rpcResults: { save_workout_sets: { data: null, error: null } } })
+  await fake.rpc('save_workout_sets', { p_workout_id: 1, p_sets: [] })
+  assert.equal(fake.mutationCount('save_workout_sets', 'rpc'), 1)
+  assert.deepEqual(fake.mutationCalls('save_workout_sets', 'rpc')[0].payload, { p_workout_id: 1, p_sets: [] })
+})
+
+test('rpc() returns the configured result', async () => {
+  const fake = createFakeSupabaseClient({ rpcResults: { save_workout_sets: { data: { ok: true }, error: null } } })
+  const { data, error } = await fake.rpc('save_workout_sets', {})
+  assert.deepEqual(data, { ok: true })
+  assert.equal(error, null)
+})
+
+test('rpc() on an unconfigured function name defaults to { data: null, error: null } rather than throwing', async () => {
+  const fake = createFakeSupabaseClient()
+  const result = await fake.rpc('mystery_fn', {})
+  assert.deepEqual(result, { data: null, error: null })
+})
+
+test('rpc() supports sequenced (array) results, e.g. missing-function error then success on retry', async () => {
+  const fake = createFakeSupabaseClient({
+    rpcResults: {
+      save_workout_sets: [
+        { data: null, error: { code: 'PGRST202', message: 'function not found' } },
+        { data: null, error: null },
+      ],
+    },
+  })
+  const first = await fake.rpc('save_workout_sets', {})
+  const second = await fake.rpc('save_workout_sets', {})
+  assert.equal(first.error.code, 'PGRST202')
+  assert.equal(second.error, null)
+})
+
+test('not() records a distinguishable 3-tuple filter alongside eq()', async () => {
+  const fake = createFakeSupabaseClient()
+  await fake.from('sets').delete().eq('workout_id', 1).not('id', 'in', [7, 8])
+  const call = fake.mutationCalls('sets', 'delete')[0]
+  assert.deepEqual(call.filters, [['workout_id', 1], ['not', 'id', 'in', [7, 8]]])
+})
+
+test('in() records a distinguishable filter and order()/select() chain without side effects', async () => {
+  const fake = createFakeSupabaseClient({ selectResults: { sets: { data: [], error: null } } })
+  await fake.from('sets').select('id').in('workout_id', [1, 2]).order('id', { ascending: true })
+  // select() calls are not recorded as mutations regardless of chained in()/order()
+  assert.equal(fake.calls.length, 0)
+})
+
+test('rpc() calls interleave with table mutations in shared call order', async () => {
+  const fake = createFakeSupabaseClient({
+    rpcResults: { save_workout_sets: { data: null, error: { message: 'no fn' } } },
+    insertResults: { sets: { data: null, error: null } },
+  })
+  await fake.rpc('save_workout_sets', {})
+  await fake.from('sets').insert([{ a: 1 }])
+  assert.deepEqual(fake.calls.map((c) => `${c.method}:${c.table}`), ['rpc:save_workout_sets', 'insert:sets'])
+})

@@ -16,6 +16,18 @@ export function isMissingColumnError(error: unknown, column: string): boolean {
   return msg.includes(column.toLowerCase()) && msg.includes('does not exist')
 }
 
+// True only when an RPC call failed because the function does not exist yet
+// (not-yet-migrated). PostgREST surfaces this as PGRST202; Postgres itself as
+// undefined_function = 42883. Any other error (e.g. a real constraint
+// violation inside the function) must NOT be treated as "try the fallback".
+export function isMissingFunctionError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const e = error as { code?: string; message?: string }
+  if (e.code === 'PGRST202' || e.code === '42883') return true
+  const msg = (e.message ?? '').toLowerCase()
+  return msg.includes('function') && msg.includes('does not exist')
+}
+
 // Service-role client — no cookies, safe to use inside unstable_cache
 function createServiceSupabaseClient() {
   return createClient(

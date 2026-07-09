@@ -3,7 +3,7 @@
 // actions in workouts.ts/sets.ts/templates.ts are thin wrappers that construct
 // the real Supabase client and delegate here; tests inject a fake client.
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { isMissingColumnError, SetDetail } from '@/lib/dal'
+import { isMissingColumnError, isMissingFunctionError, SetDetail } from '@/lib/dal'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -37,16 +37,8 @@ export type TemplateExercisePayload = {
   order: number
 }
 
-// Inserts sets, degrading gracefully if the rest_seconds column has not been
-// migrated yet (retries once without it rather than failing the whole save).
-async function insertSets(
-  supabase: SupabaseServerClient,
-  workoutId: number,
-  userId: string,
-  sets: SetPayload[],
-) {
-  if (sets.length === 0) return
-  const rows = sets.map((s) => ({
+function toSetRow(s: SetPayload, workoutId: number, userId: string) {
+  return {
     workout_id: workoutId,
     user_id: userId,
     exercise_id: s.exercise_id,
@@ -55,14 +47,71 @@ async function insertSets(
     duration_minutes: s.duration_minutes ?? null,
     distance: s.distance ?? null,
     rest_seconds: s.rest_seconds ?? null,
-  }))
-
-  const { error } = await supabase.from('sets').insert(rows)
-  if (error && isMissingColumnError(error, 'rest_seconds')) {
-    // rest_seconds column not migrated yet — retry without it rather than fail.
-    const stripped = rows.map(({ rest_seconds, ...rest }) => rest)
-    await supabase.from('sets').insert(stripped)
   }
+}
+
+// Inserts sets, degrading gracefully if the rest_seconds column has not been
+// migrated yet (retries once without it). Surfaces any other error rather
+// than swallowing it — callers must not treat a failed insert as success.
+// Returns the inserted rows' ids so the fallback path in saveSetSnapshot can
+// delete only the *old* rows, never the ones it just wrote.
+async function insertSets(
+  supabase: SupabaseServerClient,
+  rows: ReturnType<typeof toSetRow>[],
+): Promise<{ ids: number[]; error?: string }> {
+  if (rows.length === 0) return { ids: [] }
+  const { data, error } = await supabase.from('sets').insert(rows).select('id')
+  if (!error) return { ids: (data ?? []).map((r: { id: number }) => r.id) }
+  if (isMissingColumnError(error, 'rest_seconds')) {
+    const stripped = rows.map(({ rest_seconds, ...rest }) => rest)
+    const retry = await supabase.from('sets').insert(stripped).select('id')
+    if (retry.error) return { ids: [], error: retry.error.message }
+    return { ids: (retry.data ?? []).map((r: { id: number }) => r.id) }
+  }
+  return { ids: [], error: error.message }
+}
+
+// ADR-0004: replaces a workout's entire set snapshot atomically. Tries the
+// `save_workout_sets` RPC (a single Postgres transaction) first; if that
+// function hasn't been migrated yet, falls back to insert-new-before-delete-
+// old: the new snapshot lands before the old one is removed, and the delete
+// explicitly excludes the just-inserted ids, so a failure at any point
+// leaves the DB with the old sets intact (or, at worst, both old and new —
+// never neither). See docs/database.md "Phase 8" and ADR-0004.
+async function saveSetSnapshot(
+  supabase: SupabaseServerClient,
+  workoutId: number,
+  userId: string,
+  sets: SetPayload[],
+): Promise<{ error?: string }> {
+  const rows = sets.map((s) => toSetRow(s, workoutId, userId))
+
+  const { error: rpcError } = await supabase.rpc('save_workout_sets', {
+    p_workout_id: workoutId,
+    p_user_id: userId,
+    p_sets: rows,
+  })
+  if (!rpcError) return {}
+  if (!isMissingFunctionError(rpcError)) return { error: rpcError.message }
+
+  // Fallback (RPC not migrated yet): insert-new-before-delete-old. If the
+  // insert fails, stop here — the old snapshot is untouched and no delete fires.
+  const inserted = await insertSets(supabase, rows)
+  if (inserted.error) return { error: inserted.error }
+
+  const deleteOld = supabase.from('sets').delete().eq('workout_id', workoutId).eq('user_id', userId)
+  // .not(column, 'in', value) takes raw PostgREST syntax, not a JS array —
+  // must be the parenthesized list literal "(1,2,3)".
+  const { error: deleteError } =
+    inserted.ids.length > 0
+      ? await deleteOld.not('id', 'in', `(${inserted.ids.join(',')})`)
+      : await deleteOld
+  // A failed cleanup delete leaves stale duplicate rows, not an emptied
+  // workout — the next successful save replaces the whole snapshot anyway,
+  // so this is a lesser, self-healing failure and not surfaced as an error.
+  void deleteError
+
+  return {}
 }
 
 export async function saveWorkoutProgressCore(
@@ -82,9 +131,8 @@ export async function saveWorkoutProgressCore(
 
   if (!workout) return { error: 'Not found' }
 
-  await supabase.from('sets').delete().eq('workout_id', workoutId)
-  await insertSets(supabase, workoutId, user.id, sets)
-
+  const result = await saveSetSnapshot(supabase, workoutId, user.id, sets)
+  if (result.error) return { error: result.error }
   return { success: true }
 }
 
@@ -105,8 +153,8 @@ export async function completeWorkoutCore(
 
   if (!workout) redirect('/workouts')
 
-  await supabase.from('sets').delete().eq('workout_id', workoutId)
-  await insertSets(supabase, workoutId, user.id, sets)
+  const result = await saveSetSnapshot(supabase, workoutId, user.id, sets)
+  if (result.error) return { error: result.error }
 
   await supabase.from('workouts').update({ status: 'completed' }).eq('id', workout.id)
   revalidatePath('/dashboard')

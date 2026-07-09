@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition, useEffect, useMemo } from 'react'
+import { useState, useTransition, useEffect, useMemo, useRef } from 'react'
 import { saveWorkoutProgress, completeWorkout, SetPayload } from '@/app/actions/workouts'
+import { createSaveQueue, SaveState } from '@/lib/saveQueue'
 import { fetchExerciseDetails, fetchLastExercisePerformance, fetchBestExercisePerformance, fetchBestExercisePerformance60Days } from '@/app/actions/exercises'
 import { fetchUserTemplates } from '@/app/actions/templates'
 import { fetchExerciseNotes, saveExerciseNote } from '@/app/actions/notes'
@@ -97,6 +98,13 @@ export default function WorkoutLogger({
   // (completed never falls back to template) are enforced by deriveInitialSets.
   const [localSets, setLocalSets] = useState<LocalSet[]>(() => deriveInitialSets(workout, initialTemplate ?? null))
 
+  // ADR-0004: one serialized save queue per mounted logger, keyed by workout
+  // id. Every persistence call site goes through `persist()` below, which
+  // enqueues here instead of firing an unserialized saveWorkoutProgress —
+  // this is what makes rapid adds (§15.3) land in order instead of racing.
+  const saveQueueRef = useRef(createSaveQueue<LocalSet[]>((sets) => saveWorkoutProgress(workout.id, sets.map(toPayload))))
+  const [saveState, setSaveState] = useState<SaveState>(() => saveQueueRef.current.getState(String(workout.id)))
+
   // Add-set form
   const [selectedExercise, setSelectedExercise] = useState<SlimExercise | null>(null)
   const [weight, setWeight] = useState('')
@@ -188,17 +196,20 @@ export default function WorkoutLogger({
   const [templates, setTemplates] = useState<RoutineWithExercises[] | null>(null)
   const [loadingTemplates, setLoadingTemplates] = useState(false)
 
-  // Warn on browser tab close / refresh — only for active workouts with unsaved sets
+  // Warn on browser tab close / refresh — for active workouts with sets, and
+  // unconditionally while a save has failed or is still pending (ADR-0004:
+  // the guard must stay armed until the failure is resolved, not just while
+  // localSets happens to be non-empty).
   useEffect(() => {
     if (workout.status === 'completed') return
     const handler = (e: BeforeUnloadEvent) => {
-      if (localSets.length > 0) {
+      if (localSets.length > 0 || saveState.dirty || saveState.pending || saveState.error) {
         e.preventDefault()
       }
     }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [workout.status, localSets.length])
+  }, [workout.status, localSets.length, saveState])
 
   // ─── Grouped view ──────────────────────────────────────────────────────────
 
@@ -317,14 +328,28 @@ export default function WorkoutLogger({
     persist(nextSets)
   }
 
+  // ADR-0004: every persistence call site goes through the save queue and
+  // inspects its result (finding C2 — no more fire-and-forget). The queue
+  // serializes/coalesces per workout id; this function's only job is to keep
+  // `saveState` in sync with it for the aria-live indicator + beforeunload guard.
   function persist(sets: LocalSet[]) {
     startTransition(async () => {
-      await saveWorkoutProgress(workout.id, sets.map(toPayload))
+      await saveQueueRef.current.enqueue(String(workout.id), sets)
+      setSaveState(saveQueueRef.current.getState(String(workout.id)))
     })
+  }
+
+  // §15.6/§15.7: inline edits and deletes are local-only — they mark the
+  // queue dirty so the "unsaved changes" indicator lights up, but only a
+  // subsequent Save/Done (or the next autosaved add) actually persists them.
+  function markDirty() {
+    saveQueueRef.current.markDirty(String(workout.id))
+    setSaveState(saveQueueRef.current.getState(String(workout.id)))
   }
 
   function handleDeleteSet(localId: string) {
     setLocalSets((prev) => deleteSetOp(prev, localId))
+    markDirty()
   }
 
   // Tapping a set's ✓ commits it (done) and auto-starts rest for that set.
@@ -596,6 +621,7 @@ export default function WorkoutLogger({
       }),
     )
     setEditingId(null)
+    markDirty()
   }
 
   async function handleInfoClick(exerciseId: number) {
@@ -677,22 +703,25 @@ export default function WorkoutLogger({
       setShowSaveWarning(true)
       return
     }
-    startTransition(async () => {
-      await saveWorkoutProgress(workout.id, buildPayload())
-    })
+    persist(localSets)
   }
 
   function confirmSaveProgress() {
     setSavedOnce(true)
     setShowSaveWarning(false)
-    startTransition(async () => {
-      await saveWorkoutProgress(workout.id, buildPayload())
-    })
+    persist(localSets)
   }
 
+  // Completing bypasses the save queue (it's a distinct server action, not a
+  // saveWorkoutProgress snapshot) but obeys the same contract: inspect the
+  // result, and on failure surface it instead of the redirect the happy path
+  // gets — Done must never navigate away while the final save has failed.
   function handleComplete() {
     startTransition(async () => {
-      await completeWorkout(workout.id, buildPayload())
+      const result = await completeWorkout(workout.id, buildPayload())
+      if (result?.error) {
+        setSaveState({ dirty: true, pending: false, error: result.error })
+      }
     })
   }
 
@@ -1060,6 +1089,29 @@ export default function WorkoutLogger({
           </button>
         </div>
       </header>
+
+      {/* ADR-0004: aria-live "not saved" state. Announces failures immediately
+          (assertive) and clears silently on success — never a silent-failure
+          path (finding C2). Retry re-runs the exact same snapshot save. */}
+      <div aria-live="assertive" className="sr-only">
+        {saveState.error ? `Not saved: ${saveState.error}` : ''}
+      </div>
+      {saveState.error && (
+        <div className="flex items-center justify-between gap-3 px-6 py-2 bg-red-50 dark:bg-red-950/40 border-b border-red-200 dark:border-red-900 text-red-700 dark:text-red-300">
+          <p className="text-xs font-bold">Not saved — {saveState.error}</p>
+          <button
+            onClick={() => persist(localSets)}
+            className="rounded-full border border-red-300 dark:border-red-800 px-3 py-1 text-xs font-bold uppercase tracking-wide hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {!saveState.error && saveState.dirty && (
+        <div className="px-6 py-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+          Unsaved changes
+        </div>
+      )}
 
       <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-6">
 

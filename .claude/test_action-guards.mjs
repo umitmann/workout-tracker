@@ -41,16 +41,20 @@ test('saveWorkoutProgress: ownership select returns null -> Not found, zero muta
   assert.equal(fake.mutationCount('sets', 'insert'), 0)
 })
 
-test('saveWorkoutProgress: user present + ownership ok -> mutations proceed', async () => {
+test('saveWorkoutProgress: user present + ownership ok -> mutation proceeds via the atomic RPC (WP-04 · ADR-0004)', async () => {
   const fake = createFakeSupabaseClient({
     user: { id: 'u1' },
     selectResults: { workouts: { data: { id: 1 }, error: null } },
-    insertResults: { sets: { data: null, error: null } },
+    rpcResults: { save_workout_sets: { data: null, error: null } },
   })
   const result = await saveWorkoutProgressCore(fake, 1, SOME_SETS)
   assert.deepEqual(result, { success: true })
-  assert.equal(fake.mutationCount('sets', 'delete'), 1)
-  assert.equal(fake.mutationCount('sets', 'insert'), 1)
+  // Atomicity (ADR-0004): the snapshot save is a single RPC call, not a
+  // separate delete + insert pair — see .claude/test_atomic-persistence.mjs
+  // for the full fallback/failure matrix.
+  assert.equal(fake.mutationCount('save_workout_sets', 'rpc'), 1)
+  assert.equal(fake.mutationCount('sets', 'delete'), 0)
+  assert.equal(fake.mutationCount('sets', 'insert'), 0)
 })
 
 // ─── completeWorkout ────────────────────────────────────────────────────────

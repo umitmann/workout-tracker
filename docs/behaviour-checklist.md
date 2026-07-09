@@ -274,12 +274,15 @@ The four icon buttons (i, clock, trophy, bolt) must be reachable while the user 
 |---|----------|----------------|
 | 15.1 | Add a set (weight and/or reps filled, tap "Add") | Set appears in list; sets are persisted to DB automatically |
 | 15.2 | Reload page immediately after tapping "Add" | The added set is present — it was saved |
-| 15.3 | Add multiple sets back-to-back quickly | All sets persist; no set is lost between rapid adds |
+| 15.3 | Add multiple sets back-to-back quickly | All sets persist, in order; saves are serialized per workout so no rapid-add races a partial snapshot in (ADR-0004) |
 | 15.4 | Tap manual "Save" button after auto-save already ran | Save runs without showing the first-time warning (already satisfied) |
 | 15.5 | Tap "Done" | Workout marked completed; all sets saved; redirects to /dashboard |
-| 15.6 | Inline edit a set value then tap elsewhere | Edit lives in local state only — not auto-saved; still requires manual Save or Done |
-| 15.7 | Delete a set | Deletion lives in local state only — not auto-saved; still requires manual Save or Done |
+| 15.6 | Inline edit a set value then tap elsewhere | Edit lives in local state only — not auto-saved; "Unsaved changes" indicator appears; cleared by the next successful Save/Done or autosaved add (ADR-0004 dirty tracking) |
+| 15.7 | Delete a set | Deletion lives in local state only — not auto-saved; "Unsaved changes" indicator appears; same clearing rule as 15.6 |
 | 15.8 | Open a completed workout | No "Add" button; auto-save never runs |
+| 15.9 | A save fails (network blip, RLS hiccup, etc.) | A visible, `aria-live` "Not saved — …" banner with Retry appears; `beforeunload` stays armed even if `localSets` is otherwise unremarkable (ADR-0004) |
+| 15.10 | Tap "Done" while the most recent save has failed | Stays on the logger with the error shown; does **not** redirect to /dashboard (ADR-0004) |
+| 15.11 | The set-persistence RPC (`save_workout_sets`) is not yet migrated | Client falls back to insert-new-before-delete-old; a failed fallback insert never triggers the delete, so an existing snapshot is never wiped (ADR-0004, `docs/database.md` Phase 8) |
 
 ---
 

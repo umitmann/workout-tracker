@@ -3,10 +3,11 @@
  * src/app/actions/*.ts (WP-01 · ADR-0006).
  *
  * Supports: auth.getUser(); from(table).select/insert/update/delete()
- * chains with .eq()/.single(); records every mutation call (insert/update/
- * delete) with table, method, and the filters/payload applied, in call
- * order, so tests can assert atomicity ("no delete before insert failed")
- * and guard behaviour ("zero mutations on auth/ownership failure").
+ * chains with .eq()/.not()/.in()/.order()/.single(); rpc(name, args);
+ * records every mutation call (insert/update/delete/rpc) with table, method,
+ * and the filters/payload applied, in call order, so tests can assert
+ * atomicity ("no delete before insert failed") and guard behaviour ("zero
+ * mutations on auth/ownership failure").
  *
  * Configuration is per-instance:
  *   createFakeSupabaseClient({
@@ -17,6 +18,9 @@
  *     insertResults: { sets: { data: null, error: { message: 'boom' } } },
  *     updateResults: {},
  *     deleteResults: {},
+ *     // per-function RPC results, same shape as *Results above, keyed by
+ *     // function name instead of table (client.rpc('save_workout_sets', args))
+ *     rpcResults: { save_workout_sets: { data: null, error: null } },
  *   })
  *
  * Every config value may be:
@@ -53,6 +57,22 @@ class FakeQueryBuilder {
 
   eq(column, value) {
     this.filters.push([column, value])
+    return this
+  }
+
+  // Records as a 3-element filter (['not', column, value]) so it's
+  // distinguishable from .eq()'s 2-element form when tests inspect `filters`.
+  not(column, operator, value) {
+    this.filters.push(['not', column, operator, value])
+    return this
+  }
+
+  in(column, values) {
+    this.filters.push(['in', column, values])
+    return this
+  }
+
+  order(_column, _opts) {
     return this
   }
 
@@ -128,6 +148,17 @@ export function createFakeSupabaseClient(config = {}) {
     },
     from(table) {
       return new FakeTableClient(client, table)
+    },
+    // Supabase RPC surface: client.rpc('fn_name', args). Recorded like a
+    // mutation (table set to the function name) so mutationCalls/mutationCount
+    // work unchanged — tests assert atomicity/fallback ordering against
+    // 'rpc' the same way they do 'insert'/'delete'.
+    async rpc(fnName, args) {
+      const call = { table: fnName, method: 'rpc', payload: args, filters: [], single: false }
+      client.calls.push(call)
+      const provider = client.providerFor('rpcResults', fnName)
+      const result = provider(call)
+      return result ?? { data: null, error: null }
     },
     // Memoized per (resultsKey, table) so array-configured results advance
     // across calls instead of resetting to index 0 on every query.
