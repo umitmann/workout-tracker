@@ -263,6 +263,22 @@ export default function WorkoutLogger({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exerciseKey])
 
+  // Keyboard-open detection: while a field is focused the on-screen keyboard
+  // shrinks the viewport and shoves a sticky bar around — so drop the sticky
+  // rest bar out of `sticky` positioning until focus leaves.
+  const [fieldFocused, setFieldFocused] = useState(false)
+  useEffect(() => {
+    const isField = (el: EventTarget | null) => {
+      const t = el as HTMLElement | null
+      return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')
+    }
+    const onIn = (e: FocusEvent) => { if (isField(e.target)) setFieldFocused(true) }
+    const onOut = () => { setTimeout(() => { if (!isField(document.activeElement)) setFieldFocused(false) }, 0) }
+    document.addEventListener('focusin', onIn)
+    document.addEventListener('focusout', onOut)
+    return () => { document.removeEventListener('focusin', onIn); document.removeEventListener('focusout', onOut) }
+  }, [])
+
   function handleSaveNote() {
     if (!editingNote) return
     const { exerciseId, text } = editingNote
@@ -843,36 +859,37 @@ export default function WorkoutLogger({
             </button>
           </div>
         ) : (
-          <div className="flex gap-2">
-            <input
-              type="number"
-              placeholder="kg"
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddSet()}
-              className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
+          <div className="flex items-end gap-3">
+            <Stepper
+              label="Weight (kg)"
+              value={Number(weight) || 0}
+              min={0}
+              max={500}
+              step={2.5}
+              onChange={(v) => setWeight(v > 0 ? String(v) : '')}
             />
-            <input
-              type="number"
-              placeholder="Reps"
-              value={reps}
-              onChange={(e) => setReps(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddSet()}
-              className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-sm outline-none focus:border-orange-400 transition-colors"
+            <Stepper
+              label="Reps"
+              value={Number(reps) || 0}
+              min={0}
+              max={50}
+              onChange={(v) => setReps(v > 0 ? String(v) : '')}
             />
-            <button
-              onClick={openGuidedSetup}
-              title="Guided set with DRUH tempo timer"
-              className="shrink-0 rounded-lg border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/20 px-3 py-2 text-sm font-bold transition-colors"
-            >
-              ▶ Guided
-            </button>
-            <button
-              onClick={handleAddSet}
-              className="shrink-0 rounded-lg bg-orange-500 hover:bg-orange-600 px-4 py-2 text-sm font-bold text-white transition-colors"
-            >
-              Add
-            </button>
+            <div className="flex flex-col gap-2 flex-1 min-w-0">
+              <button
+                onClick={openGuidedSetup}
+                title="Guided set with DRUH tempo timer"
+                className="rounded-lg border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/20 px-3 py-2 text-sm font-bold transition-colors"
+              >
+                ▶ Guided
+              </button>
+              <button
+                onClick={handleAddSet}
+                className="rounded-lg bg-orange-500 hover:bg-orange-600 px-4 py-2 text-sm font-bold text-white transition-colors"
+              >
+                Add
+              </button>
+            </div>
           </div>
         )}
         {addError && <p className="text-xs font-medium text-red-500">{addError}</p>}
@@ -1084,8 +1101,9 @@ export default function WorkoutLogger({
 
       <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-6">
 
-        {/* Rest — sticky at top. Running timer when resting, else settings. */}
-        <div className="sticky top-0 z-20 -mx-6 px-6 py-2 bg-zinc-50/95 dark:bg-black/95 backdrop-blur border-b border-zinc-200/60 dark:border-zinc-800/60">
+        {/* Rest — sticky at top (but not while a field is focused, so the mobile
+            keyboard doesn't shove it around). Running timer when resting, else settings. */}
+        <div className={`${fieldFocused ? '' : 'sticky top-0'} z-20 -mx-6 px-6 py-2 bg-zinc-50/95 dark:bg-black/95 backdrop-blur border-b border-zinc-200/60 dark:border-zinc-800/60`}>
           {restForSet !== null ? (
             <RestTimer
               key={restForSet}
@@ -1271,28 +1289,21 @@ export default function WorkoutLogger({
                         </>
                       ) : (
                         <>
-                          <div className="flex flex-col gap-1">
-                            <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Weight (kg)</span>
-                            <input
-                              type="number"
-                              value={editWeight}
-                              onChange={(e) => setEditWeight(e.target.value)}
-                              onKeyDown={(e) => e.key === 'Enter' && saveEditSet(s.localId)}
-                              placeholder="—"
-                              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-orange-400 transition-colors"
-                            />
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Reps</span>
-                            <input
-                              type="number"
-                              value={editReps}
-                              onChange={(e) => setEditReps(e.target.value)}
-                              onKeyDown={(e) => e.key === 'Enter' && saveEditSet(s.localId)}
-                              placeholder="—"
-                              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-orange-400 transition-colors"
-                            />
-                          </div>
+                          <Stepper
+                            label="Weight (kg)"
+                            value={Number(editWeight) || 0}
+                            min={0}
+                            max={500}
+                            step={2.5}
+                            onChange={(v) => setEditWeight(v > 0 ? String(v) : '')}
+                          />
+                          <Stepper
+                            label="Reps"
+                            value={Number(editReps) || 0}
+                            min={0}
+                            max={50}
+                            onChange={(v) => setEditReps(v > 0 ? String(v) : '')}
+                          />
                         </>
                       )}
                     </div>
@@ -1649,7 +1660,7 @@ export default function WorkoutLogger({
                 value={Number(guidedSetup.weight) || 0}
                 min={0}
                 max={500}
-                step={1.25}
+                step={2.5}
                 onChange={(v) => setGuidedSetup((g) => (g ? { ...g, weight: v > 0 ? String(v) : '' } : g))}
               />
             </div>
@@ -1752,7 +1763,7 @@ export default function WorkoutLogger({
                 <div key={r.localId} className="flex items-end gap-3">
                   <span className="text-xs font-bold text-zinc-400 w-8 pb-2">#{i + 1}</span>
                   <Stepper label="Reps" value={r.reps} min={1} max={50} onChange={(v) => updateGuideRow(r.localId, { reps: v })} />
-                  <Stepper label="Weight" sublabel="kg" value={r.weight} min={0} max={500} step={1.25} onChange={(v) => updateGuideRow(r.localId, { weight: v })} />
+                  <Stepper label="Weight" sublabel="kg" value={r.weight} min={0} max={500} step={2.5} onChange={(v) => updateGuideRow(r.localId, { weight: v })} />
                   <button
                     onClick={() => removeGuideRow(r.localId)}
                     disabled={guideSetup.rows.length <= 1}
