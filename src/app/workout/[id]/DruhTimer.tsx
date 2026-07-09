@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { TempoConfig, TempoPhase, TEMPO_PHASE_CUE, repDuration, formatTempo } from '@/lib/tempo'
 import { guidedStateAt, stopEarlyReps, isTickSecond, READY_SECONDS, readySecondsLeft } from '@/lib/guidedTimer'
-import { useWakeLock } from './useWakeLock'
 
 // Full-bleed background colour per phase so the phase is readable peripherally,
 // across the room, and through sweat/glare. Paired with the verb (never colour
@@ -50,7 +49,8 @@ export default function DruhTimer({
   onStop: (completedReps: number) => void
   onCancel: () => void
 }) {
-  useWakeLock(true)
+  // Wake lock is now owned by WorkoutLogger at the session level (ADR-0007) —
+  // no per-timer lock here.
   const initial = guidedStateAt(tempo, goalReps, 0)
   const [audio, setAudio] = useState(audioDefault)
   const [ready, setReady] = useState(READY_SECONDS) // >0 = GET READY lead-in

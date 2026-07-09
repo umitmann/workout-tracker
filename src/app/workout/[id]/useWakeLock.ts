@@ -1,38 +1,44 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import { createWakeLockController, WakeLockApiLike, WakeLockController } from '@/lib/wakeLockCore'
 
-// Keeps the screen awake while `active` (e.g. during a guided set / rest timer)
-// so the phone doesn't sleep mid-exercise. Re-acquires on tab re-focus, since
-// the browser drops the lock when the page is hidden.
+// Thin DOM adapter over the pure wakeLockCore lifecycle (ADR-0007). Keeps the
+// screen awake while `active` — since ADR-0007 this is held at the
+// WorkoutLogger top level for the whole non-completed session, not per-timer,
+// so DruhTimer/ExerciseGuide no longer call this themselves. Re-acquires on
+// tab re-focus, since the browser drops the lock when the page is hidden; the
+// acquire/release/re-acquire decision logic itself lives in wakeLockCore.ts
+// so it's testable without a DOM (see .claude/test_wake-lock.mjs).
+//
+// One controller instance for the component's whole lifetime (not recreated
+// per `active` toggle) — otherwise a hidden->visible re-request racing an
+// active->false->true flip would be split across controllers that don't know
+// about each other's in-flight requests.
 export function useWakeLock(active: boolean) {
+  const controllerRef = useRef<WakeLockController | null>(null)
+
   useEffect(() => {
-    if (!active) return
     if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return
 
-    let sentinel: { release: () => Promise<void> } | null = null
-    let released = false
-
-    const acquire = async () => {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        sentinel = await (navigator as any).wakeLock.request('screen')
-      } catch {
-        /* denied / not visible — ignore */
-      }
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (navigator as any).wakeLock as WakeLockApiLike
+    const controller = createWakeLockController({ wakeLock: api })
+    controllerRef.current = controller
 
     const onVisibility = () => {
-      if (document.visibilityState === 'visible' && !released) acquire()
+      controller.onVisibilityChange(document.visibilityState === 'visible' ? 'visible' : 'hidden')
     }
-
-    acquire()
     document.addEventListener('visibilitychange', onVisibility)
 
     return () => {
-      released = true
       document.removeEventListener('visibilitychange', onVisibility)
-      sentinel?.release().catch(() => {})
+      controller.teardown()
+      controllerRef.current = null
     }
+  }, [])
+
+  useEffect(() => {
+    controllerRef.current?.setActive(active)
   }, [active])
 }

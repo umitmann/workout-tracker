@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { TempoConfig, TempoPhase, secondsLeft } from '@/lib/tempo'
 import { guidedStateAt, stopEarlyReps, READY_SECONDS, readySecondsLeft } from '@/lib/guidedTimer'
-import { useWakeLock } from './useWakeLock'
 
 export type GuideSet = { localId: string; goalReps: number; weight: number | null }
 
@@ -49,8 +48,8 @@ export default function ExerciseGuide({
   audioDefault?: boolean
   onDone: (results: { localId: string; reps: number }[]) => void
 }) {
-  useWakeLock(true)
-
+  // Wake lock is now owned by WorkoutLogger at the session level (ADR-0007) —
+  // no per-timer lock here.
   const [audio, setAudio] = useState(audioDefault)
   const [mode, setMode] = useState<Mode>('ready')
   const [idx, setIdx] = useState(0)
