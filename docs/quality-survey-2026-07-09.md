@@ -167,3 +167,46 @@ the next autosave/Done the data is permanently gone.
 
 ### L8 — Technique modes (§16) documented in checklist but entirely unimplemented
 **Files:** docs/behaviour-checklist.md §16, docs/scenarios/exercise-technique-modes.md · Backlog — either implement or move the section to roadmap; not scheduled in this test plan.
+
+---
+
+## Resolution (2026-07-09)
+
+All 28 findings were remediated the same day via four TDD phases (each work
+packet implemented as 3 independent variants, consolidated, then adversarially
+reviewed by a 3-reviewer panel; every must-fix from review was applied before
+merge). ADRs 0004–0008 are implemented and marked Accepted.
+
+| Phase | Packets | Landed |
+|---|---|---|
+| 0 — enablers | WP-01/02/03 (fake Supabase + cores pattern, WorkoutLogger pure cores, dal cores) | `9981ef4` |
+| 1 — critical | WP-04/05/06 (atomic+serialized+surfaced saves, input validation, local dates) | `1e5a498`, `b27fb73`, `e116be2` |
+| 2 — high | WP-07/08/09 (session wake lock, Modal primitive, 44px targets + delete confirm) | `1f6c434`, `b592333` |
+| 3 — medium/low | WP-10…WP-18 (rest display, cardio perf modal, km/m pref, error boundaries, duplicate guard, edge pins, chart legibility, CI, UX bundle) | `11d6780`, `8140b50` |
+
+Test suite: **54 → 462** green (`test:unit` + `test:filters`); `tsc --noEmit`
+clean; `npm run lint` 0 errors (pre-existing `no-explicit-any` debt in eight
+legacy files is scoped to warnings in `eslint.config.mjs` — burn down, don't
+extend). CI (`.github/workflows/ci.yml`) gates lint+tsc+unit on every push
+with no secrets.
+
+Notable review catches fixed along the way (each found by the adversarial
+pass after tests were already green): a fallback delete path that could wipe
+a workout's sets when an insert returned no ids; `handleComplete` silently
+swallowing transport-level failures; Modal focus-restore scrolling the picker
+(§13); the wake lock missing the edit-completed flow; `reset()` boundaries
+that couldn't actually retry a failed fetch.
+
+**Still open (out of scope by design):**
+- L8 / checklist §16 (technique modes) — documented but unimplemented;
+  belongs on the roadmap, not this remediation.
+- The Playwright behaviour tier (14 written suites) is authored but not yet
+  executing in CI — WP-17 delivered the workflow + non-interactive auth
+  bootstrap (`.claude/bootstrap-auth.mjs`, `SUPABASE_TEST_*` env contract);
+  running them needs a seeded Supabase instance (human step: set the env
+  vars / run the bootstrap once against a test project).
+- The `save_workout_sets` SQL migration (docs/database.md Phase 8) is written
+  but must be applied in the Supabase SQL editor; until then the tested
+  insert-before-delete fallback path is what runs.
+- Light-mode weight-series orange fails AA contrast (pre-existing, documented
+  in `historyChartLayout.ts`).

@@ -1,6 +1,6 @@
 # ADR-0005: Calendar dates use the user's local day, never UTC
 
-**Status:** Proposed
+**Status:** Accepted — implemented 2026-07-09 (see docs/quality-survey-2026-07-09.md § Resolution)
 **Date:** 2026-07-09
 **Source:** [Quality survey 2026-07-09](../quality-survey-2026-07-09.md) finding H2
 

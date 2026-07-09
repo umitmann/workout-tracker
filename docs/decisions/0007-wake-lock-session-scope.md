@@ -1,6 +1,6 @@
 # ADR-0007: Wake lock is held for the whole active logging session, not per-timer
 
-**Status:** Proposed
+**Status:** Accepted — implemented 2026-07-09 (see docs/quality-survey-2026-07-09.md § Resolution)
 **Date:** 2026-07-09
 **Source:** [Quality survey 2026-07-09](../quality-survey-2026-07-09.md) findings H5, L6
 **Scenario:** [guided-tempo-rest](../scenarios/guided-tempo-rest.md), [rest-timer-between-sets](../scenarios/rest-timer-between-sets.md)

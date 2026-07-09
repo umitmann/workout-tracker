@@ -1,6 +1,6 @@
 # ADR-0008: Interaction baseline — shared Modal primitive, 44 px touch targets, confirm-or-undo on destructive taps
 
-**Status:** Proposed
+**Status:** Accepted — implemented 2026-07-09 (see docs/quality-survey-2026-07-09.md § Resolution)
 **Date:** 2026-07-09
 **Source:** [Quality survey 2026-07-09](../quality-survey-2026-07-09.md) findings H6, M1, M2
 

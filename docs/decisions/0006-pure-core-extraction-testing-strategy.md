@@ -1,6 +1,6 @@
 # ADR-0006: Testing strategy — extract pure cores; fake the Supabase client for actions
 
-**Status:** Proposed
+**Status:** Accepted — implemented 2026-07-09 (see docs/quality-survey-2026-07-09.md § Resolution)
 **Date:** 2026-07-09
 **Source:** [Quality survey 2026-07-09](../quality-survey-2026-07-09.md) findings H3, H4, M9, M12; coverage map
 

@@ -1,6 +1,6 @@
 # ADR-0004: Workout set persistence — atomic writes, serialized saves, surfaced failures
 
-**Status:** Proposed
+**Status:** Accepted — implemented 2026-07-09 (see docs/quality-survey-2026-07-09.md § Resolution)
 **Date:** 2026-07-09
 **Source:** [Quality survey 2026-07-09](../quality-survey-2026-07-09.md) findings C1, C2, H1, M8
 **Scenario:** [workout-autosave-on-add](../scenarios/workout-autosave-on-add.md), [workout-unsaved-indicator](../scenarios/workout-unsaved-indicator.md)
