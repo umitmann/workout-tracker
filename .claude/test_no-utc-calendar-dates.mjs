@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url'
 
 const SRC_DIR = fileURLToPath(new URL('../src', import.meta.url))
 
-const BANNED = /\.toISOString\(\)\.split\(\s*['"`]T['"`]\s*\)\s*\[\s*0\s*\]/
+const BANNED = /\.toISOString\(\)\s*\.\s*(?:split\(\s*['"`]T['"`]\s*\)\s*\[\s*0\s*\]|slice\(\s*0\s*,\s*10\s*\)|substring\(\s*0\s*,\s*10\s*\))/
 
 function walk(dir) {
   const out = []
@@ -43,5 +43,7 @@ test('sanity: the banned-pattern regex actually matches the historical offending
   assert.equal(BANNED.test("new Date().toISOString().split('T')[0]"), true)
   assert.equal(BANNED.test('new Date().toISOString().split("T")[0]'), true)
   // Must NOT flag a full-timestamp toISOString() with no truncation (notes.ts updated_at).
+  assert.equal(BANNED.test('new Date().toISOString().slice(0, 10)'), true)
+  assert.equal(BANNED.test('new Date().toISOString().substring(0, 10)'), true)
   assert.equal(BANNED.test('new Date().toISOString()'), false)
 })

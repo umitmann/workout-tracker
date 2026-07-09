@@ -45,6 +45,10 @@ export type SaveQueue<TSnapshot> = {
   // light up before the next save clears it.
   markDirty(key: string): void
   getState(key: string): SaveState
+  // Resolves once no persist is in flight or queued for this key. Used by
+  // the completeWorkout path so the terminal save cannot overlap an autosave
+  // (ADR-0004 §2 — overlapping snapshot saves must be impossible).
+  idle(key: string): Promise<void>
 }
 
 export function createSaveQueue<TSnapshot>(persist: PersistFn<TSnapshot>): SaveQueue<TSnapshot> {
@@ -114,6 +118,14 @@ export function createSaveQueue<TSnapshot>(persist: PersistFn<TSnapshot>): SaveQ
     markDirty(key) {
       const entry = stateFor(key)
       entry.state = { ...entry.state, dirty: true }
+    },
+    async idle(key) {
+      const entry = stateFor(key)
+      // A resolving persist may chain a coalesced follow-up into inFlight
+      // before it settles, so re-check until the slot is genuinely empty.
+      while (entry.inFlight) {
+        await entry.inFlight
+      }
     },
     getState(key) {
       return stateFor(key).state

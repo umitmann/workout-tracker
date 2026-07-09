@@ -23,7 +23,7 @@ const {
 // per-field — coerced to null — rather than rejecting the whole payload,
 // because null is itself a legitimate value for weight/reps (§4.7/§4.8:
 // "displays — for weight/reps"). reps and duration_minutes/distance must
-// also be > 0 when present (a negative rep count or duration is never
+// also be >= 0 when present (an explicit 0 is kept; a negative value is never
 // legitimate); weight may be 0 or positive but not negative (a 0kg/bodyweight
 // set is legitimate, checklist §19 bodyweight exercises).
 

@@ -125,13 +125,29 @@ async function saveSetSnapshot(
   const inserted = await insertSets(supabase, rows)
   if (inserted.error) return { error: inserted.error }
 
-  const deleteOld = supabase.from('sets').delete().eq('workout_id', workoutId).eq('user_id', userId)
+  if (rows.length === 0) {
+    // Intentionally-empty snapshot: delete-all IS the requested state.
+    await supabase.from('sets').delete().eq('workout_id', workoutId).eq('user_id', userId)
+    return {}
+  }
+
+  if (inserted.ids.length === 0) {
+    // The insert committed but returned no representation (e.g. PostgREST
+    // return=minimal), so the new rows' ids are unknown. An unfiltered delete
+    // here would remove the rows just written — the exact wipe ADR-0004
+    // forbids. Skip cleanup: old+new duplicates are self-healing on the next
+    // successful save; an emptied workout is not.
+    return {}
+  }
+
   // .not(column, 'in', value) takes raw PostgREST syntax, not a JS array —
   // must be the parenthesized list literal "(1,2,3)".
-  const { error: deleteError } =
-    inserted.ids.length > 0
-      ? await deleteOld.not('id', 'in', `(${inserted.ids.join(',')})`)
-      : await deleteOld
+  const { error: deleteError } = await supabase
+    .from('sets')
+    .delete()
+    .eq('workout_id', workoutId)
+    .eq('user_id', userId)
+    .not('id', 'in', `(${inserted.ids.join(',')})`)
   // A failed cleanup delete leaves stale duplicate rows, not an emptied
   // workout — the next successful save replaces the whole snapshot anyway,
   // so this is a lesser, self-healing failure and not surfaced as an error.
@@ -219,7 +235,14 @@ export async function completeWorkoutCore(
   const result = await saveSetSnapshot(supabase, workoutId, user.id, sets)
   if (result.error) return { error: result.error }
 
-  await supabase.from('workouts').update({ status: 'completed' }).eq('id', workout.id)
+  const { error: statusError } = await supabase
+    .from('workouts')
+    .update({ status: 'completed' })
+    .eq('id', workout.id)
+  // Sets are saved at this point; a failed status flip must surface (the
+  // client shows the error and the user can re-tap Done) rather than
+  // redirecting as if the workout completed.
+  if (statusError) return { error: statusError.message }
   revalidatePath('/dashboard')
   revalidatePath('/workouts')
   redirect('/dashboard')

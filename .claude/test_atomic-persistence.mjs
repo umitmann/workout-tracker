@@ -48,7 +48,7 @@ test('saveWorkoutProgress: RPC missing -> falls back, inserting the new snapshot
     user: { id: 1 === 1 ? 'u1' : 'u1' },
     selectResults: { workouts: { data: { id: 1 }, error: null } },
     rpcResults: { save_workout_sets: { data: null, error: MISSING_FN_ERROR } },
-    insertResults: { sets: { data: null, error: null } },
+    insertResults: { sets: { data: [{ id: 7 }], error: null } },
   })
   const result = await saveWorkoutProgressCore(fake, 1, SOME_SETS)
   assert.deepEqual(result, { success: true })
@@ -131,4 +131,58 @@ test('insertSets (via the fallback path): a non-missing-column insert error is s
   })
   const result = await saveWorkoutProgressCore(fake, 1, SOME_SETS)
   assert.deepEqual(result, { error: 'permission denied for table sets' })
+})
+
+test('fallback: insert succeeds but returns no ids (return=minimal) -> NO delete fires (ADR-0004: never emptier)', async () => {
+  const fake = createFakeSupabaseClient({
+    user: { id: 'u1' },
+    selectResults: { workouts: { data: { id: 1 }, error: null } },
+    rpcResults: { save_workout_sets: { data: null, error: { code: 'PGRST202', message: 'function not found' } } },
+    insertResults: { sets: { data: null, error: null } }, // committed, no representation
+  })
+  const result = await saveWorkoutProgressCore(fake, 1, [{ exercise_id: 1, weight: 50, reps: 5 }])
+  assert.deepEqual(result, { success: true })
+  assert.equal(fake.mutationCount('sets', 'insert'), 1)
+  assert.equal(fake.mutationCount('sets', 'delete'), 0)
+})
+
+test('fallback: intentionally empty snapshot -> delete-all IS issued (empty is the requested state)', async () => {
+  const fake = createFakeSupabaseClient({
+    user: { id: 'u1' },
+    selectResults: { workouts: { data: { id: 1 }, error: null } },
+    rpcResults: { save_workout_sets: { data: null, error: { code: 'PGRST202', message: 'function not found' } } },
+  })
+  const result = await saveWorkoutProgressCore(fake, 1, [])
+  assert.deepEqual(result, { success: true })
+  assert.equal(fake.mutationCount('sets', 'insert'), 0)
+  const deletes = fake.mutationCalls('sets', 'delete')
+  assert.equal(deletes.length, 1)
+  assert.deepEqual(deletes[0].filters, [['workout_id', 1], ['user_id', 'u1']])
+})
+
+test('fallback: successful insert with ids -> delete carries the id-exclusion filter (not an unfiltered wipe)', async () => {
+  const fake = createFakeSupabaseClient({
+    user: { id: 'u1' },
+    selectResults: { workouts: { data: { id: 1 }, error: null } },
+    rpcResults: { save_workout_sets: { data: null, error: { code: 'PGRST202', message: 'function not found' } } },
+    insertResults: { sets: { data: [{ id: 7 }, { id: 8 }], error: null } },
+  })
+  await saveWorkoutProgressCore(fake, 1, [
+    { exercise_id: 1, weight: 50, reps: 5 },
+    { exercise_id: 1, weight: 55, reps: 3 },
+  ])
+  const deletes = fake.mutationCalls('sets', 'delete')
+  assert.equal(deletes.length, 1)
+  assert.deepEqual(deletes[0].filters, [['workout_id', 1], ['user_id', 'u1'], ['not', 'id', 'in', '(7,8)']])
+})
+
+test('completeWorkout: failed status flip after a successful set save -> {error}, no redirect', async () => {
+  const fake = createFakeSupabaseClient({
+    user: { id: 'u1' },
+    selectResults: { workouts: { data: { id: 1 }, error: null } },
+    rpcResults: { save_workout_sets: { data: null, error: null } },
+    updateResults: { workouts: { data: null, error: { message: 'status flip failed' } } },
+  })
+  const result = await completeWorkoutCore(fake, 1, [{ exercise_id: 1, weight: 50, reps: 5 }])
+  assert.deepEqual(result, { error: 'status flip failed' })
 })

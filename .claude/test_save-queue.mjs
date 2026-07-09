@@ -167,3 +167,26 @@ test('enqueue resolves with the result of the persist call that actually wrote i
   const result = await queue.enqueue('w1', 'bad')
   assert.deepEqual(result, { error: 'boom' })
 })
+
+test('idle() resolves only after the in-flight persist AND any coalesced follow-up complete', async () => {
+  const order = []
+  let release
+  const gate = new Promise((r) => { release = r })
+  const queue = createSaveQueue(async (snapshot) => {
+    order.push(`start:${snapshot}`)
+    if (snapshot === 'a') await gate
+    order.push(`end:${snapshot}`)
+    return { success: true }
+  })
+  const first = queue.enqueue('w1', 'a')
+  const second = queue.enqueue('w1', 'b') // coalesced behind the in-flight 'a'
+  const idle = queue.idle('w1').then(() => order.push('idle'))
+  release()
+  await Promise.all([first, second, idle])
+  assert.deepEqual(order, ['start:a', 'end:a', 'start:b', 'end:b', 'idle'])
+})
+
+test('idle() on a key with nothing in flight resolves immediately', async () => {
+  const queue = createSaveQueue(async () => ({ success: true }))
+  await queue.idle('untouched')
+})

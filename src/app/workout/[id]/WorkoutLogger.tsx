@@ -713,12 +713,14 @@ export default function WorkoutLogger({
     persist(localSets)
   }
 
-  // Completing bypasses the save queue (it's a distinct server action, not a
-  // saveWorkoutProgress snapshot) but obeys the same contract: inspect the
-  // result, and on failure surface it instead of the redirect the happy path
-  // gets — Done must never navigate away while the final save has failed.
+  // Completing is a distinct server action (not a saveWorkoutProgress
+  // snapshot) but must obey the same contract: never overlap an in-flight
+  // autosave for this workout (ADR-0004 §2), inspect the result, and on
+  // failure surface it instead of the redirect the happy path gets — Done
+  // must never navigate away while the final save has failed.
   function handleComplete() {
     startTransition(async () => {
+      await saveQueueRef.current.idle(String(workout.id))
       const result = await completeWorkout(workout.id, buildPayload())
       if (result?.error) {
         setSaveState({ dirty: true, pending: false, error: result.error })
