@@ -140,6 +140,43 @@ async function saveSetSnapshot(
   return {}
 }
 
+// ADR-0005: the caller (client) always supplies the local calendar date —
+// these cores never compute "today" themselves, which would use the
+// server's clock/timezone rather than the user's.
+export async function startWorkoutCore(supabase: SupabaseServerClient, date: string) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/')
+
+  const { data, error } = await supabase
+    .from('workouts')
+    .insert({ user_id: user.id, date, status: 'in_progress' })
+    .select('id')
+    .single()
+
+  if (error || !data) redirect('/dashboard')
+
+  redirect(`/workout/${data.id}`)
+}
+
+export async function startWorkoutFromTemplateCore(
+  supabase: SupabaseServerClient,
+  templateId: string | number,
+  date: string,
+) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/')
+
+  const { data: workout, error: workoutError } = await supabase
+    .from('workouts')
+    .insert({ user_id: user.id, date, status: 'in_progress', template_id: templateId })
+    .select('id')
+    .single()
+
+  if (workoutError || !workout) redirect('/dashboard')
+
+  redirect(`/workout/${workout.id}`)
+}
+
 export async function saveWorkoutProgressCore(
   supabase: SupabaseServerClient,
   workoutId: number,

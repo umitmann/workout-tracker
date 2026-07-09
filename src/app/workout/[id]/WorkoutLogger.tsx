@@ -27,6 +27,7 @@ import {
   reorderExercise,
   recordRestForSet,
 } from '@/lib/setListOps'
+import { localDateStr } from '@/lib/localDate'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -638,7 +639,7 @@ export default function WorkoutLogger({
     let data: LastExercisePerformance | null = null
     if (mode === 'last') data = await fetchLastExercisePerformance(exerciseId)
     else if (mode === 'best') data = await fetchBestExercisePerformance(exerciseId)
-    else data = await fetchBestExercisePerformance60Days(exerciseId)
+    else data = await fetchBestExercisePerformance60Days(exerciseId, localDateStr())
     setPerfData(data)
     setPerfLoading(false)
   }

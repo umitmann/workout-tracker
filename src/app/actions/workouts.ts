@@ -2,9 +2,13 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getWorkoutWithSets, getMonthWorkouts, getMonthWorkoutsWithPreviews, WorkoutCalendarEntry, WorkoutPreviewExercise, MonthWorkoutsWithPreviews } from '@/lib/dal'
-import { saveWorkoutProgressCore, completeWorkoutCore, SetPayload } from './cores'
+import { saveWorkoutProgressCore, completeWorkoutCore, startWorkoutCore, startWorkoutFromTemplateCore, SetPayload } from './cores'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+
+// ADR-0005: the server never decides "today" — the client always passes its
+// own local calendar date (via localDateStr()). date is required precisely
+// so no call site can silently reintroduce a server-clock fallback.
 
 // Type lives in dal.ts — re-exported here so existing imports keep working
 export type { WorkoutPreviewExercise, MonthWorkoutsWithPreviews } from '@/lib/dal'
@@ -33,40 +37,12 @@ export async function fetchWorkoutPreview(workoutId: number): Promise<WorkoutPre
 
 export type { SetPayload } from './cores'
 
-export async function startWorkout() {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/')
-
-  const today = new Date().toISOString().split('T')[0]
-
-  const { data, error } = await supabase
-    .from('workouts')
-    .insert({ user_id: user.id, date: today, status: 'in_progress' })
-    .select('id')
-    .single()
-
-  if (error || !data) redirect('/dashboard')
-
-  redirect(`/workout/${data.id}`)
+export async function startWorkout(date: string) {
+  return startWorkoutCore(await createServerSupabaseClient(), date)
 }
 
-export async function startWorkoutFromTemplate(templateId: string | number, date?: string) {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/')
-
-  const workoutDate = date ?? new Date().toISOString().split('T')[0]
-
-  const { data: workout, error: workoutError } = await supabase
-    .from('workouts')
-    .insert({ user_id: user.id, date: workoutDate, status: 'in_progress', template_id: templateId })
-    .select('id')
-    .single()
-
-  if (workoutError || !workout) redirect('/dashboard')
-
-  redirect(`/workout/${workout.id}`)
+export async function startWorkoutFromTemplate(templateId: string | number, date: string) {
+  return startWorkoutFromTemplateCore(await createServerSupabaseClient(), templateId, date)
 }
 
 // Creates an in_progress workout for any date (for logging in hindsight or today)

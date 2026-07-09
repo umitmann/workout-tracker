@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { logBodyWeight } from '@/app/actions/bodyweight'
 import { exportReport, ReportRange } from '@/app/actions/reports'
 import type { BodyWeightRow } from '@/lib/dal'
+import { localDateStr } from '@/lib/localDate'
 
 export default function BodyweightCard({ initial }: { initial: BodyWeightRow[] }) {
   const [entries, setEntries] = useState<BodyWeightRow[]>(initial)
@@ -13,7 +14,7 @@ export default function BodyweightCard({ initial }: { initial: BodyWeightRow[] }
   const [exporting, setExporting] = useState<ReportRange | null>(null)
 
   // entries come in newest-first
-  const today = new Date().toISOString().split('T')[0]
+  const today = localDateStr()
   const latest = entries[0] ?? null
   const previous = entries[1] ?? null
   const delta = latest && previous ? latest.weight - previous.weight : null
@@ -26,7 +27,7 @@ export default function BodyweightCard({ initial }: { initial: BodyWeightRow[] }
     }
     setError(null)
     startTransition(async () => {
-      const res = await logBodyWeight(n)
+      const res = await logBodyWeight(n, today)
       if (res.error) {
         setError(res.error)
         return
@@ -43,7 +44,7 @@ export default function BodyweightCard({ initial }: { initial: BodyWeightRow[] }
   async function handleExport(range: ReportRange) {
     setExporting(range)
     try {
-      const res = await exportReport(range)
+      const res = await exportReport(range, today)
       if ('error' in res) {
         setError(res.error)
         return

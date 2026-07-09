@@ -132,9 +132,11 @@ test('saveWorkoutProgress: invalid numeric fields across multiple sets are sanit
   ]
   const result = await saveWorkoutProgressCore(fake, 1, sets)
   assert.deepEqual(result, { success: true })
-  const insertCalls = fake.mutationCalls('sets', 'insert')
-  assert.equal(insertCalls.length, 1)
-  const rows = insertCalls[0].payload
+  // WP-04 routes the snapshot through the save_workout_sets RPC; the
+  // sanitized rows travel in its p_sets argument.
+  const rpcCalls = fake.mutationCalls('save_workout_sets', 'rpc')
+  assert.equal(rpcCalls.length, 1)
+  const rows = rpcCalls[0].payload.p_sets
   assert.equal(rows[0].weight, null)
   assert.equal(rows[0].reps, 8)
   assert.equal(rows[1].weight, 50)
@@ -157,9 +159,9 @@ test('completeWorkout: invalid numeric fields are sanitized before insert', asyn
     // test_action-guards.mjs does; the insert already happened by then.
     assert.match(String(e?.message ?? e), /NEXT_REDIRECT|static generation store/)
   }
-  const insertCalls = fake.mutationCalls('sets', 'insert')
-  assert.equal(insertCalls.length, 1)
-  assert.equal(insertCalls[0].payload[0].weight, null)
+  const rpcCalls = fake.mutationCalls('save_workout_sets', 'rpc')
+  assert.equal(rpcCalls.length, 1)
+  assert.equal(rpcCalls[0].payload.p_sets[0].weight, null)
 })
 
 // ─── notes.ts guard matrix ──────────────────────────────────────────────────
