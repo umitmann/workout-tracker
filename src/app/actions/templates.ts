@@ -37,8 +37,9 @@ export async function saveTemplateExercises(
   routineId: number,
   name: string,
   exercises: TemplateExercisePayload[],
+  client?: Awaited<ReturnType<typeof createServerSupabaseClient>>,
 ) {
-  const supabase = await createServerSupabaseClient()
+  const supabase = client ?? (await createServerSupabaseClient())
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 

@@ -9,8 +9,15 @@ type SetData = {
   distance?: number | null
 }
 
-export async function addSet(workoutId: number, exerciseId: number, data: SetData) {
-  const supabase = await createServerSupabaseClient()
+type SupabaseLike = Awaited<ReturnType<typeof createServerSupabaseClient>>
+
+export async function addSet(
+  workoutId: number,
+  exerciseId: number,
+  data: SetData,
+  client?: SupabaseLike,
+) {
+  const supabase = client ?? (await createServerSupabaseClient())
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
@@ -38,8 +45,8 @@ export async function addSet(workoutId: number, exerciseId: number, data: SetDat
   return { id: set.id as number }
 }
 
-export async function deleteSet(setId: number) {
-  const supabase = await createServerSupabaseClient()
+export async function deleteSet(setId: number, client?: SupabaseLike) {
+  const supabase = client ?? (await createServerSupabaseClient())
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 

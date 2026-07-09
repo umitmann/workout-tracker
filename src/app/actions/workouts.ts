@@ -157,8 +157,12 @@ export async function startPlannedWorkout(workoutId: number) {
 }
 
 // Saves sets without completing — stays in_progress, no redirect
-export async function saveWorkoutProgress(workoutId: number, sets: SetPayload[]) {
-  const supabase = await createServerSupabaseClient()
+export async function saveWorkoutProgress(
+  workoutId: number,
+  sets: SetPayload[],
+  client?: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+) {
+  const supabase = client ?? (await createServerSupabaseClient())
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
@@ -178,8 +182,12 @@ export async function saveWorkoutProgress(workoutId: number, sets: SetPayload[])
 }
 
 // Saves sets and marks workout as completed — updates exercise history, redirects to calendar
-export async function completeWorkout(workoutId: number, sets: SetPayload[]) {
-  const supabase = await createServerSupabaseClient()
+export async function completeWorkout(
+  workoutId: number,
+  sets: SetPayload[],
+  client?: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+) {
+  const supabase = client ?? (await createServerSupabaseClient())
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
