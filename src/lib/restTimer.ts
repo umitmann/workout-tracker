@@ -29,3 +29,11 @@ export function restViewAt(mode: RestMode, target: number, elapsed: number): Res
 export function startsRestOnComplete(exerciseCategory: string | null): boolean {
   return exerciseCategory !== 'cardio'
 }
+
+// Pure row-format helper (checklist §17.8/§17.9, finding M3): renders a set's
+// persisted rest_seconds for display in the completed summary / active rows.
+// No rest recorded (null/undefined/0) → nothing to show.
+export function formatRestRow(restSeconds: number | null | undefined): string | null {
+  if (restSeconds == null || restSeconds <= 0) return null
+  return `Rest ${formatClock(restSeconds)}`
+}
