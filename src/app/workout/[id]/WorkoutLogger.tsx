@@ -16,21 +16,18 @@ import Stepper from './Stepper'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 import { TempoConfig, repDuration, formatTempo, parseTempo } from '@/lib/tempo'
 import { startsRestOnComplete } from '@/lib/restTimer'
+import { deriveInitialSets } from '@/lib/deriveInitialSets'
+import { expandTemplate } from '@/lib/expandTemplate'
+import {
+  LocalSet,
+  addSet as addSetOp,
+  deleteSet as deleteSetOp,
+  applyEdit,
+  reorderExercise,
+  recordRestForSet,
+} from '@/lib/setListOps'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
-type LocalSet = {
-  localId: string
-  exerciseId: number
-  exerciseName: string
-  exerciseCategory: string | null
-  weight: number | null
-  reps: number | null
-  duration_minutes: number | null
-  distance: number | null
-  rest_seconds: number | null
-  done: boolean
-}
 
 type ExerciseDetails = {
   id: number
@@ -96,48 +93,9 @@ export default function WorkoutLogger({
   const [showPasteConfirm, setShowPasteConfirm] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
 
-  // All sets live in client state only — committed on Finish
-  const [localSets, setLocalSets] = useState<LocalSet[]>(() => {
-    if (workout.sets.length > 0) {
-      return workout.sets.map((s) => ({
-        localId: crypto.randomUUID(),
-        exerciseId: s.exercise_id,
-        exerciseName: s.exercises?.name ?? String(s.exercise_id),
-        exerciseCategory: s.exercises?.category ?? null,
-        weight: s.weight,
-        reps: s.reps,
-        duration_minutes: s.duration_minutes,
-        distance: s.distance,
-        rest_seconds: s.rest_seconds ?? null,
-        done: true,
-      }))
-    }
-    if (initialTemplate && workout.status !== 'completed') {
-      const sorted = [...initialTemplate.routine_exercises].sort((a, b) => a.order - b.order)
-      return sorted.flatMap((ex) => {
-        const name = ex.exercises?.name ?? String(ex.exercise_id)
-        const category = ex.exercises?.category ?? null
-        // Per-set scheme (dropset/pyramid) if scheduled, else uniform sets.
-        const scheme =
-          ex.set_details && ex.set_details.length > 0
-            ? ex.set_details.map((d) => ({ weight: d.weight, reps: d.reps }))
-            : Array.from({ length: ex.sets || 1 }, () => ({ weight: ex.weight, reps: ex.reps }))
-        return scheme.map((d) => ({
-          localId: crypto.randomUUID(),
-          exerciseId: ex.exercise_id,
-          exerciseName: name,
-          exerciseCategory: category,
-          weight: d.weight,
-          reps: d.reps,
-          duration_minutes: ex.duration_minutes ?? null,
-          distance: ex.distance ?? null,
-          rest_seconds: null,
-          done: false,
-        }))
-      })
-    }
-    return []
-  })
+  // All sets live in client state only — committed on Finish. §2 invariants
+  // (completed never falls back to template) are enforced by deriveInitialSets.
+  const [localSets, setLocalSets] = useState<LocalSet[]>(() => deriveInitialSets(workout, initialTemplate ?? null))
 
   // Add-set form
   const [selectedExercise, setSelectedExercise] = useState<SlimExercise | null>(null)
@@ -346,7 +304,7 @@ export default function WorkoutLogger({
       rest_seconds: null,
       done: true,
     }
-    const nextSets = [...localSets, newSet]
+    const nextSets = addSetOp(localSets, newSet)
     setLocalSets(nextSets)
     // Completing a set (plain add) auto-starts rest for it.
     if (startsRestOnComplete(selectedExercise.category)) startRestFor(newSet.localId)
@@ -366,7 +324,7 @@ export default function WorkoutLogger({
   }
 
   function handleDeleteSet(localId: string) {
-    setLocalSets((prev) => prev.filter((s) => s.localId !== localId))
+    setLocalSets((prev) => deleteSetOp(prev, localId))
   }
 
   // Tapping a set's ✓ commits it (done) and auto-starts rest for that set.
@@ -431,18 +389,13 @@ export default function WorkoutLogger({
   // mark it done, start rest, and keep the set visible (just close the editor).
   function completeFromEdit(s: LocalSet) {
     const isCardio = s.exerciseCategory === 'cardio'
-    const nextSets = localSets.map((x) =>
-      x.localId !== s.localId
-        ? x
-        : {
-            ...x,
-            weight: !isCardio && editWeight ? Number(editWeight) : x.weight,
-            reps: !isCardio && editReps ? Number(editReps) : x.reps,
-            duration_minutes: isCardio && editDuration ? Number(editDuration) : x.duration_minutes,
-            distance: isCardio && editDistance ? Number(editDistance) : x.distance,
-            done: true,
-          },
-    )
+    const nextSets = applyEdit(localSets, s.localId, {
+      weight: !isCardio && editWeight ? Number(editWeight) : s.weight,
+      reps: !isCardio && editReps ? Number(editReps) : s.reps,
+      duration_minutes: isCardio && editDuration ? Number(editDuration) : s.duration_minutes,
+      distance: isCardio && editDistance ? Number(editDistance) : s.distance,
+      done: true,
+    })
     setLocalSets(nextSets)
     setSavedOnce(true)
     setEditingId(null)
@@ -618,9 +571,7 @@ export default function WorkoutLogger({
     const target = restForSet
     setRestForSet(null)
     if (!target) return // rest with no set to attach to
-    const nextSets = localSets.map((s) =>
-      s.localId === target ? { ...s, rest_seconds: elapsedSeconds } : s,
-    )
+    const nextSets = recordRestForSet(localSets, target, elapsedSeconds)
     setLocalSets(nextSets)
     persist(nextSets)
   }
@@ -634,17 +585,14 @@ export default function WorkoutLogger({
   }
 
   function saveEditSet(localId: string) {
+    const target = localSets.find((s) => s.localId === localId)
+    const isCardio = target?.exerciseCategory === 'cardio'
     setLocalSets((prev) =>
-      prev.map((s) => {
-        if (s.localId !== localId) return s
-        const isCardio = s.exerciseCategory === 'cardio'
-        return {
-          ...s,
-          weight: !isCardio && editWeight ? Number(editWeight) : null,
-          reps: !isCardio && editReps ? Number(editReps) : null,
-          duration_minutes: isCardio && editDuration ? Number(editDuration) : null,
-          distance: isCardio && editDistance ? Number(editDistance) : null,
-        }
+      applyEdit(prev, localId, {
+        weight: !isCardio && editWeight ? Number(editWeight) : null,
+        reps: !isCardio && editReps ? Number(editReps) : null,
+        duration_minutes: isCardio && editDuration ? Number(editDuration) : null,
+        distance: isCardio && editDistance ? Number(editDistance) : null,
       }),
     )
     setEditingId(null)
@@ -680,31 +628,7 @@ export default function WorkoutLogger({
   }
 
   function handleImportTemplate(template: RoutineWithExercises) {
-    const newSets: LocalSet[] = []
-    const sorted = [...template.routine_exercises].sort((a, b) => a.order - b.order)
-    for (const ex of sorted) {
-      const name = ex.exercises?.name ?? String(ex.exercise_id)
-      const category = ex.exercises?.category ?? null
-      const scheme =
-        ex.set_details && ex.set_details.length > 0
-          ? ex.set_details.map((d) => ({ weight: d.weight, reps: d.reps }))
-          : Array.from({ length: ex.sets || 1 }, () => ({ weight: ex.weight, reps: ex.reps }))
-      for (const d of scheme) {
-        newSets.push({
-          localId: crypto.randomUUID(),
-          exerciseId: ex.exercise_id,
-          exerciseName: name,
-          exerciseCategory: category,
-          weight: d.weight,
-          reps: d.reps,
-          duration_minutes: ex.duration_minutes ?? null,
-          distance: ex.distance ?? null,
-          rest_seconds: null,
-          done: false,
-        })
-      }
-    }
-    setLocalSets(newSets)
+    setLocalSets(expandTemplate(template.routine_exercises))
     setShowImportPicker(false)
   }
 
@@ -814,18 +738,7 @@ export default function WorkoutLogger({
   }
 
   function moveExercise(exerciseId: number, direction: 'up' | 'down') {
-    setLocalSets((prev) => {
-      const order: number[] = []
-      for (const s of prev) {
-        if (!order.includes(s.exerciseId)) order.push(s.exerciseId)
-      }
-      const idx = order.indexOf(exerciseId)
-      const newIdx = direction === 'up' ? idx - 1 : idx + 1
-      if (newIdx < 0 || newIdx >= order.length) return prev
-      const next = [...order]
-      ;[next[idx], next[newIdx]] = [next[newIdx], next[idx]]
-      return next.flatMap((id) => prev.filter((s) => s.exerciseId === id))
-    })
+    setLocalSets((prev) => reorderExercise(prev, exerciseId, direction))
   }
 
   // ─── Add-set form (rendered inline or at bottom) ──────────────────────────
