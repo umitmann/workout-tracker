@@ -268,11 +268,20 @@ export default function WorkoutLogger({
 
   function handleSaveNote() {
     if (!editingNote) return
-    const { exerciseId, text } = editingNote
+    const { exerciseId, name, text } = editingNote
+    const previous = notes[exerciseId]
     setNotes((prev) => ({ ...prev, [exerciseId]: text.trim() }))
     setEditingNote(null)
     startTransition(async () => {
-      await saveExerciseNote(exerciseId, text)
+      // Revert the optimistic note if the save fails (returned or thrown) —
+      // otherwise the note looks saved but was never persisted.
+      try {
+        const result = await saveExerciseNote(exerciseId, text)
+        if (result?.error) throw new Error(result.error)
+      } catch {
+        setNotes((prev) => ({ ...prev, [exerciseId]: previous ?? '' }))
+        setEditingNote({ exerciseId, name, text })
+      }
     })
   }
 
@@ -656,6 +665,7 @@ export default function WorkoutLogger({
 
   function handleImportTemplate(template: RoutineWithExercises) {
     setLocalSets(expandTemplate(template.routine_exercises))
+    markDirty()
     setShowImportPicker(false)
   }
 
@@ -721,9 +731,20 @@ export default function WorkoutLogger({
   function handleComplete() {
     startTransition(async () => {
       await saveQueueRef.current.idle(String(workout.id))
-      const result = await completeWorkout(workout.id, buildPayload())
-      if (result?.error) {
-        setSaveState({ dirty: true, pending: false, error: result.error })
+      // Unlike persist(), this bypasses the queue's try/catch — a transport
+      // failure REJECTS rather than returning {error}, and an unhandled
+      // rejection here would be the silent Done-failure ADR-0004 forbids.
+      try {
+        const result = await completeWorkout(workout.id, buildPayload())
+        if (result?.error) {
+          setSaveState({ dirty: true, pending: false, error: result.error })
+        }
+      } catch (e) {
+        setSaveState({
+          dirty: true,
+          pending: false,
+          error: e instanceof Error ? e.message : String(e),
+        })
       }
     })
   }
@@ -753,6 +774,7 @@ export default function WorkoutLogger({
       })),
     )
     setLocalSets(newSets)
+    markDirty()
     setShowPasteConfirm(false)
   }
 
@@ -771,6 +793,7 @@ export default function WorkoutLogger({
 
   function moveExercise(exerciseId: number, direction: 'up' | 'down') {
     setLocalSets((prev) => reorderExercise(prev, exerciseId, direction))
+    markDirty()
   }
 
   // ─── Add-set form (rendered inline or at bottom) ──────────────────────────

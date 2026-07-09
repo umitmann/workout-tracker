@@ -50,7 +50,9 @@ async function addOneSet(weight) {
   await page.waitForSelector('text=Select exercise', { timeout: 5_000 });
   await page.locator('ul li button').first().click();
   await page.waitForSelector('text=Adding set', { timeout: 5_000 });
-  const weightInput = page.locator('input[inputmode="decimal"]').first();
+  // The weight Stepper renders type="number" inputMode="numeric" (Stepper.tsx)
+  // — there is no inputmode="decimal" input anywhere in the add-set form.
+  const weightInput = page.locator('input[type="number"]').first();
   await weightInput.fill(String(weight));
   await page.locator('button', { hasText: /^add$/i }).first().click();
 }
