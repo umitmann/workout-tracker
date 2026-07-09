@@ -32,6 +32,7 @@ import {
 } from '@/lib/setListOps'
 import IconHitTarget from './IconHitTarget'
 import { localDateStr } from '@/lib/localDate'
+import { DistanceUnit, formatDistance, convertKmTo, readDistanceUnitPref, writeDistanceUnitPref } from '@/lib/distanceUnit'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -140,6 +141,11 @@ export default function WorkoutLogger({
   const [tempo, setTempo] = useState<TempoConfig>(() => readStored('wt.tempo', { down: 3, rest: 1, up: 2, hold: 1 }))
   const [restMode, setRestMode] = useState<'fixed' | 'variable'>(() => readStored<'fixed' | 'variable'>('wt.restMode', 'fixed'))
   const [restTarget, setRestTarget] = useState(() => readStored('wt.restTarget', 90))
+  // WP-12 (checklist §19.10/§19.11): distance display unit preference.
+  // Persisted via distanceUnit.ts's own read/write helpers (not the generic
+  // readStored/writeStored above) so BodyweightCard's report export can
+  // share the exact same storage key/shape without importing this component.
+  const [distanceUnit, setDistanceUnit] = useState<DistanceUnit>(() => readDistanceUnitPref())
 
   // PT-prescribed tempo per exercise, from the template this workout came from.
   const ptTempo = useMemo(() => {
@@ -154,6 +160,7 @@ export default function WorkoutLogger({
   useEffect(() => { writeStored('wt.tempo', tempo) }, [tempo])
   useEffect(() => { writeStored('wt.restMode', restMode) }, [restMode])
   useEffect(() => { writeStored('wt.restTarget', restTarget) }, [restTarget])
+  useEffect(() => { writeDistanceUnitPref(distanceUnit) }, [distanceUnit])
   const [guidedSetup, setGuidedSetup] = useState<{
     exercise: SlimExercise
     goalReps: string
@@ -938,6 +945,15 @@ export default function WorkoutLogger({
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
+  // WP-12: distance is always stored in km (ADR-0003); this is the single
+  // render-time conversion+format used by every set-row display site so
+  // km/m stays consistent everywhere (§19.10/§19.11). null -> null, so
+  // callers keep rendering their own "—" placeholder unchanged.
+  const distanceLabel = (storedKm: number | null) => formatDistance(convertKmTo(storedKm, distanceUnit), distanceUnit)
+  // Only surface the km/m toggle when it's relevant — no point cluttering
+  // the header for a workout with no cardio exercises.
+  const hasCardioSets = localSets.some((s) => s.exerciseCategory === 'cardio')
+
   const dateLabel = new Date(workout.date + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
   })
@@ -958,6 +974,16 @@ export default function WorkoutLogger({
             <h1 className="text-sm font-bold text-zinc-900 dark:text-white">{dateLabel}</h1>
           </div>
           <div className="flex items-center gap-2">
+            {hasCardioSets && (
+              <button
+                onClick={() => setDistanceUnit((u) => (u === 'km' ? 'm' : 'km'))}
+                title="Toggle distance unit"
+                aria-label={`Distance unit: ${distanceUnit}. Tap to switch to ${distanceUnit === 'km' ? 'm' : 'km'}`}
+                className="rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+              >
+                {distanceUnit}
+              </button>
+            )}
             <button
               onClick={handleCopy}
               disabled={localSets.length === 0}
@@ -1043,7 +1069,7 @@ export default function WorkoutLogger({
                           <div>
                             <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Distance</p>
                             <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                              {s.distance != null ? `${s.distance} km` : '—'}
+                              {distanceLabel(s.distance) ?? '—'}
                             </p>
                           </div>
                         </>
@@ -1118,6 +1144,16 @@ export default function WorkoutLogger({
           <h1 className="text-sm font-bold text-zinc-900 dark:text-white">{dateLabel}</h1>
         </div>
         <div className="flex items-center gap-2">
+          {hasCardioSets && (
+            <button
+              onClick={() => setDistanceUnit((u) => (u === 'km' ? 'm' : 'km'))}
+              title="Toggle distance unit"
+              aria-label={`Distance unit: ${distanceUnit}. Tap to switch to ${distanceUnit === 'km' ? 'm' : 'km'}`}
+              className="rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+            >
+              {distanceUnit}
+            </button>
+          )}
           {localSets.length > 0 && (
             <button
               onClick={handleCopy}
@@ -1413,7 +1449,7 @@ export default function WorkoutLogger({
                           <div>
                             <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Distance</p>
                             <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                              {s.distance != null ? `${s.distance} km` : '—'}
+                              {distanceLabel(s.distance) ?? '—'}
                             </p>
                           </div>
                         </>

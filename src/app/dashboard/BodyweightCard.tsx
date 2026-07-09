@@ -5,6 +5,7 @@ import { logBodyWeight } from '@/app/actions/bodyweight'
 import { exportReport, ReportRange } from '@/app/actions/reports'
 import type { BodyWeightRow } from '@/lib/dal'
 import { localDateStr } from '@/lib/localDate'
+import { readDistanceUnitPref } from '@/lib/distanceUnit'
 
 export default function BodyweightCard({ initial }: { initial: BodyWeightRow[] }) {
   const [entries, setEntries] = useState<BodyWeightRow[]>(initial)
@@ -44,7 +45,11 @@ export default function BodyweightCard({ initial }: { initial: BodyWeightRow[] }
   async function handleExport(range: ReportRange) {
     setExporting(range)
     try {
-      const res = await exportReport(range, today)
+      // WP-12 (checklist §19.10/§19.11): honour the same distance-unit
+      // preference the workout logger persists, read fresh at export time
+      // (not cached in state) so a change made in another tab/session takes
+      // effect on the next export without a reload.
+      const res = await exportReport(range, today, readDistanceUnitPref())
       if ('error' in res) {
         setError(res.error)
         return
