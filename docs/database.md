@@ -455,6 +455,14 @@ security definer
 set search_path = public
 as $$
 begin
+  -- security definer bypasses RLS, and PostgREST exposes this RPC to any
+  -- authenticated user — so p_user_id must be pinned to the actual caller,
+  -- not trusted as an argument. Without this line, any logged-in user could
+  -- pass another user's uuid + workout id and replace their sets.
+  if p_user_id is distinct from auth.uid() then
+    raise exception 'p_user_id does not match the authenticated caller';
+  end if;
+
   if not exists (
     select 1 from workouts
     where id = p_workout_id and user_id = p_user_id
