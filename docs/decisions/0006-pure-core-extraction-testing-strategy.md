@@ -35,7 +35,11 @@ tempo/guidedTimer/restTimer:
      enforces checklist §2 (completed never falls back to template).
    Components stay thin callers; behaviour tests target the module, not the DOM.
 2. **Server actions and DAL:** tested with a **fake Supabase client** (a hand-rolled
-   recording stub in `.claude/fakes/`, no new dependencies) asserting the *contract*:
+   recording stub in `.claude/fakes/`, no new dependencies). Action bodies live in a
+   non-`'use server'` module (`src/app/actions/cores.ts`) taking the client as an
+   explicit first parameter; the exported `'use server'` actions are thin wrappers
+   with unchanged signatures, so the test seam never appears on the POST-reachable
+   server-action boundary. Tests assert the *contract*:
    no user → error + zero mutations; ownership miss → error + no delete/insert fired;
    invalid numeric input → rejected. Pure transformation cores inside dal.ts
    (best-session selection, history aggregation, month previews) are extracted and

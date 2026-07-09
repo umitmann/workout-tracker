@@ -47,8 +47,16 @@ Build `.claude/fakes/supabase.mjs`: a hand-rolled recording fake of the Supabase
 client surface used by the actions (`auth.getUser`, `from().select/insert/update/delete`
 chains, `.eq/.single`), configurable per-test (user present/absent, ownership select
 returns row/null, insert resolves/rejects) and recording every mutation call.
-Server actions must become testable against it — inject the client (e.g. optional
-param defaulting to `createServerSupabaseClient()`) rather than module-mocking.
+Server actions must become testable against it — inject the client rather than
+module-mocking.
+
+> **Implemented (2026-07-09, revised after Opus review):** action bodies live in
+> `src/app/actions/cores.ts` — a **non-`'use server'` module** — as
+> `<name>Core(supabase, …)` functions; the exported `'use server'` actions are thin
+> wrappers with their original signatures. Tests import the cores and pass the fake
+> as the first argument. Do NOT add `client?` params to exported server actions —
+> that widens the POST-reachable RPC surface. All later packets (WP-04, WP-05,
+> WP-14) follow this cores pattern.
 
 **RED** (`.claude/test_action-guards.mjs`, node:test):
 - `saveWorkoutProgress` with no user → returns `{error:'Unauthorized'}`, fake records

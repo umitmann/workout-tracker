@@ -28,6 +28,8 @@ export function selectBestSession(sets: SessionSetRow[], workouts: WorkoutRef[])
   let bestWorkoutId: number | null = null
   let bestWeight = -Infinity
   for (const s of sets) {
+    // dateById.has is defensive only — dal.ts queries sets with .in(workoutIds)
+    // from the same workout pool, so orphaned workout_ids cannot occur there.
     if (s.weight != null && s.weight > bestWeight && dateById.has(s.workout_id)) {
       bestWeight = s.weight
       bestWorkoutId = s.workout_id

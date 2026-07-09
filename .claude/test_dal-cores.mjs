@@ -13,8 +13,8 @@ const { selectBestSession, aggregateHistory, buildPreviews } = await import(
 
 test('selectBestSession picks the workout containing the highest-weight set', () => {
   const workouts = [
-    { id: 1, date: '2026-06-01' },
     { id: 2, date: '2026-06-15' },
+    { id: 1, date: '2026-06-01' },
   ]
   const sets = [
     { workout_id: 1, weight: 100, reps: 5 },
@@ -28,8 +28,8 @@ test('selectBestSession picks the workout containing the highest-weight set', ()
 
 test('selectBestSession falls back to the most recent workout when all weights are null (reps-only/bodyweight)', () => {
   const workouts = [
-    { id: 1, date: '2026-06-01' },
     { id: 2, date: '2026-06-15' },
+    { id: 1, date: '2026-06-01' },
   ]
   const sets = [
     { workout_id: 1, weight: null, reps: 8 },
@@ -37,8 +37,8 @@ test('selectBestSession falls back to the most recent workout when all weights a
   ]
   const result = selectBestSession(sets, workouts)
   // workouts is assumed ordered most-recent-first by the caller, per dal.ts convention
-  assert.equal(result.date, '2026-06-01')
-  assert.deepEqual(result.sets, [{ weight: null, reps: 8 }])
+  assert.equal(result.date, '2026-06-15')
+  assert.deepEqual(result.sets, [{ weight: null, reps: 12 }])
 })
 
 test('selectBestSession returns null for an empty set list', () => {
@@ -57,8 +57,8 @@ test('selectBestSession (60-day-window variant): caller passes only in-window wo
 
 test('selectBestSession only returns sets belonging to the chosen workout', () => {
   const workouts = [
-    { id: 1, date: '2026-06-01' },
     { id: 2, date: '2026-06-15' },
+    { id: 1, date: '2026-06-01' },
   ]
   const sets = [
     { workout_id: 1, weight: 100, reps: 5 },

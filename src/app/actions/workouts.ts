@@ -1,7 +1,8 @@
 'use server'
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { getWorkoutWithSets, getMonthWorkouts, getMonthWorkoutsWithPreviews, isMissingColumnError, WorkoutCalendarEntry, WorkoutPreviewExercise, MonthWorkoutsWithPreviews } from '@/lib/dal'
+import { getWorkoutWithSets, getMonthWorkouts, getMonthWorkoutsWithPreviews, WorkoutCalendarEntry, WorkoutPreviewExercise, MonthWorkoutsWithPreviews } from '@/lib/dal'
+import { saveWorkoutProgressCore, completeWorkoutCore, SetPayload } from './cores'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -30,42 +31,7 @@ export async function fetchWorkoutPreview(workoutId: number): Promise<WorkoutPre
   return Array.from(grouped.values())
 }
 
-export type SetPayload = {
-  exercise_id: number
-  weight: number | null
-  reps: number | null
-  duration_minutes?: number | null
-  distance?: number | null
-  rest_seconds?: number | null
-}
-
-// Inserts sets, degrading gracefully if the rest_seconds column has not been
-// migrated yet (retries once without it rather than failing the whole save).
-async function insertSets(
-  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
-  workoutId: number,
-  userId: string,
-  sets: SetPayload[],
-) {
-  if (sets.length === 0) return
-  const rows = sets.map((s) => ({
-    workout_id: workoutId,
-    user_id: userId,
-    exercise_id: s.exercise_id,
-    weight: s.weight,
-    reps: s.reps,
-    duration_minutes: s.duration_minutes ?? null,
-    distance: s.distance ?? null,
-    rest_seconds: s.rest_seconds ?? null,
-  }))
-
-  const { error } = await supabase.from('sets').insert(rows)
-  if (error && isMissingColumnError(error, 'rest_seconds')) {
-    // rest_seconds column not migrated yet — retry without it rather than fail.
-    const stripped = rows.map(({ rest_seconds, ...rest }) => rest)
-    await supabase.from('sets').insert(stripped)
-  }
-}
+export type { SetPayload } from './cores'
 
 export async function startWorkout() {
   const supabase = await createServerSupabaseClient()
@@ -157,56 +123,13 @@ export async function startPlannedWorkout(workoutId: number) {
 }
 
 // Saves sets without completing — stays in_progress, no redirect
-export async function saveWorkoutProgress(
-  workoutId: number,
-  sets: SetPayload[],
-  client?: Awaited<ReturnType<typeof createServerSupabaseClient>>,
-) {
-  const supabase = client ?? (await createServerSupabaseClient())
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
-
-  const { data: workout } = await supabase
-    .from('workouts')
-    .select('id')
-    .eq('id', workoutId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!workout) return { error: 'Not found' }
-
-  await supabase.from('sets').delete().eq('workout_id', workoutId)
-  await insertSets(supabase, workoutId, user.id, sets)
-
-  return { success: true }
+export async function saveWorkoutProgress(workoutId: number, sets: SetPayload[]) {
+  return saveWorkoutProgressCore(await createServerSupabaseClient(), workoutId, sets)
 }
 
 // Saves sets and marks workout as completed — updates exercise history, redirects to calendar
-export async function completeWorkout(
-  workoutId: number,
-  sets: SetPayload[],
-  client?: Awaited<ReturnType<typeof createServerSupabaseClient>>,
-) {
-  const supabase = client ?? (await createServerSupabaseClient())
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/')
-
-  const { data: workout } = await supabase
-    .from('workouts')
-    .select('id')
-    .eq('id', workoutId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!workout) redirect('/workouts')
-
-  await supabase.from('sets').delete().eq('workout_id', workoutId)
-  await insertSets(supabase, workoutId, user.id, sets)
-
-  await supabase.from('workouts').update({ status: 'completed' }).eq('id', workout.id)
-  revalidatePath('/dashboard')
-  revalidatePath('/workouts')
-  redirect('/dashboard')
+export async function completeWorkout(workoutId: number, sets: SetPayload[]) {
+  return completeWorkoutCore(await createServerSupabaseClient(), workoutId, sets)
 }
 
 export async function deleteWorkout(workoutId: number) {
