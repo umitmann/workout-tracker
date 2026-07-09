@@ -2,12 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { TempoConfig, TempoPhase, secondsLeft } from '@/lib/tempo'
-import { guidedStateAt, stopEarlyReps } from '@/lib/guidedTimer'
+import { guidedStateAt, stopEarlyReps, READY_SECONDS, readySecondsLeft } from '@/lib/guidedTimer'
 import { useWakeLock } from './useWakeLock'
 
 export type GuideSet = { localId: string; goalReps: number; weight: number | null }
-
-const READY_SECONDS = 3
 
 const PHASE_BG: Record<TempoPhase, string> = {
   down: 'bg-sky-600',
@@ -93,7 +91,7 @@ export default function ExerciseGuide({
     const elapsed = (now - startRef.current) / 1000
 
     if (modeRef.current === 'ready') {
-      const left = Math.max(0, Math.ceil(READY_SECONDS - elapsed - 1e-6))
+      const left = readySecondsLeft(elapsed)
       setReadyLeft(left)
       if (left !== readyTickRef.current) {
         readyTickRef.current = left

@@ -60,15 +60,21 @@ try {
   // Start the timer
   await page.locator('button', { hasText: /^start$/i }).first().click()
 
-  // The full-screen timer shows a big action verb + a whole-second countdown
-  const verb = page.locator('text=/^(LOWER|HOLD|LIFT)$/').first()
-  const verbVisible = await verb.isVisible({ timeout: 3_000 }).catch(() => false)
-  if (verbVisible) pass('G2', 'Timer shows a big action verb'); else fail('G2', 'No action verb visible')
-  await shot('02-timer-running')
+  // A GET READY countdown runs first
+  const ready = page.locator('text=/GET READY/i').first()
+  const readyVisible = await ready.isVisible({ timeout: 2_000 }).catch(() => false)
+  if (readyVisible) pass('G2a', 'GET READY countdown shows before the set'); else fail('G2a', 'No GET READY countdown')
+  await shot('02-get-ready')
 
-  // Let one rep complete (default tempo 3-1-2-1 = 7s), then stop & log
-  await page.waitForTimeout(7_500)
-  await shot('03-timer-after-1rep')
+  // Then the full-screen timer shows a big action verb + whole-second countdown
+  const verb = page.locator('text=/^(LOWER|HOLD|LIFT)$/').first()
+  const verbVisible = await verb.isVisible({ timeout: 8_000 }).catch(() => false)
+  if (verbVisible) pass('G2', 'Timer shows a big action verb'); else fail('G2', 'No action verb visible')
+  await shot('03-timer-running')
+
+  // Let the ready countdown (5s) + one rep (3-1-2-1 = 7s) elapse, then stop & log
+  await page.waitForTimeout(13_000)
+  await shot('04-timer-after-1rep')
   await page.locator('button', { hasText: /stop.*log/i }).first().click()
 
   // A set is logged and the rest bar appears
@@ -80,7 +86,7 @@ try {
   const setRow = page.locator('text=/Reps/i').first()
   const setVisible = await setRow.isVisible({ timeout: 3_000 }).catch(() => false)
   if (setVisible) pass('G4', 'Set logged with reps'); else fail('G4', 'No set row found')
-  await shot('04-rest-and-set')
+  await shot('05-rest-and-set')
 
   // Rest controls: ±15 and Done are present
   const done = page.locator('button', { hasText: /^done$/i }).first()

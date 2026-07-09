@@ -195,6 +195,13 @@ export default function WorkoutLogger({
   const [editingNote, setEditingNote] = useState<{ exerciseId: number; name: string; text: string } | null>(null)
   // localId of the set the active rest timer will attach its elapsed time to
   const [restForSet, setRestForSet] = useState<string | null>(null)
+  // Bumped every time rest (re)starts so the timer always resets from 0 —
+  // never continues a previous rest, even for the same set.
+  const [restNonce, setRestNonce] = useState(0)
+  function startRestFor(localId: string) {
+    setRestForSet(localId)
+    setRestNonce((n) => n + 1)
+  }
   // exerciseId currently being guided as a whole (full-screen set→rest→set…)
   const [guidingExerciseId, setGuidingExerciseId] = useState<number | null>(null)
   // Setup screen for the whole-exercise guide (edit per-set reps/weight + tempo)
@@ -342,7 +349,7 @@ export default function WorkoutLogger({
     const nextSets = [...localSets, newSet]
     setLocalSets(nextSets)
     // Completing a set (plain add) auto-starts rest for it.
-    if (startsRestOnComplete(selectedExercise.category)) setRestForSet(newSet.localId)
+    if (startsRestOnComplete(selectedExercise.category)) startRestFor(newSet.localId)
     setWeight('')
     setReps('')
     setDuration('')
@@ -375,7 +382,7 @@ export default function WorkoutLogger({
     setLocalSets(nextSets)
     setSavedOnce(true)
     persist(nextSets)
-    if (becameDone && startsRestOnComplete(category)) setRestForSet(localId)
+    if (becameDone && startsRestOnComplete(category)) startRestFor(localId)
   }
 
   // ── Guided set (DRUH) ──────────────────────────────────────────────────────
@@ -420,6 +427,29 @@ export default function WorkoutLogger({
 
   // From the inline set editor: persist the currently-typed weight/reps, then
   // open guided setup seeded with those values (same interface as elsewhere).
+  // Complete a set from within the weight-rep editor: persist the typed values,
+  // mark it done, start rest, and keep the set visible (just close the editor).
+  function completeFromEdit(s: LocalSet) {
+    const isCardio = s.exerciseCategory === 'cardio'
+    const nextSets = localSets.map((x) =>
+      x.localId !== s.localId
+        ? x
+        : {
+            ...x,
+            weight: !isCardio && editWeight ? Number(editWeight) : x.weight,
+            reps: !isCardio && editReps ? Number(editReps) : x.reps,
+            duration_minutes: isCardio && editDuration ? Number(editDuration) : x.duration_minutes,
+            distance: isCardio && editDistance ? Number(editDistance) : x.distance,
+            done: true,
+          },
+    )
+    setLocalSets(nextSets)
+    setSavedOnce(true)
+    setEditingId(null)
+    persist(nextSets)
+    if (startsRestOnComplete(s.exerciseCategory)) startRestFor(s.localId)
+  }
+
   function guidedFromEdit(s: LocalSet) {
     saveEditSet(s.localId)
     const ex = exercises.find((e) => e.id === s.exerciseId)
@@ -449,7 +479,7 @@ export default function WorkoutLogger({
       setLocalSets(nextSets)
       setSavedOnce(true)
       persist(nextSets)
-      setRestForSet(targetId)
+      startRestFor(targetId)
       return
     }
 
@@ -478,7 +508,7 @@ export default function WorkoutLogger({
     setSelectedExercise(null)
     persist(nextSets)
     // Roll straight into rest for this set
-    setRestForSet(newSet.localId)
+    startRestFor(newSet.localId)
   }
 
   // ── Guide whole exercise ────────────────────────────────────────────────────
@@ -1125,7 +1155,7 @@ export default function WorkoutLogger({
         <div className={`${fieldFocused ? '' : 'sticky top-0'} z-20 -mx-6 px-6 py-2 bg-zinc-50/95 dark:bg-black/95 backdrop-blur border-b border-zinc-200/60 dark:border-zinc-800/60`}>
           {restForSet !== null ? (
             <RestTimer
-              key={restForSet}
+              key={`${restForSet}:${restNonce}`}
               initialMode={restMode}
               initialTarget={restTarget}
               onDone={finishRest}
@@ -1149,7 +1179,7 @@ export default function WorkoutLogger({
               )}
               {localSets.length > 0 && (
                 <button
-                  onClick={() => setRestForSet(localSets[localSets.length - 1].localId)}
+                  onClick={() => startRestFor(localSets[localSets.length - 1].localId)}
                   className="ml-auto rounded-full bg-orange-500 hover:bg-orange-600 px-4 py-1.5 font-bold uppercase tracking-wide text-white transition-colors"
                 >
                   Start rest
@@ -1335,6 +1365,13 @@ export default function WorkoutLogger({
                         ▶
                       </button>
                     )}
+                    <button
+                      onMouseDown={(e) => { e.preventDefault(); completeFromEdit(s) }}
+                      title="Complete this set"
+                      className="shrink-0 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1 text-xs font-bold transition-colors leading-none"
+                    >
+                      ✓ Complete
+                    </button>
                     <button onClick={() => setEditingId(null)} className="text-zinc-300 dark:text-zinc-700 hover:text-red-500 transition-colors text-sm shrink-0">✕</button>
                   </div>
                 ) : (

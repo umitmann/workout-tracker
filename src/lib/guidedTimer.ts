@@ -12,6 +12,13 @@ import {
   secondsLeft,
 } from './tempo'
 
+// "Get ready" lead-in before a guided set begins (whole seconds, counting down).
+export const READY_SECONDS = 5
+
+export function readySecondsLeft(elapsed: number): number {
+  return Math.max(0, Math.ceil(READY_SECONDS - elapsed - 1e-6))
+}
+
 export type GuidedState = {
   rep: number // 1-based, capped at goalReps
   phase: TempoPhase

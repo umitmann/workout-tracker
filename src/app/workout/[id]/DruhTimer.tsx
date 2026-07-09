@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { TempoConfig, TempoPhase, TEMPO_PHASE_CUE, repDuration, formatTempo } from '@/lib/tempo'
-import { guidedStateAt, stopEarlyReps, isTickSecond } from '@/lib/guidedTimer'
+import { guidedStateAt, stopEarlyReps, isTickSecond, READY_SECONDS, readySecondsLeft } from '@/lib/guidedTimer'
 import { useWakeLock } from './useWakeLock'
 
 // Full-bleed background colour per phase so the phase is readable peripherally,
@@ -53,12 +53,15 @@ export default function DruhTimer({
   useWakeLock(true)
   const initial = guidedStateAt(tempo, goalReps, 0)
   const [audio, setAudio] = useState(audioDefault)
+  const [ready, setReady] = useState(READY_SECONDS) // >0 = GET READY lead-in
   const [rep, setRep] = useState(initial.rep)
   const [phase, setPhase] = useState<TempoPhase>(initial.phase)
   const [secs, setSecs] = useState(initial.secondsLeft)
 
   const rafRef = useRef<number | null>(null)
   const startRef = useRef<number>(0)
+  const readyRef = useRef(true)
+  const readyTickRef = useRef(-1)
   const lastPhaseRef = useRef<string>('')
   const lastTickRef = useRef<number>(-1)
   const audioRef = useRef(audio)
@@ -78,6 +81,23 @@ export default function DruhTimer({
 
     function frame(now: number) {
       const elapsed = (now - startRef.current) / 1000
+
+      // GET READY lead-in before the first rep
+      if (readyRef.current) {
+        const left = readySecondsLeft(elapsed)
+        setReady(left)
+        if (left !== readyTickRef.current) {
+          readyTickRef.current = left
+          if (left >= 1 && audioRef.current && ctxRef.current) tone(ctxRef.current, 500, 90, 0.2)
+        }
+        if (elapsed >= READY_SECONDS) {
+          readyRef.current = false
+          startRef.current = performance.now()
+        }
+        rafRef.current = requestAnimationFrame(frame)
+        return
+      }
+
       const s = guidedStateAt(tempo, goalReps, elapsed)
 
       if (s.finished) {
@@ -128,10 +148,18 @@ export default function DruhTimer({
     finish(stopEarlyReps(tempo, goalReps, elapsed))
   }
 
+  function skipReady() {
+    readyRef.current = false
+    setReady(0)
+    startRef.current = performance.now()
+  }
+
+  const inReady = ready > 0
   const cue = TEMPO_PHASE_CUE[phase]
+  const bg = inReady ? 'bg-zinc-800' : PHASE_BG[phase]
 
   return (
-    <div className={`fixed inset-0 z-[80] flex flex-col ${PHASE_BG[phase]} transition-colors duration-150 text-white`}>
+    <div className={`fixed inset-0 z-[80] flex flex-col ${bg} transition-colors duration-150 text-white`}>
       {/* Top bar: exercise progress + audio toggle */}
       <div className="flex items-center justify-between px-6 pt-6">
         <p className="text-sm font-bold uppercase tracking-widest text-white/80">
@@ -145,14 +173,21 @@ export default function DruhTimer({
         </button>
       </div>
 
-      {/* Center: direction symbol + giant verb + whole-second countdown */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-1 px-6 text-center">
-        <p className={`text-7xl leading-none drop-shadow ${phase === 'down' ? 'translate-y-1' : phase === 'up' ? '-translate-y-1' : ''} transition-transform`}>{cue.icon}</p>
-        <p className="text-6xl sm:text-7xl font-black tracking-tight leading-none drop-shadow">{cue.verb}</p>
-        <p className="text-lg font-semibold text-white/80">{cue.sub}</p>
-        <p className="mt-5 text-[8rem] leading-none font-black tabular-nums drop-shadow">{secs}</p>
-        <p className="mt-3 text-sm font-bold uppercase tracking-[0.3em] text-white/70">Tempo {formatTempo(tempo)}</p>
-      </div>
+      {inReady ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 px-6 text-center">
+          <p className="text-3xl font-black tracking-widest text-white/90">GET READY</p>
+          <p className="text-lg font-semibold text-white/70">{goalReps} reps · tempo {formatTempo(tempo)}</p>
+          <p className="text-[9rem] leading-none font-black tabular-nums drop-shadow">{ready}</p>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col items-center justify-center gap-1 px-6 text-center">
+          <p className={`text-7xl leading-none drop-shadow ${phase === 'down' ? 'translate-y-1' : phase === 'up' ? '-translate-y-1' : ''} transition-transform`}>{cue.icon}</p>
+          <p className="text-6xl sm:text-7xl font-black tracking-tight leading-none drop-shadow">{cue.verb}</p>
+          <p className="text-lg font-semibold text-white/80">{cue.sub}</p>
+          <p className="mt-5 text-[8rem] leading-none font-black tabular-nums drop-shadow">{secs}</p>
+          <p className="mt-3 text-sm font-bold uppercase tracking-[0.3em] text-white/70">Tempo {formatTempo(tempo)}</p>
+        </div>
+      )}
 
       {/* Bottom: actions */}
       <div className="flex gap-3 px-6 pb-8">
@@ -162,12 +197,21 @@ export default function DruhTimer({
         >
           Cancel
         </button>
-        <button
-          onClick={handleStopEarly}
-          className="flex-1 rounded-2xl bg-white py-4 text-base font-black text-zinc-900 transition-colors hover:bg-white/90"
-        >
-          Stop &amp; log
-        </button>
+        {inReady ? (
+          <button
+            onClick={skipReady}
+            className="flex-1 rounded-2xl bg-white py-4 text-base font-black text-zinc-900 transition-colors hover:bg-white/90"
+          >
+            Start now
+          </button>
+        ) : (
+          <button
+            onClick={handleStopEarly}
+            className="flex-1 rounded-2xl bg-white py-4 text-base font-black text-zinc-900 transition-colors hover:bg-white/90"
+          >
+            Stop &amp; log
+          </button>
+        )}
       </div>
     </div>
   )

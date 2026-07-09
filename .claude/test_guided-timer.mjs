@@ -6,7 +6,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-const { guidedStateAt, completedRepsAt, stopEarlyReps, isTickSecond } = await import('../src/lib/guidedTimer.ts')
+const { guidedStateAt, completedRepsAt, stopEarlyReps, isTickSecond, READY_SECONDS, readySecondsLeft } = await import('../src/lib/guidedTimer.ts')
 const { restViewAt, formatClock, startsRestOnComplete } = await import('../src/lib/restTimer.ts')
 
 const T = { down: 3, rest: 1, up: 2, hold: 1 } // repDuration = 7
@@ -78,6 +78,20 @@ test('tick fires only on the final 3 whole seconds', () => {
   assert.equal(isTickSecond(1), true)
   assert.equal(isTickSecond(4), false)
   assert.equal(isTickSecond(0), false)
+})
+
+// ─── Get-ready lead-in ───────────────────────────────────────────────────────
+
+test('READY_SECONDS is a long enough lead-in (>= 5s)', () => {
+  assert.ok(READY_SECONDS >= 5)
+})
+
+test('readySecondsLeft counts down in whole seconds', () => {
+  assert.equal(readySecondsLeft(0), READY_SECONDS)
+  assert.equal(readySecondsLeft(0.1), READY_SECONDS)
+  assert.equal(readySecondsLeft(READY_SECONDS - 0.5), 1)
+  assert.equal(readySecondsLeft(READY_SECONDS), 0)
+  assert.equal(readySecondsLeft(READY_SECONDS + 2), 0)
 })
 
 // ─── Rest timer ──────────────────────────────────────────────────────────────
