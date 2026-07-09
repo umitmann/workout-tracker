@@ -2,7 +2,7 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getWorkoutsInRange, getBodyWeightsInRange } from '@/lib/dal'
-import { buildReport, ReportWorkout, ReportExercise } from '@/lib/buildReport'
+import { buildReport, groupWorkoutSets } from '@/lib/buildReport'
 
 export type ReportRange = 'week' | 'month'
 
@@ -28,31 +28,7 @@ export async function exportReport(
     getBodyWeightsInRange(from, to),
   ])
 
-  const workouts: ReportWorkout[] = rows.map((w) => {
-    // Group sets by exercise, preserving first-seen order.
-    const order: number[] = []
-    const byExercise = new Map<number, ReportExercise>()
-    for (const s of w.sets) {
-      let ex = byExercise.get(s.exercise_id)
-      if (!ex) {
-        ex = {
-          name: s.exercises?.name ?? String(s.exercise_id),
-          category: s.exercises?.category ?? null,
-          sets: [],
-        }
-        byExercise.set(s.exercise_id, ex)
-        order.push(s.exercise_id)
-      }
-      ex.sets.push({
-        weight: s.weight,
-        reps: s.reps,
-        duration_minutes: s.duration_minutes,
-        distance: s.distance,
-        rest_seconds: s.rest_seconds,
-      })
-    }
-    return { date: w.date, exercises: order.map((id) => byExercise.get(id)!) }
-  })
+  const workouts = groupWorkoutSets(rows)
 
   const text = buildReport({
     rangeLabel,

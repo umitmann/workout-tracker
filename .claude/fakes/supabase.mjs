@@ -1,11 +1,11 @@
 /**
  * Hand-rolled recording fake of the Supabase client surface used by
- * src/app/actions/*.ts (WP-01 · ADR-0006).
+ * src/app/actions/*.ts (WP-01 · ADR-0006; upsert added WP-05).
  *
- * Supports: auth.getUser(); from(table).select/insert/update/delete()
+ * Supports: auth.getUser(); from(table).select/insert/update/delete/upsert()
  * chains with .eq()/.not()/.in()/.order()/.single(); rpc(name, args);
- * records every mutation call (insert/update/delete/rpc) with table, method,
- * and the filters/payload applied, in call order, so tests can assert
+ * records every mutation call (insert/update/delete/upsert/rpc) with table,
+ * method, and the filters/payload applied, in call order, so tests can assert
  * atomicity ("no delete before insert failed") and guard behaviour ("zero
  * mutations on auth/ownership failure").
  *
@@ -18,6 +18,7 @@
  *     insertResults: { sets: { data: null, error: { message: 'boom' } } },
  *     updateResults: {},
  *     deleteResults: {},
+ *     upsertResults: { body_weights: { data: null, error: null } },
  *     // per-function RPC results, same shape as *Results above, keyed by
  *     // function name instead of table (client.rpc('save_workout_sets', args))
  *     rpcResults: { save_workout_sets: { data: null, error: null } },
@@ -46,11 +47,12 @@ function toResultProvider(config) {
 }
 
 class FakeQueryBuilder {
-  constructor(client, table, method, payload) {
+  constructor(client, table, method, payload, options) {
     this.client = client
     this.table = table
     this.method = method
     this.payload = payload
+    this.options = options
     this.filters = []
     this._single = false
   }
@@ -86,6 +88,7 @@ class FakeQueryBuilder {
       table: this.table,
       method: this.method,
       payload: this.payload,
+      options: this.options,
       filters: [...this.filters],
       single: this._single,
     }
@@ -132,6 +135,10 @@ class FakeTableClient {
 
   delete() {
     return new FakeQueryBuilder(this.client, this.table, 'delete', undefined)
+  }
+
+  upsert(payload, options) {
+    return new FakeQueryBuilder(this.client, this.table, 'upsert', payload, options)
   }
 }
 
