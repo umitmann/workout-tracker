@@ -20,6 +20,75 @@ test('parseTempo tolerates spaces and returns null on garbage', () => {
   assert.equal(parseTempo(''), null)
 })
 
+// ─── WP-15 (finding L5): pin previously-accidental edge-case behaviour ─────
+
+test('parseTempo rejects a non-finite phase: "1-2-3-Infinity" -> null', () => {
+  // Number('Infinity') is a finite-looking string coercion (Number.isFinite
+  // rejects it), but this is pinned explicitly so a future refactor of the
+  // numeric guard (e.g. switching to a regex or parseFloat) cannot silently
+  // let Infinity/NaN-shaped strings back in.
+  assert.equal(parseTempo('1-2-3-Infinity'), null)
+})
+
+test('parseTempo rejects a non-finite phase anywhere in the tuple, not just the last', () => {
+  assert.equal(parseTempo('Infinity-2-3-4'), null)
+  assert.equal(parseTempo('1-Infinity-3-4'), null)
+  assert.equal(parseTempo('1-2-Infinity-4'), null)
+  assert.equal(parseTempo('1-2-3-NaN'), null)
+})
+
+test('parseTempo rejects a leading dash: "-1-2-3-4" -> null', () => {
+  // A leading "-" makes split('-') produce 5 parts (an empty string before
+  // the first dash, e.g. ["", "1", "2", "3", "4"]), which already fails the
+  // parts.length !== 4 structural check. Pinned here as a *behavioural*
+  // contract (null), independent of which guard inside parseTempo happens to
+  // catch it, so a future rewrite of the parser (e.g. switching to a regex)
+  // can't accidentally start accepting a negative first phase.
+  assert.equal(parseTempo('-1-2-3-4'), null)
+})
+
+test('parseTempo rejects any dash-delimited string containing an embedded negative sign, regardless of which guard catches it', () => {
+  // By construction, split('-') breaks on every hyphen, so there is no way to
+  // write a genuinely negative phase (e.g. "-2") inside this format without
+  // also producing an extra empty part — "1--2-3-4" splits into
+  // ["1", "", "2", "3", "4"], 5 parts, caught by the length guard rather than
+  // the n < 0 guard. Pinned as a behavioural contract (always null) so this
+  // stays true even if parseTempo's parsing strategy changes.
+  assert.equal(parseTempo('1--2-3-4'), null)
+  assert.equal(parseTempo('1-2--3-4'), null)
+  assert.equal(parseTempo('1-2-3--4'), null)
+})
+
+test('parseTempo: fractional tempo "1.5-2-3-4" is ACCEPTED (deliberate decision, not an accident)', () => {
+  // DECISION (WP-15, finding L5): fractional phase lengths are accepted.
+  // Rationale: guidedTimer/DruhTimer drive the rep clock through phaseAt()
+  // and repDuration() using plain floating-point arithmetic (`start + dur`,
+  // `t < end`, `end - t`) — see src/lib/tempo.ts phaseAt(). There is no
+  // integer assumption anywhere in that arithmetic, and secondsLeft() already
+  // exists specifically to round a fractional "remaining" value for display
+  // (Math.ceil(remaining - 1e-6)). A lifter typing "1.5-2-3-4" (a 1.5s
+  // eccentric) gets a coherent, correctly-timed guided set. Tightening
+  // parseTempo to reject fractional input would be a regression, not a fix.
+  // If this decision is ever reversed (reject fractional), tighten the numeric
+  // guard in parseTempo to `Number.isInteger(n)` and flip this assertion to
+  // `null` — do not leave this test silently describing the old behaviour.
+  assert.deepEqual(parseTempo('1.5-2-3-4'), { down: 1.5, rest: 2, up: 3, hold: 4 })
+})
+
+test('fractional tempo end-to-end: phaseAt and repDuration handle "1.5-2-3-4" arithmetic correctly', () => {
+  // Supports the ACCEPT decision above with a concrete arithmetic check:
+  // repDuration and phaseAt must not truncate or misbehave on the fractional
+  // "down" phase.
+  const cfg = parseTempo('1.5-2-3-4')
+  assert.equal(repDuration(cfg), 10.5)
+  // segments: down[0,1.5) rest[1.5,3.5) up[3.5,6.5) hold[6.5,10.5)
+  assert.equal(phaseAt(cfg, 0).phase, 'down')
+  assert.equal(phaseAt(cfg, 1.4).phase, 'down')
+  assert.equal(phaseAt(cfg, 1.5).phase, 'rest')
+  assert.ok(Math.abs(phaseAt(cfg, 1.5).remaining - 2) < 1e-9)
+  assert.equal(phaseAt(cfg, 1.0).remaining, 0.5)
+})
+
 test('formatTempo round-trips', () => {
   const cfg = { down: 3, rest: 1, up: 2, hold: 1 }
   assert.equal(formatTempo(cfg), '3-1-2-1')
