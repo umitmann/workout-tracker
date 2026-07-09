@@ -44,3 +44,4 @@ next-env.d.ts
 .claude/auth.json
 .claude/verify-shots/
 .claude/settings.json
+.claude/worktrees/
