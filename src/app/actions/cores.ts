@@ -371,18 +371,17 @@ export async function saveExerciseNoteCore(
 export async function logBodyWeightCore(
   supabase: SupabaseServerClient,
   weight: number,
-  date?: string,
+  // ADR-0005: required — the client supplies its local day; no server fallback.
+  date: string,
 ): Promise<{ error?: string; success?: true }> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
   if (!Number.isFinite(weight) || weight <= 0) return { error: 'Enter a valid weight' }
 
-  const day = date ?? new Date().toISOString().split('T')[0]
-
   const { error } = await supabase
     .from('body_weights')
-    .upsert({ user_id: user.id, date: day, weight }, { onConflict: 'user_id,date' })
+    .upsert({ user_id: user.id, date, weight }, { onConflict: 'user_id,date' })
 
   if (error) return { error: error.message }
   revalidatePath('/dashboard')
