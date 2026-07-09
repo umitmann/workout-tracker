@@ -353,14 +353,14 @@ The four icon buttons (i, clock, trophy, bolt) must be reachable while the user 
 | 19.1 | Select a cardio exercise (e.g. "Running") via the picker | Picker closes; add-set form shows duration (minutes) and distance fields — **no** weight or reps inputs |
 | 19.2 | Select a strength exercise (e.g. "Bench Press") in the same workout | Add-set form shows weight (kg) and reps — no duration or distance fields |
 | 19.3 | Log a cardio set with duration only (leave distance blank) | Set row shows duration only; distance omitted |
-| 19.4 | Log a cardio set with duration and distance | Set row shows "X min · Y km" (or Y m depending on user preference) |
+| 19.4 | Log a cardio set with duration and distance | Set row shows "X min · Y km" (or Y m, per the current distance-unit preference — WP-12) |
 | 19.5 | Workout contains both cardio and strength exercises | Each exercise group shows the correct field layout independently; no cross-contamination |
 | 19.6 | Complete a workout with a cardio set | Completed-workout summary row shows duration/distance, not weight/reps |
 | 19.7 | Reload a completed workout that has cardio sets | duration_minutes and distance values are present — not overwritten with null |
 | 19.8 | Cardio set in performance-history modal (clock/trophy/bolt) | Modal shows duration column, not weight column |
 | 19.9 | Exercise history chart for a cardio exercise | Chart plots duration (not weight) on the primary axis |
-| 19.10 | User preference: km selected | All distance values in set rows and history display in km |
-| 19.11 | User preference: m selected | All distance values display in metres |
+| 19.10 | User preference: km selected (default, matches pre-WP-12 behaviour) | All distance values in set rows (active + completed) and the PT report display in km. Preference persists across reload via `localStorage` (`wt.distanceUnit`, `src/lib/distanceUnit.ts`) |
+| 19.11 | User preference: m selected — toggle pill next to Copy in the workout header, only shown once the workout has a cardio set | All distance values in set rows (active + completed) and the PT report display in metres, converted from the DB's always-km storage (ADR-0003) at render time; add-set/edit-set entry fields remain labelled "km" (entry unit is unchanged — only display converts) |
 
 ---
 

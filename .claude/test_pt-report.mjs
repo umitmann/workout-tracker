@@ -136,3 +136,71 @@ test('dates are rendered in chronological order', () => {
   })
   assert.ok(out.indexOf('Jul 2') < out.indexOf('Jul 5'), 'Jul 2 should appear before Jul 5')
 })
+
+// ─── WP-12: distance unit preference (checklist §19.10/§19.11, finding M5) ─
+// buildReport stores distance in km (the DB's only unit — ADR-0003) and
+// converts+labels at render time per an explicit `unit` param.
+
+test('distance unit: defaults to km when no unit is passed (no behaviour change for existing callers)', () => {
+  const out = buildReport(base)
+  assert.match(out, /5 km/)
+  assert.doesNotMatch(out, / m\b/)
+})
+
+test('distance unit: explicit unit "km" renders km (same as default)', () => {
+  const out = buildReport({ ...base, unit: 'km' })
+  assert.match(out, /5 km/)
+})
+
+test('distance unit: unit "m" converts the stored km value and renders metres', () => {
+  const out = buildReport({ ...base, unit: 'm' })
+  assert.match(out, /5,?000 m/)
+  assert.doesNotMatch(out, /5 km/)
+})
+
+test('distance unit: "m" preference does not affect weight (kg) or duration (min) labels', () => {
+  const out = buildReport({ ...base, unit: 'm' })
+  assert.match(out, /60 kg × 10/)
+  assert.match(out, /30 min/)
+})
+
+test('distance unit: fractional km converts cleanly to whole metres', () => {
+  const out = buildReport({
+    ...base,
+    bodyWeights: [],
+    unit: 'm',
+    workouts: [
+      {
+        date: '2026-07-06',
+        exercises: [
+          { name: 'Running', category: 'cardio', sets: [{ weight: null, reps: null, duration_minutes: 5, distance: 0.4 }] },
+        ],
+      },
+    ],
+  })
+  assert.match(out, /400 m/)
+})
+
+test('distance unit: null distance stays "—" regardless of unit', () => {
+  const out = buildReport({
+    ...base,
+    bodyWeights: [],
+    unit: 'm',
+    workouts: [
+      {
+        date: '2026-07-06',
+        exercises: [
+          { name: 'Running', category: 'cardio', sets: [{ weight: null, reps: null, duration_minutes: 20, distance: null }] },
+        ],
+      },
+    ],
+  })
+  assert.match(out, /20 min/)
+  assert.doesNotMatch(out, /null/)
+})
+
+test('distance unit: an unrecognised unit string falls back to km rather than throwing', () => {
+  assert.doesNotThrow(() => buildReport({ ...base, unit: 'furlongs' }))
+  const out = buildReport({ ...base, unit: 'furlongs' })
+  assert.match(out, /5 km/)
+})

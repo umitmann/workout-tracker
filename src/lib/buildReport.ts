@@ -1,6 +1,8 @@
 // Pure text-report builder for the PT export feature.
 // Kept free of DB/Next imports so it can be unit-tested in isolation.
 
+import { DEFAULT_DISTANCE_UNIT, DistanceUnit, convertKmTo, formatDistance } from './distanceUnit'
+
 export type ReportSet = {
   weight: number | null
   reps: number | null
@@ -81,6 +83,10 @@ export type ReportInput = {
   athlete?: string | null
   workouts: ReportWorkout[]
   bodyWeights?: ReportBodyWeight[]
+  // WP-12 (checklist §19.10/§19.11): distance display unit. The DB always
+  // stores km (ADR-0003) — this only changes how it's rendered. Defaults to
+  // km so existing callers/snapshots are unaffected.
+  unit?: DistanceUnit
 }
 
 const RULE = '='.repeat(44)
@@ -107,13 +113,14 @@ function restSuffix(s: RenderSet): string {
   return s.rest_seconds != null ? ` (rest ${fmtNumber(s.rest_seconds)}s)` : ''
 }
 
-function fmtSet(s: RenderSet, index: number): string {
+function fmtSet(s: RenderSet, index: number, unit: DistanceUnit): string {
   const n = `  ${index}.`
   const rest = restSuffix(s)
   if (s.category_is_cardio || s.duration_minutes != null || s.distance != null) {
     const parts: string[] = []
     if (s.duration_minutes != null) parts.push(`${fmtNumber(s.duration_minutes)} min`)
-    if (s.distance != null) parts.push(`${fmtNumber(s.distance)} km`)
+    const distanceLabel = formatDistance(convertKmTo(s.distance, unit), unit)
+    if (distanceLabel != null) parts.push(distanceLabel)
     return `${n} ${parts.length ? parts.join(' · ') : '—'}${rest}`
   }
   if (s.weight != null && s.reps != null) return `${n} ${fmtNumber(s.weight)} kg × ${s.reps}${rest}`
@@ -123,6 +130,7 @@ function fmtSet(s: RenderSet, index: number): string {
 }
 
 export function buildReport(input: ReportInput): string {
+  const unit: DistanceUnit = input.unit === 'm' ? 'm' : DEFAULT_DISTANCE_UNIT
   const lines: string[] = []
   const workouts = [...input.workouts].sort((a, b) => a.date.localeCompare(b.date))
   const bodyWeights = [...(input.bodyWeights ?? [])].sort((a, b) => a.date.localeCompare(b.date))
@@ -159,7 +167,7 @@ export function buildReport(input: ReportInput): string {
         totalSets++
         if (!isCardio && s.weight != null && s.reps != null) totalVolume += s.weight * s.reps
         const rs: RenderSet = { ...s, category_is_cardio: isCardio }
-        lines.push(fmtSet(rs, i + 1))
+        lines.push(fmtSet(rs, i + 1, unit))
       })
     }
     lines.push('')
