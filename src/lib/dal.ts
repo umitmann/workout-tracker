@@ -118,51 +118,48 @@ export async function getExerciseDetails(id: number) {
   return data
 }
 
-const TEMPLATE_COLS = (setDetails: boolean) =>
-  `id, name, created_at, routine_exercises(id, exercise_id, sets, reps, weight, duration_minutes, distance,${setDetails ? ' set_details,' : ''} order, exercises(id, name, category))`
+const TEMPLATE_COLS = (opts: { tempo: boolean; setDetails: boolean }) =>
+  `id, name, created_at, routine_exercises(id, exercise_id, sets, reps, weight, duration_minutes, distance,${opts.setDetails ? ' set_details,' : ''}${opts.tempo ? ' tempo,' : ''} order, exercises(id, name, category))`
+
+// Column combos to try, most-complete first, so unmigrated columns degrade.
+const TEMPLATE_COL_VARIANTS = [
+  { tempo: true, setDetails: true },
+  { tempo: false, setDetails: true },
+  { tempo: true, setDetails: false },
+  { tempo: false, setDetails: false },
+]
 
 export async function getUserTemplates() {
   const { supabase, user } = await getAuthContext()
   if (!user) return []
 
-  let result = await supabase
-    .from('routines')
-    .select(TEMPLATE_COLS(true))
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-
-  if (result.error && isMissingColumnError(result.error, 'set_details')) {
-    result = await supabase
+  for (const variant of TEMPLATE_COL_VARIANTS) {
+    const result = await supabase
       .from('routines')
-      .select(TEMPLATE_COLS(false))
+      .select(TEMPLATE_COLS(variant))
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
+    if (!result.error) return (result.data ?? []) as unknown as RoutineWithExercises[]
+    if (!isMissingColumnError(result.error, 'tempo') && !isMissingColumnError(result.error, 'set_details')) break
   }
-
-  return (result.data ?? []) as unknown as RoutineWithExercises[]
+  return []
 }
 
 export async function getTemplate(routineId: string | number) {
   const { supabase, user } = await getAuthContext()
   if (!user) return null
 
-  let result = await supabase
-    .from('routines')
-    .select(TEMPLATE_COLS(true))
-    .eq('id', routineId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (result.error && isMissingColumnError(result.error, 'set_details')) {
-    result = await supabase
+  for (const variant of TEMPLATE_COL_VARIANTS) {
+    const result = await supabase
       .from('routines')
-      .select(TEMPLATE_COLS(false))
+      .select(TEMPLATE_COLS(variant))
       .eq('id', routineId)
       .eq('user_id', user.id)
       .single()
+    if (!result.error) return result.data as unknown as RoutineWithExercises | null
+    if (!isMissingColumnError(result.error, 'tempo') && !isMissingColumnError(result.error, 'set_details')) break
   }
-
-  return result.data as unknown as RoutineWithExercises | null
+  return null
 }
 
 export type WorkoutStatus = 'planned' | 'in_progress' | 'completed'
@@ -567,6 +564,7 @@ export type RoutineExerciseRow = {
   duration_minutes: number | null
   distance: number | null
   set_details: SetDetail[] | null
+  tempo: string | null // PT-prescribed DRUH tempo, "down-rest-up-hold"
   order: number
   exercises: { id: number; name: string; category: string | null }
 }

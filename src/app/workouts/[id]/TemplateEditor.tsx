@@ -10,6 +10,7 @@ import ExercisePickerSheet, { SlimExercise } from '@/app/workout/[id]/ExercisePi
 import ExerciseInfoModal from '@/app/workout/[id]/ExerciseInfoModal'
 import LastPerfModal from '@/app/workout/[id]/LastPerfModal'
 import Stepper from '@/app/workout/[id]/Stepper'
+import { TempoConfig, parseTempo, formatTempo } from '@/lib/tempo'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 
 type TemplateExercise = {
@@ -23,6 +24,7 @@ type TemplateExercise = {
   duration_minutes: number | null
   distance: number | null
   setDetails: SetDetail[] | null // per-set targets (dropset/pyramid); null = uniform
+  tempo: TempoConfig | null // PT-prescribed DRUH tempo; null = none
 }
 
 type ExerciseDetails = {
@@ -73,6 +75,7 @@ export default function TemplateEditor({
           duration_minutes: e.duration_minutes ?? null,
           distance: e.distance ?? null,
           setDetails: e.set_details ?? null,
+          tempo: e.tempo ? parseTempo(e.tempo) : null,
         })) ?? [],
   )
 
@@ -103,9 +106,26 @@ export default function TemplateEditor({
         duration_minutes: isCardio ? 30 : null,
         distance: null,
         setDetails: null,
+        tempo: null,
       },
     ])
     setShowPicker(false)
+  }
+
+  function toggleTempo(localId: string) {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.localId === localId
+          ? { ...i, tempo: i.tempo ? null : { down: 3, rest: 1, up: 2, hold: 1 } }
+          : i,
+      ),
+    )
+  }
+
+  function updateTempo(localId: string, phase: keyof TempoConfig, v: number) {
+    setItems((prev) =>
+      prev.map((i) => (i.localId === localId && i.tempo ? { ...i, tempo: { ...i.tempo, [phase]: v } } : i)),
+    )
   }
 
   // ── Per-set / dropset editing ──────────────────────────────────────────────
@@ -232,6 +252,7 @@ export default function TemplateEditor({
         duration_minutes: null,
         distance: null,
         setDetails: null,
+        tempo: null,
       })),
     )
     setShowPasteConfirm(false)
@@ -248,6 +269,7 @@ export default function TemplateEditor({
       duration_minutes: item.duration_minutes,
       distance: item.distance,
       set_details: item.setDetails,
+      tempo: item.tempo ? formatTempo(item.tempo) : null,
       order: i,
     }))
   }
@@ -548,6 +570,33 @@ export default function TemplateEditor({
                     </label>
                   </div>
                 )}
+
+                {/* PT-prescribed DRUH tempo */}
+                <div className="flex flex-col gap-2 border-t border-zinc-100 dark:border-zinc-800 pt-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">
+                      Tempo (DRUH){item.tempo ? ` · ${formatTempo(item.tempo)}` : ''}
+                    </span>
+                    <button
+                      onClick={() => toggleTempo(item.localId)}
+                      className={`text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full border transition-colors ${
+                        item.tempo
+                          ? 'border-orange-400 text-orange-500 bg-orange-50 dark:bg-orange-950/20'
+                          : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-orange-400 hover:text-orange-500'
+                      }`}
+                    >
+                      {item.tempo ? 'Remove tempo' : 'Set tempo'}
+                    </button>
+                  </div>
+                  {item.tempo && (
+                    <div className="grid grid-cols-4 gap-2">
+                      <Stepper label="Down" sublabel="lower" value={item.tempo.down} min={0} max={10} onChange={(v) => updateTempo(item.localId, 'down', v)} />
+                      <Stepper label="Rest" sublabel="bottom" value={item.tempo.rest} min={0} max={10} onChange={(v) => updateTempo(item.localId, 'rest', v)} />
+                      <Stepper label="Up" sublabel="lift" value={item.tempo.up} min={0} max={10} onChange={(v) => updateTempo(item.localId, 'up', v)} />
+                      <Stepper label="Hold" sublabel="top" value={item.tempo.hold} min={0} max={10} onChange={(v) => updateTempo(item.localId, 'hold', v)} />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

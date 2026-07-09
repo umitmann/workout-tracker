@@ -380,6 +380,22 @@ notify pgrst, 'reload schema';
 
 ---
 
+## Phase 7 — PT-set tempo per template exercise
+
+### `routine_exercises.tempo` (migration)
+
+Optional DRUH tempo the PT prescribes for an exercise, stored as `"down-rest-up-hold"`
+seconds (e.g. `"3-1-2-1"`). Null = no prescribed tempo (the athlete's own tempo
+is used). When a workout is started from the template, the guided-set timer for
+that exercise pre-fills this tempo. Reads/writes degrade gracefully if missing.
+
+```sql
+alter table routine_exercises add column tempo text;
+notify pgrst, 'reload schema';
+```
+
+---
+
 ## Phase 6 — Per-exercise personal notes
 
 ### `exercise_notes` (migration)

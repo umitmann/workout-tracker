@@ -13,6 +13,7 @@ export type TemplateExercisePayload = {
   duration_minutes: number | null
   distance: number | null
   set_details: SetDetail[] | null
+  tempo: string | null
   order: number
 }
 
@@ -57,7 +58,7 @@ export async function saveTemplateExercises(
   await supabase.from('routine_exercises').delete().eq('routine_id', routineId)
 
   if (exercises.length > 0) {
-    const rows = exercises.map((e) => ({
+    const rows: Record<string, unknown>[] = exercises.map((e) => ({
       routine_id: routineId,
       exercise_id: e.exerciseId,
       sets: e.sets,
@@ -66,17 +67,25 @@ export async function saveTemplateExercises(
       duration_minutes: e.duration_minutes,
       distance: e.distance,
       set_details: e.set_details,
+      tempo: e.tempo,
       order: e.order,
     }))
-    const { error } = await supabase.from('routine_exercises').insert(rows)
-    if (error && isMissingColumnError(error, 'set_details')) {
-      // set_details column not migrated yet — save without per-set targets.
-      const stripped = rows.map(({ set_details, ...rest }) => rest)
-      const retry = await supabase.from('routine_exercises').insert(stripped)
-      if (retry.error) return { error: retry.error.message }
-    } else if (error) {
-      return { error: error.message }
+    // Retry, dropping optional columns that haven't been migrated yet.
+    let attempt = rows
+    let lastError: string | null = null
+    for (let i = 0; i < 3; i++) {
+      const { error } = await supabase.from('routine_exercises').insert(attempt)
+      if (!error) { lastError = null; break }
+      lastError = error.message
+      if (isMissingColumnError(error, 'tempo')) {
+        attempt = attempt.map(({ tempo, ...rest }) => rest)
+      } else if (isMissingColumnError(error, 'set_details')) {
+        attempt = attempt.map(({ set_details, ...rest }) => rest)
+      } else {
+        break
+      }
     }
+    if (lastError) return { error: lastError }
   }
 
   revalidatePath('/workouts')

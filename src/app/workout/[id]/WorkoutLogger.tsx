@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition, useEffect, useMemo } from 'react'
 import { saveWorkoutProgress, completeWorkout, SetPayload } from '@/app/actions/workouts'
 import { fetchExerciseDetails, fetchLastExercisePerformance, fetchBestExercisePerformance, fetchBestExercisePerformance60Days } from '@/app/actions/exercises'
 import { fetchUserTemplates } from '@/app/actions/templates'
@@ -14,7 +14,7 @@ import RestTimer from './RestTimer'
 import ExerciseGuide, { GuideSet } from './ExerciseGuide'
 import Stepper from './Stepper'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
-import { TempoConfig, repDuration, formatTempo } from '@/lib/tempo'
+import { TempoConfig, repDuration, formatTempo, parseTempo } from '@/lib/tempo'
 import { startsRestOnComplete } from '@/lib/restTimer'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -162,6 +162,16 @@ export default function WorkoutLogger({
   const [tempo, setTempo] = useState<TempoConfig>(() => readStored('wt.tempo', { down: 3, rest: 1, up: 2, hold: 1 }))
   const [restMode, setRestMode] = useState<'fixed' | 'variable'>(() => readStored<'fixed' | 'variable'>('wt.restMode', 'fixed'))
   const [restTarget, setRestTarget] = useState(() => readStored('wt.restTarget', 90))
+
+  // PT-prescribed tempo per exercise, from the template this workout came from.
+  const ptTempo = useMemo(() => {
+    const map: Record<number, TempoConfig> = {}
+    for (const ex of initialTemplate?.routine_exercises ?? []) {
+      const t = ex.tempo ? parseTempo(ex.tempo) : null
+      if (t) map[ex.exercise_id] = t
+    }
+    return map
+  }, [initialTemplate])
 
   useEffect(() => { writeStored('wt.tempo', tempo) }, [tempo])
   useEffect(() => { writeStored('wt.restMode', restMode) }, [restMode])
@@ -372,6 +382,7 @@ export default function WorkoutLogger({
 
   function openGuidedSetup() {
     if (!selectedExercise) return
+    applyPtTempo(selectedExercise.id)
     setGuidedSetup({ exercise: selectedExercise, goalReps: reps || '8', weight })
   }
 
@@ -389,10 +400,16 @@ export default function WorkoutLogger({
     setGuidedSetup(null)
   }
 
+  // If the PT prescribed a tempo for this exercise, pre-fill the timer with it.
+  function applyPtTempo(exerciseId: number) {
+    if (ptTempo[exerciseId]) setTempo(ptTempo[exerciseId])
+  }
+
   // Open the adjustable guided setup (tempo/reps/weight) for an existing set.
   function openGuidedSetupForSet(s: LocalSet) {
     const ex = exercises.find((e) => e.id === s.exerciseId)
     if (!ex) return
+    applyPtTempo(s.exerciseId)
     setGuidedSetup({
       exercise: ex,
       goalReps: s.reps != null ? String(s.reps) : '8',
@@ -407,6 +424,7 @@ export default function WorkoutLogger({
     saveEditSet(s.localId)
     const ex = exercises.find((e) => e.id === s.exerciseId)
     if (!ex) return
+    applyPtTempo(s.exerciseId)
     setGuidedSetup({
       exercise: ex,
       goalReps: editReps || (s.reps != null ? String(s.reps) : '8'),
@@ -474,6 +492,7 @@ export default function WorkoutLogger({
   // Open the whole-exercise guide SETUP (review/edit each set's reps + weight,
   // and the tempo) before starting — mirrors the single-set guided setup.
   function openGuideSetup(exerciseId: number) {
+    applyPtTempo(exerciseId)
     const name = grouped[exerciseId]?.name ?? ''
     const rows = localSets
       .filter((s) => s.exerciseId === exerciseId)

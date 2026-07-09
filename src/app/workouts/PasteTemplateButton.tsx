@@ -33,6 +33,7 @@ export default function PasteTemplateButton() {
           duration_minutes: null,
           distance: null,
           set_details: null,
+          tempo: null,
           order: i,
         })),
       )
