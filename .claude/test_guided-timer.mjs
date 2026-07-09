@@ -7,7 +7,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 const { guidedStateAt, completedRepsAt, stopEarlyReps, isTickSecond, READY_SECONDS, readySecondsLeft } = await import('../src/lib/guidedTimer.ts')
-const { restViewAt, formatClock, startsRestOnComplete } = await import('../src/lib/restTimer.ts')
+const { restViewAt, formatClock, startsRestOnComplete, shouldStickRestBar } = await import('../src/lib/restTimer.ts')
 
 const T = { down: 3, rest: 1, up: 2, hold: 1 } // repDuration = 7
 
@@ -123,4 +123,23 @@ test('completing a strength set starts rest; cardio does not', () => {
   assert.equal(startsRestOnComplete('strength'), true)
   assert.equal(startsRestOnComplete(null), true)
   assert.equal(startsRestOnComplete('cardio'), false)
+})
+
+// ─── shouldStickRestBar (WP-18, finding L2) ─────────────────────────────────
+// The rest bar drops out of `sticky` while a field is focused so the mobile
+// keyboard doesn't shove the multi-row settings layout around — UNLESS a
+// countdown is actively running, in which case it must stay visible even
+// while the user types the next set's weight/reps.
+
+test('no field focused: stays sticky whether or not resting', () => {
+  assert.equal(shouldStickRestBar(false, false), true)
+  assert.equal(shouldStickRestBar(false, true), true)
+})
+
+test('field focused, not resting (settings view): drops out of sticky', () => {
+  assert.equal(shouldStickRestBar(true, false), false)
+})
+
+test('field focused, actively resting: stays sticky — the L2 fix', () => {
+  assert.equal(shouldStickRestBar(true, true), true)
 })

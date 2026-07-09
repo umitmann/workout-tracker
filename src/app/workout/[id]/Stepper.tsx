@@ -1,9 +1,14 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
+import { isDraftableNumericInput, commitNumericDraft } from '@/lib/numericInput'
 
-// Vertical ▲/value/▼ stepper for small bounded values (tempo seconds, reps).
-// Press-and-hold repeats; the value is tappable to type as a fallback.
+// Vertical ▲/value/▼ stepper for small bounded values (weight, reps, tempo
+// seconds). Press-and-hold repeats; the value is tappable to type as a
+// fallback. The typed text is kept as a raw draft string in local state and
+// only committed (clamped, coerced to a number, sent to onChange) on blur or
+// a ▲/▼ bump — never on every keystroke — so a partial decimal like "2." is
+// never snapped to 0 while the user is still typing (finding L3).
 export default function Stepper({
   value,
   onChange,
@@ -12,6 +17,7 @@ export default function Stepper({
   step = 1,
   label,
   sublabel,
+  decimal = false,
 }: {
   value: number
   onChange: (v: number) => void
@@ -20,8 +26,21 @@ export default function Stepper({
   step?: number
   label: string
   sublabel?: string
+  decimal?: boolean
 }) {
   const holdRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [draft, setDraft] = useState(String(value))
+  const [prevValue, setPrevValue] = useState(value)
+  const [isEditing, setIsEditing] = useState(false)
+
+  // Stay in sync with external value changes (bumps, parent resets) — but
+  // only when the user isn't mid-keystroke in the text field. Adjusting
+  // state during render (rather than in an effect) avoids the extra
+  // commit-then-effect render pass for what is otherwise a plain prop sync.
+  if (value !== prevValue) {
+    setPrevValue(value)
+    if (!isEditing) setDraft(String(value))
+  }
 
   const clamp = (v: number) => Math.min(max, Math.max(min, v))
   const bump = (dir: 1 | -1) => onChange(clamp(Math.round((value + dir * step) * 100) / 100))
@@ -33,6 +52,18 @@ export default function Stepper({
   function stopHold() {
     if (holdRef.current) clearInterval(holdRef.current)
     holdRef.current = null
+  }
+
+  function handleDraftChange(raw: string) {
+    if (!isDraftableNumericInput(raw)) return
+    setIsEditing(true)
+    setDraft(raw)
+  }
+  function commitDraft() {
+    setIsEditing(false)
+    const committed = commitNumericDraft(draft, { min, max })
+    setDraft(String(committed))
+    onChange(committed)
   }
 
   const btn =
@@ -60,11 +91,13 @@ export default function Stepper({
         ▲
       </button>
       <input
-        type="number"
-        inputMode="numeric"
+        type="text"
+        inputMode={decimal ? 'decimal' : 'numeric'}
         aria-label={label}
-        value={value}
-        onChange={(e) => onChange(clamp(Number(e.target.value) || 0))}
+        value={draft}
+        onChange={(e) => handleDraftChange(e.target.value)}
+        onBlur={commitDraft}
+        onKeyDown={(e) => { if (e.key === 'Enter') commitDraft() }}
         className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-1 py-1.5 text-center text-base font-black tabular-nums outline-none focus:border-orange-400"
       />
       <button

@@ -29,3 +29,13 @@ export function restViewAt(mode: RestMode, target: number, elapsed: number): Res
 export function startsRestOnComplete(exerciseCategory: string | null): boolean {
   return exerciseCategory !== 'cardio'
 }
+
+// Should the rest bar keep `sticky` positioning? Normally it drops out of
+// sticky while any field is focused so the mobile keyboard doesn't shove its
+// multi-row settings layout around (commit 91d70ae). But a running countdown
+// must stay visible even while the user is typing the next set's weight/reps
+// (finding L2) — losing it there would scroll the timer away right when it
+// matters most — so an active rest (`isResting`) always stays sticky.
+export function shouldStickRestBar(fieldFocused: boolean, isResting: boolean): boolean {
+  return isResting || !fieldFocused
+}

@@ -81,6 +81,8 @@ Run through this list manually after any change to routing, workout actions, dat
 | 4.1b | Tap Confirm after the delete ✕ | Set removed from local state (§15.7: not autosaved — persists on next Save/Done); marks the queue dirty |
 | 4.1c | Tap Cancel after the delete ✕ | Prompt dismissed, set unchanged |
 | 4.2 | Tap a set row (active workout) | Row expands into edit mode: two labeled inputs (Weight kg / Reps) |
+| 4.2a | Type a partial decimal into the weight stepper (e.g. "2.", then "5") | Value is preserved as typed (draft string in local component state); does not snap to 0 or drop the decimal point mid-keystroke — commits to a clamped number only on blur/Enter/▲▼ bump |
+| 4.2b | Weight/distance inputs vs. reps/duration inputs on mobile | Weight and distance steppers/inputs use `inputMode="decimal"`; reps and duration use `inputMode="numeric"` |
 | 4.3 | Edit a set and tap elsewhere | Edit auto-saves to **local state** (not DB), row returns to display mode |
 | 4.4 | Edit a set and press Enter | Same as tapping elsewhere — saves to local state |
 | 4.5 | Tap ✕ while editing | Cancels edit, row reverts to previous values (this is the edit-mode cancel ✕, distinct from the delete ✕ in 4.1a — no confirm step, nothing destructive happens) |
@@ -321,6 +323,7 @@ The four icon buttons (i, clock, trophy, bolt) must be reachable while the user 
 | 17.9 | Exercise history | Rest durations visible per session entry |
 | 17.10 | Completed (read-only) workout | No rest timer appears |
 | 17.11 | First set of the session (nothing to rest from) | No timer starts until the first set has been added |
+| 17.12 | Rest timer running — focus the weight/reps field for the next set, then scroll | Countdown stays visible (stays `sticky`); only the settings-only view (no rest running) drops out of sticky while a field is focused, to dodge the mobile keyboard shoving its layout around |
 
 ---
 
@@ -406,3 +409,6 @@ dismissal *methods* they refer to now include Escape.
 - `TemplateEditor` receives optional `date` and `workoutId` search params. `date > today` → "Schedule" mode (planned workout). `workoutId` → transition existing planned workout.
 - When routing to the template editor from the calendar, the workout is **not created** until the user taps "Start now" / "Schedule" in the editor.
 - New overlays must render through `src/components/Modal.tsx`, not a bare `fixed inset-0` div — it is the only place dialog semantics/focus-trap/Escape/backdrop rules are decided (ADR-0008). Pass `destructive` for confirms that discard user data; everything else defaults to backdrop-closes. `Modal` only supplies the `role="dialog"` wrapper and focus behaviour — callers keep their own backdrop/panel classNames so visual layout is unaffected. The Escape/Tab decisions live in the pure, unit-tested `src/lib/modalFocus.ts`; stacking order (which dialog is topmost when one opens another) lives in `src/lib/modalStack.ts`.
+- `Stepper.tsx` (weight/reps/tempo-seconds inputs) keeps a raw draft string in local state (`src/lib/numericInput.ts`: `isDraftableNumericInput`/`commitNumericDraft`) and only calls the parent's `onChange` with a clamped number on blur, Enter, or a ▲/▼ bump — never on every keystroke. Do not "simplify" this back to `onChange={(e) => onChange(Number(e.target.value) || 0)}`; that's the exact WP-18/L3 regression (typing "2." snaps to 0 mid-keystroke because `Number("2.")` truncates and `Number("2") || 0` fires on every character before the second digit lands). Pass `decimal` on weight/distance steppers for `inputMode="decimal"`; leave it off (default) for reps/tempo/duration for `inputMode="numeric"`.
+- The rest bar's `sticky` positioning is decided by `shouldStickRestBar(fieldFocused, isResting)` in `src/lib/restTimer.ts`, not by `fieldFocused` alone — an active countdown always stays sticky even while a field is focused (WP-18/L2); only the no-rest settings-only view drops out of sticky to dodge the mobile keyboard (commit 91d70ae). Keep both invariants when touching the rest bar's positioning.
+- `src/app/layout.tsx` exports `viewport` (themeColor) separately from `metadata` (title/description) — Next 16 moved `themeColor` out of the `Metadata` type into a dedicated `Viewport` export; do not add it back into `metadata`, it's silently ignored there.
