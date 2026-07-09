@@ -361,6 +361,31 @@ The four icon buttons (i, clock, trophy, bolt) must be reachable while the user 
 
 ---
 
+## 20. Modal dialog contract (WP-08, ADR-0008)
+
+Every overlay in the app (LastPerfModal, ExerciseInfoModal, ExercisePickerSheet, and
+the eight inline WorkoutLogger dialogs — template import, save-progress warning,
+paste-overwrite confirm, discard-edits confirm, abandon confirm, guided-set setup,
+per-exercise note editor, whole-exercise guide setup) renders through the shared
+`Modal` primitive (`src/components/Modal.tsx`). This section documents the contract
+those overlays share; §7.11/§11.3/§12.4/§13/§18.12 rows above still hold — the
+dismissal *methods* they refer to now include Escape.
+
+| # | Scenario | Expected result |
+|---|----------|----------------|
+| 20.1 | Any dialog opens | `role="dialog"`, `aria-modal="true"`, and an accessible name (`aria-label`) are present |
+| 20.2 | Any dialog opens | Focus moves inside the dialog (its first focusable control, unless the dialog designates another, e.g. the picker's search input or the note editor's textarea) |
+| 20.3 | Press Tab repeatedly while a dialog is open | Focus cycles only among controls inside the dialog; it never reaches the page behind it |
+| 20.4 | Press Escape while a non-destructive dialog is open | Dialog closes |
+| 20.5 | Dialog closes (any method) | Focus returns to the control that opened it |
+| 20.6 | Click the backdrop of a non-destructive dialog | Dialog closes (unchanged from today's tap-outside behaviour) |
+| 20.7 | Click the backdrop of a **destructive-confirm** dialog (save-progress warning, paste-overwrite, discard-edits, abandon) | Dialog stays open — only its own Cancel/Confirm buttons or Escape dismiss it |
+| 20.8 | Press Escape while a destructive-confirm dialog is open | Dialog closes (Escape is not exempted — only backdrop click is) |
+| 20.9 | One dialog opens another on top of it (e.g. exercise info opened from within the picker sheet) | Both are present in the DOM (`role="dialog"` count = 2); Escape closes only the topmost one, leaving the one underneath open |
+| 20.10 | The picker sheet's search input, muscle/category filter dropdowns, and internal scroll | Unchanged — Modal wraps the sheet's existing markup without altering its internal state or scroll behaviour |
+
+---
+
 ## Known gotchas to recheck after schema changes
 
 - `routines.id` is **UUID** — never pass through `Number()`. Use `string | number` in DAL functions.
@@ -377,3 +402,4 @@ The four icon buttons (i, clock, trophy, bolt) must be reachable while the user 
 - ↑/↓ reorder buttons are always visible when 2+ exercises exist — there is no separate "reorder mode" toggle.
 - `TemplateEditor` receives optional `date` and `workoutId` search params. `date > today` → "Schedule" mode (planned workout). `workoutId` → transition existing planned workout.
 - When routing to the template editor from the calendar, the workout is **not created** until the user taps "Start now" / "Schedule" in the editor.
+- New overlays must render through `src/components/Modal.tsx`, not a bare `fixed inset-0` div — it is the only place dialog semantics/focus-trap/Escape/backdrop rules are decided (ADR-0008). Pass `destructive` for confirms that discard user data; everything else defaults to backdrop-closes. `Modal` only supplies the `role="dialog"` wrapper and focus behaviour — callers keep their own backdrop/panel classNames so visual layout is unaffected. The Escape/Tab decisions live in the pure, unit-tested `src/lib/modalFocus.ts`; stacking order (which dialog is topmost when one opens another) lives in `src/lib/modalStack.ts`.

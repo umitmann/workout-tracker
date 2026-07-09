@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { filterExercises } from '@/lib/filterExercises'
 import { MUSCLE_GROUPS, musclesForGroup, countByGroup } from '@/lib/muscleGroups'
+import Modal from '@/components/Modal'
 
 export type SlimExercise = {
   id: number
@@ -133,18 +134,16 @@ export default function ExercisePickerSheet({
   const listIsFiltered = hasFilters || effectiveMuscles.length > 0
 
   return (
-    <div
-      className="fixed inset-0 bg-black/70 flex items-start justify-center z-50 px-4 pt-6 pb-4"
-      onClick={onClose}
+    <Modal
+      title="Select exercise"
+      onClose={onClose}
+      backdropClassName="fixed inset-0 bg-black/70 flex items-start justify-center z-50 px-4 pt-6 pb-4"
+      panelClassName="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-2xl max-h-[80vh] flex flex-col shadow-2xl outline-none"
     >
-      <div
-        className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-2xl max-h-[80vh] flex flex-col shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <>
         <div className="px-4 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex flex-col gap-2">
           <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Select exercise</p>
           <input
-            autoFocus
             type="text"
             placeholder="Search exercises..."
             value={search}
@@ -343,7 +342,7 @@ export default function ExercisePickerSheet({
             ))
           )}
         </ul>
-      </div>
-    </div>
+      </>
+    </Modal>
   )
 }
