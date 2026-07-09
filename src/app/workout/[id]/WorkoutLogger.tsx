@@ -15,6 +15,7 @@ import RestTimer from './RestTimer'
 import ExerciseGuide, { GuideSet } from './ExerciseGuide'
 import Stepper from './Stepper'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
+import { useWakeLock } from './useWakeLock'
 import { TempoConfig, repDuration, formatTempo, parseTempo } from '@/lib/tempo'
 import { startsRestOnComplete } from '@/lib/restTimer'
 import { deriveInitialSets } from '@/lib/deriveInitialSets'
@@ -90,6 +91,11 @@ export default function WorkoutLogger({
   initialTemplate?: RoutineWithExercises | null
 }) {
   const [isPending, startTransition] = useTransition()
+  // ADR-0007: wake lock is owned at the session level for the whole active
+  // logging session (docked rest + plain set entry included), not just
+  // inside the full-screen guided timers — single owner, no per-timer
+  // double-acquire. Completed (read-only) views hold no lock.
+  useWakeLock(workout.status !== 'completed')
   const { clipboard, copy: copyToClipboard } = useWorkoutClipboard()
   const [copied, setCopied] = useState(false)
   const [showPasteConfirm, setShowPasteConfirm] = useState(false)
