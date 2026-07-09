@@ -10,6 +10,7 @@ import { LastExercisePerformance, RoutineWithExercises } from '@/lib/dal'
 import ExercisePickerSheet, { SlimExercise } from './ExercisePickerSheet'
 import ExerciseInfoModal from './ExerciseInfoModal'
 import LastPerfModal from './LastPerfModal'
+import Modal from '@/components/Modal'
 import DruhTimer from './DruhTimer'
 import RestTimer from './RestTimer'
 import ExerciseGuide, { GuideSet } from './ExerciseGuide'
@@ -1535,14 +1536,13 @@ export default function WorkoutLogger({
 
       {/* Template import picker */}
       {showImportPicker && (
-        <div
-          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4"
-          onClick={() => setShowImportPicker(false)}
+        <Modal
+          title="Load template"
+          onClose={() => setShowImportPicker(false)}
+          backdropClassName="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4"
+          panelClassName="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-2xl max-h-[75vh] flex flex-col shadow-2xl outline-none"
         >
-          <div
-            className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-2xl max-h-[75vh] flex flex-col shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <>
             <div className="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800">
               <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Load template</p>
             </div>
@@ -1571,14 +1571,20 @@ export default function WorkoutLogger({
                 </li>
               ))}
             </ul>
-          </div>
-        </div>
+          </>
+        </Modal>
       )}
 
       {/* Save progress warning */}
       {showSaveWarning && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] px-4">
-          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl">
+        <Modal
+          title="Progress won't be tracked"
+          onClose={() => setShowSaveWarning(false)}
+          destructive
+          backdropClassName="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] px-4"
+          panelClassName="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl outline-none"
+        >
+          <>
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-1">Heads up</p>
               <h3 className="text-base font-bold text-zinc-900 dark:text-white">Progress won't be tracked</h3>
@@ -1601,14 +1607,20 @@ export default function WorkoutLogger({
                 Save anyway
               </button>
             </div>
-          </div>
-        </div>
+          </>
+        </Modal>
       )}
 
       {/* Paste overwrite confirmation */}
       {showPasteConfirm && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] px-4">
-          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl">
+        <Modal
+          title="Replace current sets?"
+          onClose={() => setShowPasteConfirm(false)}
+          destructive
+          backdropClassName="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] px-4"
+          panelClassName="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl outline-none"
+        >
+          <>
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-1">Overwrite?</p>
               <h3 className="text-base font-bold text-zinc-900 dark:text-white">Replace current sets?</h3>
@@ -1630,14 +1642,20 @@ export default function WorkoutLogger({
                 Replace
               </button>
             </div>
-          </div>
-        </div>
+          </>
+        </Modal>
       )}
 
       {/* Discard edits prompt (editing a completed workout) */}
       {showDiscardEditsPrompt && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] px-4">
-          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl">
+        <Modal
+          title="Discard changes?"
+          onClose={() => setShowDiscardEditsPrompt(false)}
+          destructive
+          backdropClassName="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] px-4"
+          panelClassName="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl outline-none"
+        >
+          <>
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-red-500 mb-1">Warning</p>
               <h3 className="text-base font-bold text-zinc-900 dark:text-white">Discard changes?</h3>
@@ -1659,14 +1677,20 @@ export default function WorkoutLogger({
                 Discard
               </button>
             </div>
-          </div>
-        </div>
+          </>
+        </Modal>
       )}
 
       {/* Abandon workout prompt */}
       {showAbandonPrompt && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] px-4">
-          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl">
+        <Modal
+          title="Abandon workout?"
+          onClose={() => setShowAbandonPrompt(false)}
+          destructive
+          backdropClassName="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] px-4"
+          panelClassName="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl outline-none"
+        >
+          <>
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-red-500 mb-1">Warning</p>
               <h3 className="text-base font-bold text-zinc-900 dark:text-white">Abandon workout?</h3>
@@ -1688,14 +1712,19 @@ export default function WorkoutLogger({
                 Abandon
               </button>
             </div>
-          </div>
-        </div>
+          </>
+        </Modal>
       )}
 
       {/* Guided-set tempo setup */}
       {guidedSetup && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[75] px-4">
-          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl">
+        <Modal
+          title={`Guided set: ${guidedSetup.exercise.name}`}
+          onClose={() => setGuidedSetup(null)}
+          backdropClassName="fixed inset-0 bg-black/70 flex items-center justify-center z-[75] px-4"
+          panelClassName="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl outline-none"
+        >
+          <>
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-1">Guided set</p>
               <h3 className="text-base font-bold text-zinc-900 dark:text-white truncate">{guidedSetup.exercise.name}</h3>
@@ -1743,8 +1772,8 @@ export default function WorkoutLogger({
                 Start
               </button>
             </div>
-          </div>
-        </div>
+          </>
+        </Modal>
       )}
 
       {/* Running DRUH timer */}
@@ -1759,14 +1788,18 @@ export default function WorkoutLogger({
 
       {/* Per-exercise note editor */}
       {editingNote && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[75] px-4">
-          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl">
+        <Modal
+          title={`Note: ${editingNote.name}`}
+          onClose={() => setEditingNote(null)}
+          backdropClassName="fixed inset-0 bg-black/70 flex items-center justify-center z-[75] px-4"
+          panelClassName="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl outline-none"
+        >
+          <>
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-1">Note</p>
               <h3 className="text-base font-bold text-zinc-900 dark:text-white truncate">{editingNote.name}</h3>
             </div>
             <textarea
-              autoFocus
               rows={4}
               value={editingNote.text}
               onChange={(e) => setEditingNote((n) => (n ? { ...n, text: e.target.value } : n))}
@@ -1787,14 +1820,19 @@ export default function WorkoutLogger({
                 Save
               </button>
             </div>
-          </div>
-        </div>
+          </>
+        </Modal>
       )}
 
       {/* Whole-exercise guide SETUP */}
       {guideSetup && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[75] px-4">
-          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl max-h-[85vh] overflow-y-auto">
+        <Modal
+          title={`Guide exercise: ${guideSetup.exerciseName}`}
+          onClose={() => setGuideSetup(null)}
+          backdropClassName="fixed inset-0 bg-black/70 flex items-center justify-center z-[75] px-4"
+          panelClassName="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl max-h-[85vh] overflow-y-auto outline-none"
+        >
+          <>
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-1">Guide exercise</p>
               <h3 className="text-base font-bold text-zinc-900 dark:text-white truncate">{guideSetup.exerciseName}</h3>
@@ -1848,8 +1886,8 @@ export default function WorkoutLogger({
                 Start guide
               </button>
             </div>
-          </div>
-        </div>
+          </>
+        </Modal>
       )}
 
       {/* Whole-exercise guide (set → rest → set …) */}

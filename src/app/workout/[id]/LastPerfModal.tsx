@@ -1,6 +1,7 @@
 'use client'
 
 import { LastExercisePerformance } from '@/lib/dal'
+import Modal from '@/components/Modal'
 
 function fmtDate(d: string) {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-US', {
@@ -22,14 +23,13 @@ export default function LastPerfModal({
   title?: string
 }) {
   return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] px-4"
-      onClick={onClose}
+    <Modal
+      title={`${title}: ${exerciseName}`}
+      onClose={onClose}
+      backdropClassName="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] px-4"
+      panelClassName="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-5 flex flex-col gap-4 shadow-2xl outline-none"
     >
-      <div
-        className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-5 flex flex-col gap-4 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <>
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-0.5">
@@ -72,7 +72,7 @@ export default function LastPerfModal({
             No completed workouts with this exercise yet.
           </p>
         )}
-      </div>
-    </div>
+      </>
+    </Modal>
   )
 }

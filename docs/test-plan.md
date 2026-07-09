@@ -215,6 +215,20 @@ behaviour, so this packet is Playwright-first):
 **GREEN:** one `Modal` component; all ten overlay sites migrated; §7.11/§11.3/§13.4
 (dismissal methods, scroll restoration) unregressed.
 
+> **Implemented (2026-07-09):** the pure decisions (Escape/backdrop/focus-index/Tab
+> cycling) live in `src/lib/modalFocus.ts` (`.claude/test_modal-focus.mjs`, node:test,
+> no DOM); a second pure module, `src/lib/modalStack.ts`
+> (`.claude/test_modal-stack.mjs`), tracks which mounted `Modal` is topmost so a
+> dialog opened from within another (info modal from the picker sheet) captures
+> Escape/Tab instead of the one underneath it — without this, both dialogs'
+> `document`-level listeners would fire in mount order and the wrong one would close.
+> `src/components/Modal.tsx` only wires DOM events to these two modules; it accepts
+> `backdropClassName`/`panelClassName` so every call site keeps its exact existing
+> visual markup. All ten overlay sites (LastPerfModal, ExerciseInfoModal,
+> ExercisePickerSheet, + the 8 inline WorkoutLogger dialogs including the template
+> import picker) migrated. Playwright suite `.claude/test_modal-a11y.mjs` written
+> per this spec, not run (per rule 3 — requires a dev server + auth.json).
+
 ### WP-09 · Touch targets + set-delete confirm
 **Findings M1, M2 · ADR-0008**
 

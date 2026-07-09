@@ -6,6 +6,7 @@ import { ExerciseHistoryPoint } from '@/lib/dal'
 import { ExerciseHistoryChart } from '@/components/ExerciseHistoryChart'
 import { useSwipe } from '@/lib/useSwipe'
 import { localDateStr } from '@/lib/localDate'
+import Modal from '@/components/Modal'
 
 type Exercise = {
   id: number
@@ -57,14 +58,13 @@ export default function ExerciseInfoModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] px-4"
-      onClick={onClose}
+    <Modal
+      title={exercise.name}
+      onClose={onClose}
+      backdropClassName="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] px-4"
+      panelClassName="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden max-h-[90vh] flex flex-col outline-none"
     >
-      <div
-        className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800">
           <div>
@@ -222,7 +222,7 @@ export default function ExerciseInfoModal({
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </>
+    </Modal>
   )
 }
