@@ -19,14 +19,16 @@ const eslintConfig = defineConfig([
     // Pre-existing `any` debt (untyped Supabase query results), predates the
     // 2026-07 quality survey. Downgraded to warnings so CI can gate on NEW
     // violations elsewhere; burn this list down file by file, don't extend it.
+    // Note: `[id]` segments are written as `*` because [] is a minimatch
+    // character class and would never match the literal directory name.
     files: [
       "src/lib/dal.ts",
       "src/app/dashboard/page.tsx",
-      "src/app/routines/[id]/ExerciseDetailClient.tsx",
-      "src/app/workout/[id]/ExerciseInfoModal.tsx",
-      "src/app/workout/[id]/page.tsx",
+      "src/app/routines/*/ExerciseDetailClient.tsx",
+      "src/app/workout/*/ExerciseInfoModal.tsx",
+      "src/app/workout/*/page.tsx",
       "src/app/workouts/CalendarView.tsx",
-      "src/app/workouts/[id]/page.tsx",
+      "src/app/workouts/*/page.tsx",
       "src/app/workouts/new/page.tsx",
     ],
     rules: {
