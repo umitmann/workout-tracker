@@ -3,13 +3,31 @@
 // the shape the UI needs — no DB/Next imports, so these are unit-testable
 // without a database or auth context.
 
-export type SessionSet = { weight: number | null; reps: number | null }
+export type SessionSet = {
+  weight: number | null
+  reps: number | null
+  duration_minutes?: number | null
+  distance?: number | null
+}
 
 export type WorkoutRef = { id: number; date: string }
 
 export type SessionSetRow = SessionSet & { workout_id: number }
 
 export type BestSession = { date: string; sets: SessionSet[] }
+
+// Projects a raw row down to the SessionSet shape the caller gets back.
+// duration_minutes/distance are only included when the source row actually
+// carries those keys (WP-11: dal.ts now selects them for the perf-modal
+// query) — callers/tests that pass bare {weight, reps} rows (pre-WP-11
+// shape) get back exactly {weight, reps}, unchanged, so existing
+// `assert.deepEqual` expectations on the plain shape keep passing.
+function toSessionSet(row: SessionSetRow): SessionSet {
+  const base: SessionSet = { weight: row.weight, reps: row.reps }
+  if ('duration_minutes' in row) base.duration_minutes = row.duration_minutes
+  if ('distance' in row) base.distance = row.distance
+  return base
+}
 
 // Picks the session (workout) to show for "best session" / "last session"
 // queries: the workout containing the single highest-weight set wins; if no
@@ -46,7 +64,7 @@ export function selectBestSession(sets: SessionSetRow[], workouts: WorkoutRef[])
 
   return {
     date: dateById.get(bestWorkoutId)!,
-    sets: sets.filter((s) => s.workout_id === bestWorkoutId).map(({ weight, reps }) => ({ weight, reps })),
+    sets: sets.filter((s) => s.workout_id === bestWorkoutId).map(toSessionSet),
   }
 }
 
@@ -54,7 +72,7 @@ function groupByWorkout(sets: SessionSetRow[]): Map<number, SessionSet[]> {
   const grouped = new Map<number, SessionSet[]>()
   for (const s of sets) {
     if (!grouped.has(s.workout_id)) grouped.set(s.workout_id, [])
-    grouped.get(s.workout_id)!.push({ weight: s.weight, reps: s.reps })
+    grouped.get(s.workout_id)!.push(toSessionSet(s))
   }
   return grouped
 }

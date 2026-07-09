@@ -87,7 +87,7 @@ export default function TemplateEditor({
   const [infoLoading, setInfoLoading] = useState(false)
   type PerfMode = 'last' | 'best' | 'best60'
   const PERF_TITLE: Record<PerfMode, string> = { last: 'Last session', best: 'Best session', best60: 'Best · 60 days' }
-  const [perfModal, setPerfModal] = useState<{ id: number; name: string; mode: PerfMode } | null>(null)
+  const [perfModal, setPerfModal] = useState<{ id: number; name: string; mode: PerfMode; category: string | null } | null>(null)
   const [perfData, setPerfData] = useState<LastExercisePerformance | null>(null)
   const [perfLoading, setPerfLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -204,8 +204,8 @@ export default function TemplateEditor({
     if (details) setInfoExercise(details as ExerciseDetails)
   }
 
-  async function handlePerfClick(exerciseId: number, exerciseName: string, mode: PerfMode) {
-    setPerfModal({ id: exerciseId, name: exerciseName, mode })
+  async function handlePerfClick(exerciseId: number, exerciseName: string, mode: PerfMode, category: string | null = null) {
+    setPerfModal({ id: exerciseId, name: exerciseName, mode, category })
     setPerfData(null)
     setPerfLoading(true)
     let data: LastExercisePerformance | null = null
@@ -415,7 +415,7 @@ export default function TemplateEditor({
                   i
                 </button>
                 <button
-                  onClick={() => handlePerfClick(item.exerciseId, item.exerciseName, 'last')}
+                  onClick={() => handlePerfClick(item.exerciseId, item.exerciseName, 'last', item.exerciseCategory)}
                   title="Last session"
                   className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
                 >
@@ -425,7 +425,7 @@ export default function TemplateEditor({
                   </svg>
                 </button>
                 <button
-                  onClick={() => handlePerfClick(item.exerciseId, item.exerciseName, 'best')}
+                  onClick={() => handlePerfClick(item.exerciseId, item.exerciseName, 'best', item.exerciseCategory)}
                   title="Best session"
                   className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
                 >
@@ -438,7 +438,7 @@ export default function TemplateEditor({
                   </svg>
                 </button>
                 <button
-                  onClick={() => handlePerfClick(item.exerciseId, item.exerciseName, 'best60')}
+                  onClick={() => handlePerfClick(item.exerciseId, item.exerciseName, 'best60', item.exerciseCategory)}
                   title="Best · 60 days"
                   className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
                 >
@@ -655,6 +655,7 @@ export default function TemplateEditor({
       {perfModal && (
         <LastPerfModal
           exerciseName={perfModal.name}
+          category={perfModal.category}
           title={PERF_TITLE[perfModal.mode]}
           data={perfData}
           loading={perfLoading}

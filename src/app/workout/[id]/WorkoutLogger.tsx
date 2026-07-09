@@ -200,7 +200,7 @@ export default function WorkoutLogger({
   const [infoLoading, setInfoLoading] = useState(false)
   type PerfMode = 'last' | 'best' | 'best60'
   const PERF_TITLE: Record<PerfMode, string> = { last: 'Last session', best: 'Best session', best60: 'Best · 60 days' }
-  const [perfModal, setPerfModal] = useState<{ id: number; name: string; mode: PerfMode } | null>(null)
+  const [perfModal, setPerfModal] = useState<{ id: number; name: string; mode: PerfMode; category: string | null } | null>(null)
   const [perfData, setPerfData] = useState<LastExercisePerformance | null>(null)
   const [perfLoading, setPerfLoading] = useState(false)
 
@@ -667,8 +667,8 @@ export default function WorkoutLogger({
     if (details) setInfoExercise(details as ExerciseDetails)
   }
 
-  async function handlePerfClick(exerciseId: number, exerciseName: string, mode: PerfMode) {
-    setPerfModal({ id: exerciseId, name: exerciseName, mode })
+  async function handlePerfClick(exerciseId: number, exerciseName: string, mode: PerfMode, category: string | null = null) {
+    setPerfModal({ id: exerciseId, name: exerciseName, mode, category })
     setPerfData(null)
     setPerfLoading(true)
     let data: LastExercisePerformance | null = null
@@ -850,21 +850,21 @@ export default function WorkoutLogger({
               i
             </span>
           </IconHitTarget>
-          <IconHitTarget onClick={() => handlePerfClick(selectedExercise.id, selectedExercise.name, 'last')} title="Last session">
+          <IconHitTarget onClick={() => handlePerfClick(selectedExercise.id, selectedExercise.name, 'last', selectedExercise.category)} title="Last session">
             <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none">
               <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="6" cy="6" r="5" /><path d="M6 3v3l1.5 1.5" />
               </svg>
             </span>
           </IconHitTarget>
-          <IconHitTarget onClick={() => handlePerfClick(selectedExercise.id, selectedExercise.name, 'best')} title="Best session">
+          <IconHitTarget onClick={() => handlePerfClick(selectedExercise.id, selectedExercise.name, 'best', selectedExercise.category)} title="Best session">
             <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none">
               <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M3.5 1.5h5v3.5a2.5 2.5 0 0 1-5 0V1.5z" /><path d="M6 7v1.5" /><path d="M4 9h4" /><path d="M1.5 2.5h2" /><path d="M8.5 2.5h2" />
               </svg>
             </span>
           </IconHitTarget>
-          <IconHitTarget onClick={() => handlePerfClick(selectedExercise.id, selectedExercise.name, 'best60')} title="Best · 60 days">
+          <IconHitTarget onClick={() => handlePerfClick(selectedExercise.id, selectedExercise.name, 'best60', selectedExercise.category)} title="Best · 60 days">
             <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none">
               <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M7 1.5L3.5 6.5H6.5L5 10.5" />
@@ -992,7 +992,7 @@ export default function WorkoutLogger({
                   i
                 </button>
                 <button
-                  onClick={() => handlePerfClick(exerciseId, group.name, 'last')}
+                  onClick={() => handlePerfClick(exerciseId, group.name, 'last', group.sets[0]?.exerciseCategory ?? null)}
                   title="Last session"
                   className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
                 >
@@ -1002,7 +1002,7 @@ export default function WorkoutLogger({
                   </svg>
                 </button>
                 <button
-                  onClick={() => handlePerfClick(exerciseId, group.name, 'best')}
+                  onClick={() => handlePerfClick(exerciseId, group.name, 'best', group.sets[0]?.exerciseCategory ?? null)}
                   title="Best session"
                   className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
                 >
@@ -1015,7 +1015,7 @@ export default function WorkoutLogger({
                   </svg>
                 </button>
                 <button
-                  onClick={() => handlePerfClick(exerciseId, group.name, 'best60')}
+                  onClick={() => handlePerfClick(exerciseId, group.name, 'best60', group.sets[0]?.exerciseCategory ?? null)}
                   title="Best · 60 days"
                   className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
                 >
@@ -1087,6 +1087,7 @@ export default function WorkoutLogger({
         {perfModal && (
           <LastPerfModal
             exerciseName={perfModal.name}
+            category={perfModal.category}
             title={PERF_TITLE[perfModal.mode]}
             data={perfData}
             loading={perfLoading}
@@ -1215,7 +1216,7 @@ export default function WorkoutLogger({
                   i
                 </span>
               </IconHitTarget>
-              <IconHitTarget onClick={() => handlePerfClick(exerciseId, group.name, 'last')} title="Last session">
+              <IconHitTarget onClick={() => handlePerfClick(exerciseId, group.name, 'last', group.sets[0]?.exerciseCategory ?? null)} title="Last session">
                 <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none">
                   <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <circle cx="6" cy="6" r="5" />
@@ -1223,7 +1224,7 @@ export default function WorkoutLogger({
                   </svg>
                 </span>
               </IconHitTarget>
-              <IconHitTarget onClick={() => handlePerfClick(exerciseId, group.name, 'best')} title="Best session">
+              <IconHitTarget onClick={() => handlePerfClick(exerciseId, group.name, 'best', group.sets[0]?.exerciseCategory ?? null)} title="Best session">
                 <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none">
                   <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M3.5 1.5h5v3.5a2.5 2.5 0 0 1-5 0V1.5z" />
@@ -1234,7 +1235,7 @@ export default function WorkoutLogger({
                   </svg>
                 </span>
               </IconHitTarget>
-              <IconHitTarget onClick={() => handlePerfClick(exerciseId, group.name, 'best60')} title="Best · 60 days">
+              <IconHitTarget onClick={() => handlePerfClick(exerciseId, group.name, 'best60', group.sets[0]?.exerciseCategory ?? null)} title="Best · 60 days">
                 <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none">
                   <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M7 1.5L3.5 6.5H6.5L5 10.5" />
@@ -1528,6 +1529,7 @@ export default function WorkoutLogger({
       {perfModal && (
         <LastPerfModal
           exerciseName={perfModal.name}
+          category={perfModal.category}
           title={PERF_TITLE[perfModal.mode]}
           data={perfData}
           loading={perfLoading}

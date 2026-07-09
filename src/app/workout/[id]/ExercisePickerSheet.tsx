@@ -33,7 +33,7 @@ export default function ExercisePickerSheet({
   onCategoriesChange: (categories: string[]) => void
   onSelect: (exercise: SlimExercise) => void
   onInfoClick: (exerciseId: number) => void
-  onPerfClick: (exerciseId: number, exerciseName: string, mode: PerfMode) => void
+  onPerfClick: (exerciseId: number, exerciseName: string, mode: PerfMode, category: string | null) => void
   onClose: () => void
 }) {
   const [search, setSearch] = useState('')
@@ -306,7 +306,7 @@ export default function ExercisePickerSheet({
                     i
                   </button>
                   <button
-                    onClick={() => onPerfClick(ex.id, ex.name, 'last')}
+                    onClick={() => onPerfClick(ex.id, ex.name, 'last', ex.category)}
                     title="Last session"
                     className="w-6 h-6 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
                   >
@@ -316,7 +316,7 @@ export default function ExercisePickerSheet({
                     </svg>
                   </button>
                   <button
-                    onClick={() => onPerfClick(ex.id, ex.name, 'best')}
+                    onClick={() => onPerfClick(ex.id, ex.name, 'best', ex.category)}
                     title="Best session"
                     className="w-6 h-6 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
                   >
@@ -329,7 +329,7 @@ export default function ExercisePickerSheet({
                     </svg>
                   </button>
                   <button
-                    onClick={() => onPerfClick(ex.id, ex.name, 'best60')}
+                    onClick={() => onPerfClick(ex.id, ex.name, 'best60', ex.category)}
                     title="Best · 60 days"
                     className="w-6 h-6 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
                   >

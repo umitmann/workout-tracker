@@ -70,6 +70,61 @@ test('selectBestSession only returns sets belonging to the chosen workout', () =
   assert.deepEqual(result.sets, [{ weight: 110, reps: 3 }])
 })
 
+// ─── selectBestSession: duration/distance pass-through (WP-11, checklist §19.8) ──
+// getLastExercisePerformance/getBestExercisePerformance now select duration_minutes
+// and distance so LastPerfModal can render cardio columns instead of em-dashes.
+
+test('selectBestSession carries duration_minutes/distance through for a cardio session (weight-only best-set logic still applies unchanged)', () => {
+  const workouts = [{ id: 1, date: '2026-06-01' }]
+  const sets = [
+    { workout_id: 1, weight: null, reps: null, duration_minutes: 30, distance: 5 },
+    { workout_id: 1, weight: null, reps: null, duration_minutes: 20, distance: null },
+  ]
+  const result = selectBestSession(sets, workouts)
+  assert.equal(result.date, '2026-06-01')
+  assert.deepEqual(result.sets, [
+    { weight: null, reps: null, duration_minutes: 30, distance: 5 },
+    { weight: null, reps: null, duration_minutes: 20, distance: null },
+  ])
+})
+
+test('selectBestSession: cardio rows with all-null weight fall back to most-recent-workout branch, still carrying duration/distance', () => {
+  // No set has a weight, so the "highest weight" branch never fires — this
+  // exercises the groupByWorkout fallback path specifically for cardio data.
+  const workouts = [
+    { id: 2, date: '2026-06-15' },
+    { id: 1, date: '2026-06-01' },
+  ]
+  const sets = [
+    { workout_id: 1, weight: null, reps: null, duration_minutes: 10, distance: 1 },
+    { workout_id: 2, weight: null, reps: null, duration_minutes: 40, distance: 8 },
+  ]
+  const result = selectBestSession(sets, workouts)
+  assert.equal(result.date, '2026-06-15')
+  assert.deepEqual(result.sets, [{ weight: null, reps: null, duration_minutes: 40, distance: 8 }])
+})
+
+test('selectBestSession: rows without duration_minutes/distance keys at all keep the exact pre-WP-11 {weight, reps} shape (backward compatible)', () => {
+  const workouts = [{ id: 1, date: '2026-06-01' }]
+  const sets = [{ workout_id: 1, weight: 100, reps: 5 }]
+  const result = selectBestSession(sets, workouts)
+  assert.deepEqual(result.sets, [{ weight: 100, reps: 5 }])
+  assert.equal('duration_minutes' in result.sets[0], false)
+  assert.equal('distance' in result.sets[0], false)
+})
+
+test('selectBestSession: mixed pool (one cardio-shaped row, one legacy-shaped row) — each row keeps its own key set independently', () => {
+  const workouts = [{ id: 1, date: '2026-06-01' }]
+  const sets = [
+    { workout_id: 1, weight: null, reps: 8 }, // legacy shape, no duration/distance keys
+    { workout_id: 1, weight: null, reps: null, duration_minutes: 15, distance: 2 },
+  ]
+  const result = selectBestSession(sets, workouts)
+  assert.equal('duration_minutes' in result.sets[0], false)
+  assert.equal(result.sets[1].duration_minutes, 15)
+  assert.equal(result.sets[1].distance, 2)
+})
+
 // ─── aggregateHistory (drives §5.8 weight-only chart) ───────────────────────
 
 test('aggregateHistory reduces same-date sets to max weight, max reps, and total volume', () => {
