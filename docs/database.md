@@ -380,6 +380,40 @@ notify pgrst, 'reload schema';
 
 ---
 
+## Phase 6 — Per-exercise personal notes
+
+### `exercise_notes` (migration)
+
+One free-text note per user per exercise (e.g. "seat height 4, narrow grip").
+Shown on the exercise while logging. Reads degrade gracefully if the table is
+missing.
+
+```sql
+create table if not exists exercise_notes (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users on delete cascade,
+  exercise_id bigint not null references exercises on delete cascade,
+  note        text,
+  updated_at  timestamptz default now(),
+  unique (user_id, exercise_id)
+);
+
+alter table exercise_notes enable row level security;
+
+create policy "exercise_notes: select own" on exercise_notes for select
+  to authenticated using (auth.uid() = user_id);
+create policy "exercise_notes: insert own" on exercise_notes for insert
+  to authenticated with check (auth.uid() = user_id);
+create policy "exercise_notes: update own" on exercise_notes for update
+  to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "exercise_notes: delete own" on exercise_notes for delete
+  to authenticated using (auth.uid() = user_id);
+
+notify pgrst, 'reload schema';
+```
+
+---
+
 ## Future — Admin & Trainer Tables
 
 Not needed now. Documented in [../examples/admin-groups.md](../examples/admin-groups.md) for reference.

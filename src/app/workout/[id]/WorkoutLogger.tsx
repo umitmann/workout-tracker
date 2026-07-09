@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect } from 'react'
 import { saveWorkoutProgress, completeWorkout, SetPayload } from '@/app/actions/workouts'
 import { fetchExerciseDetails, fetchLastExercisePerformance, fetchBestExercisePerformance, fetchBestExercisePerformance60Days } from '@/app/actions/exercises'
 import { fetchUserTemplates } from '@/app/actions/templates'
+import { fetchExerciseNotes, saveExerciseNote } from '@/app/actions/notes'
 import { LastExercisePerformance, RoutineWithExercises } from '@/lib/dal'
 import ExercisePickerSheet, { SlimExercise } from './ExercisePickerSheet'
 import ExerciseInfoModal from './ExerciseInfoModal'
@@ -179,6 +180,9 @@ export default function WorkoutLogger({
   } | null>(null)
   // Inline "last session" per exercise, for at-a-glance comparison
   const [lastPerf, setLastPerf] = useState<Record<number, LastExercisePerformance | null>>({})
+  // Per-exercise personal notes
+  const [notes, setNotes] = useState<Record<number, string>>({})
+  const [editingNote, setEditingNote] = useState<{ exerciseId: number; name: string; text: string } | null>(null)
   // localId of the set the active rest timer will attach its elapsed time to
   const [restForSet, setRestForSet] = useState<string | null>(null)
   // exerciseId currently being guided as a whole (full-screen set→rest→set…)
@@ -246,8 +250,28 @@ export default function WorkoutLogger({
       setLastPerf((prev) => ({ ...prev, [id]: null })) // mark in-flight to avoid dupes
       fetchLastExercisePerformance(id).then((data) => setLastPerf((prev) => ({ ...prev, [id]: data })))
     })
+    const missingNotes = exerciseOrder.filter((id) => !(id in notes))
+    if (missingNotes.length > 0) {
+      fetchExerciseNotes(missingNotes).then((map) =>
+        setNotes((prev) => {
+          const next = { ...prev }
+          for (const id of missingNotes) next[id] = map[id] ?? ''
+          return next
+        }),
+      )
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exerciseKey])
+
+  function handleSaveNote() {
+    if (!editingNote) return
+    const { exerciseId, text } = editingNote
+    setNotes((prev) => ({ ...prev, [exerciseId]: text.trim() }))
+    setEditingNote(null)
+    startTransition(async () => {
+      await saveExerciseNote(exerciseId, text)
+    })
+  }
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -1189,6 +1213,22 @@ export default function WorkoutLogger({
                 <span className="uppercase tracking-wide font-bold">Last:</span> {fmtLastPerf(lastPerf[exerciseId])}
               </p>
             )}
+            {/* Personal note */}
+            {notes[exerciseId] ? (
+              <button
+                onClick={() => setEditingNote({ exerciseId, name: group.name, text: notes[exerciseId] })}
+                className="text-left text-xs rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 px-3 py-2 text-amber-800 dark:text-amber-300"
+              >
+                📝 {notes[exerciseId]}
+              </button>
+            ) : (
+              <button
+                onClick={() => setEditingNote({ exerciseId, name: group.name, text: '' })}
+                className="self-start text-xs font-semibold text-zinc-400 hover:text-orange-500 transition-colors"
+              >
+                📝 Add note
+              </button>
+            )}
 
             <div className="flex flex-col gap-1.5">
               {group.sets.map((s, i) =>
@@ -1651,6 +1691,40 @@ export default function WorkoutLogger({
           onStop={handleGuidedStop}
           onCancel={() => setRunningDruh(null)}
         />
+      )}
+
+      {/* Per-exercise note editor */}
+      {editingNote && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[75] px-4">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-1">Note</p>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white truncate">{editingNote.name}</h3>
+            </div>
+            <textarea
+              autoFocus
+              rows={4}
+              value={editingNote.text}
+              onChange={(e) => setEditingNote((n) => (n ? { ...n, text: e.target.value } : n))}
+              placeholder="e.g. seat height 4, narrow grip, elbows tucked…"
+              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-orange-400 resize-none"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setEditingNote(null)}
+                className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-2.5 text-sm font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveNote}
+                className="flex-1 rounded-xl bg-orange-500 hover:bg-orange-600 py-2.5 text-sm font-bold text-white transition-colors"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Whole-exercise guide SETUP */}

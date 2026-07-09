@@ -539,6 +539,25 @@ export async function getRecentBodyWeights(limit = 30): Promise<BodyWeightRow[]>
 
 export type SetDetail = { reps: number | null; weight: number | null }
 
+// Per-user, per-exercise notes. Tolerates the table not existing yet.
+export async function getExerciseNotes(exerciseIds: number[]): Promise<Record<number, string>> {
+  const { supabase, user } = await getAuthContext()
+  if (!user || exerciseIds.length === 0) return {}
+
+  const { data, error } = await supabase
+    .from('exercise_notes')
+    .select('exercise_id, note')
+    .eq('user_id', user.id)
+    .in('exercise_id', exerciseIds)
+
+  if (error) return {}
+  const map: Record<number, string> = {}
+  for (const r of (data ?? []) as { exercise_id: number; note: string | null }[]) {
+    if (r.note) map[r.exercise_id] = r.note
+  }
+  return map
+}
+
 export type RoutineExerciseRow = {
   id: number
   exercise_id: number
