@@ -12,7 +12,27 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Agent worktrees (full repo checkouts) — never lint them.
+    ".claude/worktrees/**",
   ]),
+  {
+    // Pre-existing `any` debt (untyped Supabase query results), predates the
+    // 2026-07 quality survey. Downgraded to warnings so CI can gate on NEW
+    // violations elsewhere; burn this list down file by file, don't extend it.
+    files: [
+      "src/lib/dal.ts",
+      "src/app/dashboard/page.tsx",
+      "src/app/routines/[id]/ExerciseDetailClient.tsx",
+      "src/app/workout/[id]/ExerciseInfoModal.tsx",
+      "src/app/workout/[id]/page.tsx",
+      "src/app/workouts/CalendarView.tsx",
+      "src/app/workouts/[id]/page.tsx",
+      "src/app/workouts/new/page.tsx",
+    ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+    },
+  },
 ]);
 
 export default eslintConfig;

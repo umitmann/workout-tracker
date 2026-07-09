@@ -1,3 +1,5 @@
+import { DistanceUnit, convertKmTo, formatDistance } from './distanceUnit'
+
 // Pure column-layout decision for LastPerfModal.tsx (WP-11, finding M4,
 // checklist §19.8). Mirrors the cardio-vs-strength branch WorkoutLogger
 // already applies to its own set rows (WorkoutLogger.tsx:1034-1064): a
@@ -33,6 +35,8 @@ function fmt(value: number | null | undefined, unit: string): string {
 export function perfModalColumns(
   sets: PerfModalSetInput[],
   category: string | null | undefined,
+  // WP-12: distance is stored in km; render in the user's preferred unit.
+  distanceUnit: DistanceUnit = 'km',
 ): PerfModalColumnsResult {
   const isCardio = category === 'cardio'
 
@@ -43,7 +47,7 @@ export function perfModalColumns(
       return {
         key: String(i),
         primary: fmt(s.duration_minutes, ' min'),
-        secondary: fmt(s.distance, ' km'),
+        secondary: formatDistance(convertKmTo(s.distance ?? null, distanceUnit), distanceUnit) ?? DASH,
       }
     }
     return {

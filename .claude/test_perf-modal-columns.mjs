@@ -183,3 +183,21 @@ test('is a pure function: same input twice yields deepEqual (structurally identi
   const b = perfModalColumns(input, 'strength')
   assert.deepEqual(a, b)
 })
+
+test('WP-12 glue: distanceUnit "m" converts the stored-km distance in cardio rows', () => {
+  const { headers, rows } = perfModalColumns(
+    [{ weight: null, reps: null, duration_minutes: 30, distance: 5 }],
+    'cardio',
+    'm',
+  )
+  assert.deepEqual(headers, ['Duration', 'Distance'])
+  assert.equal(rows[0].secondary, '5,000 m')
+})
+
+test('WP-12 glue: distanceUnit omitted keeps the km default (backward compatible)', () => {
+  const { rows } = perfModalColumns(
+    [{ weight: null, reps: null, duration_minutes: 30, distance: 5 }],
+    'cardio',
+  )
+  assert.equal(rows[0].secondary, '5 km')
+})

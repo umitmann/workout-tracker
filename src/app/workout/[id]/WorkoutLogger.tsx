@@ -1120,6 +1120,7 @@ export default function WorkoutLogger({
         )}
         {perfModal && (
           <LastPerfModal
+            distanceUnit={distanceUnit}
             exerciseName={perfModal.name}
             category={perfModal.category}
             title={PERF_TITLE[perfModal.mode]}
@@ -1578,6 +1579,7 @@ export default function WorkoutLogger({
       )}
       {perfModal && (
         <LastPerfModal
+            distanceUnit={distanceUnit}
           exerciseName={perfModal.name}
           category={perfModal.category}
           title={PERF_TITLE[perfModal.mode]}

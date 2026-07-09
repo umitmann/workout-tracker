@@ -3,6 +3,7 @@
 import { LastExercisePerformance } from '@/lib/dal'
 import Modal from '@/components/Modal'
 import { perfModalColumns } from '@/lib/perfModalColumns'
+import { DistanceUnit } from '@/lib/distanceUnit'
 
 function fmtDate(d: string) {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-US', {
@@ -13,6 +14,7 @@ function fmtDate(d: string) {
 export default function LastPerfModal({
   exerciseName,
   category = null,
+  distanceUnit = 'km',
   data,
   loading,
   onClose,
@@ -24,12 +26,14 @@ export default function LastPerfModal({
    *  the pre-existing Weight/Reps layout) so this stays a purely additive,
    *  optional prop for any caller that hasn't been updated to pass it. */
   category?: string | null
+  /** WP-12: user's persisted distance-unit preference for cardio rows. */
+  distanceUnit?: DistanceUnit
   data: LastExercisePerformance | null
   loading: boolean
   onClose: () => void
   title?: string
 }) {
-  const columns = data ? perfModalColumns(data.sets, category) : null
+  const columns = data ? perfModalColumns(data.sets, category, distanceUnit) : null
   return (
     <Modal
       title={`${title}: ${exerciseName}`}
