@@ -127,6 +127,19 @@ try {
   const completedRequests = await completedPage.evaluate(() => window.__wakeLockCalls.filter((c) => c.type === 'request').length);
   if (completedRequests === 0) pass('H5-completed-no-lock', 'no wakeLock.request on a completed workout view');
   else fail('H5-completed-no-lock', `expected 0 requests on completed view, got ${completedRequests}`);
+  // ADR-0007 (review fix): EDITING a completed workout is a full interactive
+  // session — tapping Edit must acquire the lock even though status stays
+  // 'completed'.
+  const editBtn = completedPage.locator('button', { hasText: /^edit$/i }).first();
+  if (await editBtn.count()) {
+    await editBtn.click();
+    await completedPage.waitForTimeout(500);
+    const editRequests = await completedPage.evaluate(() => window.__wakeLockCalls.filter((c) => c.type === 'request').length);
+    if (editRequests > 0) pass('H5-edit-acquires-lock', 'wakeLock.request fires when editing a completed workout');
+    else fail('H5-edit-acquires-lock', 'expected a wakeLock.request after tapping Edit on a completed workout');
+  } else {
+    fail('H5-edit-acquires-lock', 'no Edit button found on the completed workout view');
+  }
   await completedPage.close();
 
 } catch (err) {

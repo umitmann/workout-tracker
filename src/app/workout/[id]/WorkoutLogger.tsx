@@ -94,15 +94,17 @@ export default function WorkoutLogger({
   initialTemplate?: RoutineWithExercises | null
 }) {
   const [isPending, startTransition] = useTransition()
-  // ADR-0007: wake lock is owned at the session level for the whole active
-  // logging session (docked rest + plain set entry included), not just
-  // inside the full-screen guided timers — single owner, no per-timer
-  // double-acquire. Completed (read-only) views hold no lock.
-  useWakeLock(workout.status !== 'completed')
   const { clipboard, copy: copyToClipboard } = useWorkoutClipboard()
   const [copied, setCopied] = useState(false)
   const [showPasteConfirm, setShowPasteConfirm] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  // ADR-0007: wake lock is owned at the session level for the whole active
+  // logging session (docked rest + plain set entry included), not just
+  // inside the full-screen guided timers — single owner, no per-timer
+  // double-acquire. Read-only completed views hold no lock, but EDITING a
+  // completed workout is a full interactive session (timers included) and
+  // must hold one.
+  useWakeLock(workout.status !== 'completed' || isEditing)
 
   // All sets live in client state only — committed on Finish. §2 invariants
   // (completed never falls back to template) are enforced by deriveInitialSets.
@@ -1605,9 +1607,9 @@ export default function WorkoutLogger({
           <>
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-1">Heads up</p>
-              <h3 className="text-base font-bold text-zinc-900 dark:text-white">Progress won't be tracked</h3>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">Progress won&apos;t be tracked</h3>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                Sets are saved but this workout won't count toward exercise history. Hit <strong>Done</strong> when you finish to track your progress.
+                Sets are saved but this workout won&apos;t count toward exercise history. Hit <strong>Done</strong> when you finish to track your progress.
               </p>
             </div>
             <div className="flex gap-2">

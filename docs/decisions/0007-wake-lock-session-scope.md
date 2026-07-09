@@ -18,7 +18,9 @@ the tab is backgrounded (the browser releases wake locks on `visibilitychange`, 
 
 ## Decision
 1. **Scope:** WorkoutLogger holds the wake lock at the top level for any non-completed
-   workout: `useWakeLock(workout.status !== 'completed')`. Per-timer locks in
+   workout, and for a completed workout while it is being edited (editing renders the
+   full interactive session, timers included):
+   `useWakeLock(workout.status !== 'completed' || isEditing)`. Per-timer locks in
    DruhTimer/ExerciseGuide become redundant and are removed (single owner, no
    double-acquire bookkeeping).
 2. **Lifecycle contract for `useWakeLock`,** pinned by tests:

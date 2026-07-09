@@ -153,6 +153,26 @@ try {
   } else {
     fail('abandon-confirm-shown', 'could not trigger the Abandon confirmation from Back');
   }
+  {
+    // §13 (review fix): dismissing a modal opened from a scrolled picker row
+    // must not shift the picker list's scroll position (Modal uses
+    // focus({preventScroll:true}) on restore).
+    await page.locator('button', { hasText: /add exercise/i }).first().click();
+    await page.waitForSelector('text=Select exercise', { timeout: 5_000 });
+    const list = page.locator('[role="dialog"] ul').first();
+    await list.evaluate((el) => { el.scrollTop = el.scrollHeight / 2 });
+    const beforeScroll = await list.evaluate((el) => el.scrollTop);
+    const infoBtn = page.locator('[role="dialog"] ul li button[title="Exercise info"]').last();
+    await infoBtn.click();
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    const afterScroll = await list.evaluate((el) => el.scrollTop);
+    if (Math.abs(afterScroll - beforeScroll) <= 1) pass('s13-scroll-restored', `picker scrollTop stable (${beforeScroll} -> ${afterScroll})`);
+    else fail('s13-scroll-restored', `picker scrollTop shifted ${beforeScroll} -> ${afterScroll} after modal dismiss`);
+    await page.keyboard.press('Escape');
+  }
+
 } catch (e) {
   fail('crash', e.message.split('\n')[0]);
 } finally {

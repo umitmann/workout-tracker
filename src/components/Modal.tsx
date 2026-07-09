@@ -23,6 +23,7 @@ export default function Modal({
   onClose,
   children,
   destructive = false,
+  initialFocusIndex = null,
   backdropClassName,
   panelClassName,
 }: {
@@ -32,6 +33,8 @@ export default function Modal({
   children: ReactNode
   /** ADR-0008: destructive confirms don't close on backdrop click — explicit button only. */
   destructive?: boolean
+  /** Index into the panel's focusable elements to focus on open (default: first). */
+  initialFocusIndex?: number | null
   backdropClassName?: string
   panelClassName?: string
 }) {
@@ -54,18 +57,22 @@ export default function Modal({
     return () => popModal(token)
   }, [])
 
-  // Focus-in on open + focus restore to trigger on close.
+  // Focus-in on open + focus restore to trigger on close. Every focus() call
+  // passes preventScroll — without it, restoring focus to a partially-off-
+  // screen trigger (e.g. a picker-row icon button) scrolls the sheet's inner
+  // list to reveal it, breaking the §13 scroll-restoration contract.
   useEffect(() => {
     triggerRef.current = document.activeElement
     const nodes = focusables()
-    const target = resolveOpenFocusIndex({ count: nodes.length, initialIndex: null })
-    if (target != null) nodes[target]?.focus()
-    else panelRef.current?.focus()
+    const target = resolveOpenFocusIndex({ count: nodes.length, initialIndex: initialFocusIndex })
+    if (target != null) nodes[target]?.focus({ preventScroll: true })
+    else panelRef.current?.focus({ preventScroll: true })
 
     return () => {
       const trigger = triggerRef.current
-      if (trigger instanceof HTMLElement) trigger.focus()
+      if (trigger instanceof HTMLElement) trigger.focus({ preventScroll: true })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open-time focus runs once per mount
   }, [])
 
   // Escape closes; Tab/Shift+Tab is trapped inside the panel. Only the
@@ -82,11 +89,18 @@ export default function Modal({
       }
       if (e.key !== 'Tab') return
       const nodes = focusables()
+      if (nodes.length === 0) {
+        // Content-only dialog: keep focus on the panel itself rather than
+        // letting Tab escape to the page behind the overlay.
+        e.preventDefault()
+        panelRef.current?.focus({ preventScroll: true })
+        return
+      }
       const currentIndex = nodes.indexOf(document.activeElement as HTMLElement)
       const target = computeTabTarget({ count: nodes.length, currentIndex, shiftKey: e.shiftKey })
       if (target == null) return
       e.preventDefault()
-      nodes[target]?.focus()
+      nodes[target]?.focus({ preventScroll: true })
     }
     document.addEventListener('keydown', handleKeyDown, true)
     return () => document.removeEventListener('keydown', handleKeyDown, true)
