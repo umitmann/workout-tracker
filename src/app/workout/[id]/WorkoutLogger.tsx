@@ -59,6 +59,25 @@ type Workout = {
   }[]
 }
 
+// Persisted UI prefs (tempo/rest) — SSR-safe localStorage helpers.
+function readStored<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback
+  try {
+    const raw = window.localStorage.getItem(key)
+    return raw != null ? (JSON.parse(raw) as T) : fallback
+  } catch {
+    return fallback
+  }
+}
+function writeStored(key: string, value: unknown) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    /* ignore quota/availability */
+  }
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function WorkoutLogger({
@@ -138,10 +157,14 @@ export default function WorkoutLogger({
   const [pickerActiveMuscles, setPickerActiveMuscles] = useState<string[]>([])
   const [pickerActiveCategories, setPickerActiveCategories] = useState<string[]>([])
 
-  // Guided set (DRUH tempo timer) + rest timer
-  const [tempo, setTempo] = useState<TempoConfig>({ down: 3, rest: 1, up: 2, hold: 1 })
-  const [restMode, setRestMode] = useState<'fixed' | 'variable'>('fixed')
-  const [restTarget, setRestTarget] = useState(90)
+  // Guided set (DRUH tempo timer) + rest timer — persisted so they don't reset.
+  const [tempo, setTempo] = useState<TempoConfig>(() => readStored('wt.tempo', { down: 3, rest: 1, up: 2, hold: 1 }))
+  const [restMode, setRestMode] = useState<'fixed' | 'variable'>(() => readStored<'fixed' | 'variable'>('wt.restMode', 'fixed'))
+  const [restTarget, setRestTarget] = useState(() => readStored('wt.restTarget', 90))
+
+  useEffect(() => { writeStored('wt.tempo', tempo) }, [tempo])
+  useEffect(() => { writeStored('wt.restMode', restMode) }, [restMode])
+  useEffect(() => { writeStored('wt.restTarget', restTarget) }, [restTarget])
   const [guidedSetup, setGuidedSetup] = useState<{
     exercise: SlimExercise
     goalReps: string
@@ -1586,7 +1609,7 @@ export default function WorkoutLogger({
                 value={Number(guidedSetup.weight) || 0}
                 min={0}
                 max={500}
-                step={2.5}
+                step={1.25}
                 onChange={(v) => setGuidedSetup((g) => (g ? { ...g, weight: v > 0 ? String(v) : '' } : g))}
               />
             </div>
@@ -1655,7 +1678,7 @@ export default function WorkoutLogger({
                 <div key={r.localId} className="flex items-end gap-3">
                   <span className="text-xs font-bold text-zinc-400 w-8 pb-2">#{i + 1}</span>
                   <Stepper label="Reps" value={r.reps} min={1} max={50} onChange={(v) => updateGuideRow(r.localId, { reps: v })} />
-                  <Stepper label="Weight" sublabel="kg" value={r.weight} min={0} max={500} step={2.5} onChange={(v) => updateGuideRow(r.localId, { weight: v })} />
+                  <Stepper label="Weight" sublabel="kg" value={r.weight} min={0} max={500} step={1.25} onChange={(v) => updateGuideRow(r.localId, { weight: v })} />
                   <button
                     onClick={() => removeGuideRow(r.localId)}
                     disabled={guideSetup.rows.length <= 1}

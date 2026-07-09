@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { TempoConfig, TempoPhase, TEMPO_PHASE_CUE, repDuration, formatTempo } from '@/lib/tempo'
 import { guidedStateAt, stopEarlyReps, isTickSecond } from '@/lib/guidedTimer'
+import { useWakeLock } from './useWakeLock'
 
 // Full-bleed background colour per phase so the phase is readable peripherally,
 // across the room, and through sweat/glare. Paired with the verb (never colour
@@ -49,6 +50,7 @@ export default function DruhTimer({
   onStop: (completedReps: number) => void
   onCancel: () => void
 }) {
+  useWakeLock(true)
   const initial = guidedStateAt(tempo, goalReps, 0)
   const [audio, setAudio] = useState(audioDefault)
   const [rep, setRep] = useState(initial.rep)
