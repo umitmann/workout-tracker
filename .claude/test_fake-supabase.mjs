@@ -131,3 +131,22 @@ test('missing user config (undefined) behaves the same as explicit null', async 
   const { data } = await fake.auth.getUser()
   assert.equal(data.user, null)
 })
+
+// ─── upsert (WP-05) ─────────────────────────────────────────────────────────
+
+test('upsert records the call with its payload and onConflict option', async () => {
+  const fake = createFakeSupabaseClient({ upsertResults: { body_weights: { data: null, error: null } } })
+  await fake.from('body_weights').upsert({ user_id: 'u1', date: '2026-07-09', weight: 80 }, { onConflict: 'user_id,date' })
+  assert.equal(fake.mutationCount('body_weights', 'upsert'), 1)
+  const call = fake.mutationCalls('body_weights', 'upsert')[0]
+  assert.deepEqual(call.payload, { user_id: 'u1', date: '2026-07-09', weight: 80 })
+  assert.deepEqual(call.options, { onConflict: 'user_id,date' })
+})
+
+test('upsert is tracked separately from insert/update/delete counts', async () => {
+  const fake = createFakeSupabaseClient({ upsertResults: { exercise_notes: { data: null, error: null } } })
+  await fake.from('exercise_notes').upsert({ note: 'x' }, { onConflict: 'user_id,exercise_id' })
+  assert.equal(fake.mutationCount('exercise_notes', 'upsert'), 1)
+  assert.equal(fake.mutationCount('exercise_notes', 'insert'), 0)
+  assert.equal(fake.mutationCount('exercise_notes', 'update'), 0)
+})

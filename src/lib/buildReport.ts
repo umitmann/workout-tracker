@@ -25,6 +25,55 @@ export type ReportBodyWeight = {
   weight: number
 }
 
+// Raw shape handed back by dal.ts's getWorkoutsInRange (RangeWorkoutRow) —
+// one row per set, already ordered by date ascending and (within a workout)
+// by created_at. groupWorkoutSets folds that flat list into ReportWorkout[]
+// without re-sorting workouts (the DAL owns date order) or exercises
+// (first-seen order is the source of truth — checklist §4.9/§4.10).
+export type RawReportRow = {
+  id: number
+  date: string
+  sets: {
+    exercise_id: number
+    weight: number | null
+    reps: number | null
+    duration_minutes: number | null
+    distance: number | null
+    rest_seconds: number | null
+    exercises: { name: string; category: string | null } | null
+  }[]
+}
+
+// exportReport's grouping/ordering core (finding L7): groups each workout's
+// flat set list by exercise, in first-seen order, falling back to the raw
+// exercise id when the join returned no name (deleted/unseeded exercise).
+export function groupWorkoutSets(rows: RawReportRow[]): ReportWorkout[] {
+  return rows.map((w) => {
+    const order: number[] = []
+    const byExercise = new Map<number, ReportExercise>()
+    for (const s of w.sets) {
+      let ex = byExercise.get(s.exercise_id)
+      if (!ex) {
+        ex = {
+          name: s.exercises?.name ?? String(s.exercise_id),
+          category: s.exercises?.category ?? null,
+          sets: [],
+        }
+        byExercise.set(s.exercise_id, ex)
+        order.push(s.exercise_id)
+      }
+      ex.sets.push({
+        weight: s.weight,
+        reps: s.reps,
+        duration_minutes: s.duration_minutes,
+        distance: s.distance,
+        rest_seconds: s.rest_seconds,
+      })
+    }
+    return { date: w.date, exercises: order.map((id) => byExercise.get(id)!) }
+  })
+}
+
 export type ReportInput = {
   rangeLabel: string
   from: string // YYYY-MM-DD

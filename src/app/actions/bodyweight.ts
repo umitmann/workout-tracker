@@ -2,28 +2,14 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getRecentBodyWeights, BodyWeightRow } from '@/lib/dal'
-import { revalidatePath } from 'next/cache'
+import { logBodyWeightCore } from './cores'
 
 // Logs (or overwrites) the user's bodyweight for a given date. One entry per day.
 export async function logBodyWeight(
   weight: number,
   date?: string,
 ): Promise<{ error?: string; success?: true }> {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
-
-  if (!Number.isFinite(weight) || weight <= 0) return { error: 'Enter a valid weight' }
-
-  const day = date ?? new Date().toISOString().split('T')[0]
-
-  const { error } = await supabase
-    .from('body_weights')
-    .upsert({ user_id: user.id, date: day, weight }, { onConflict: 'user_id,date' })
-
-  if (error) return { error: error.message }
-  revalidatePath('/dashboard')
-  return { success: true }
+  return logBodyWeightCore(await createServerSupabaseClient(), weight, date)
 }
 
 export async function fetchRecentBodyWeights(limit = 30): Promise<BodyWeightRow[]> {
