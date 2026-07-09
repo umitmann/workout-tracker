@@ -111,6 +111,9 @@ Run through this list manually after any change to routing, workout actions, dat
 | 5.9 | Complete a workout with exercise X | X's history updates on next chart open |
 | 5.10 | Save (not complete) a workout | History does **not** change |
 | 5.11 | History tab on `/routines/[id]` exercise page | Same chart rendered, lazy-loaded when tab is selected |
+| 5.12 | Chart data labels / axis text at mobile width (WP-16) | Value labels and axis dates render at >= 11 SVG-user-unit font size (legible, not the old 8-9px) |
+| 5.13 | Reps line/labels in dark mode (WP-16) | Renders in zinc-400 (not zinc-500) — zinc-500 fails WCAG AA against the dark panel background |
+| 5.14 | Screen reader on the chart `<svg>` (WP-16) | `role="img"` with a `<title>`/`<desc>` (referenced via `aria-labelledby`) summarizing the date range and first/last weight/reps values |
 
 ---
 
