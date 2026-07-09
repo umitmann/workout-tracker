@@ -26,7 +26,9 @@ import {
   applyEdit,
   reorderExercise,
   recordRestForSet,
+  requestSetDelete,
 } from '@/lib/setListOps'
+import IconHitTarget from './IconHitTarget'
 import { localDateStr } from '@/lib/localDate'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -351,6 +353,21 @@ export default function WorkoutLogger({
   function handleDeleteSet(localId: string) {
     setLocalSets((prev) => deleteSetOp(prev, localId))
     markDirty()
+  }
+
+  // ADR-0008 (WP-09): two-tap confirm for the set-delete ✕, mirroring the
+  // calendar's confirmDeleteId pattern. First tap arms `pendingDeleteId`;
+  // tapping the same ✕ again confirms and actually deletes.
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+
+  function handleDeleteTap(localId: string) {
+    const { pendingId, confirmed } = requestSetDelete(pendingDeleteId, localId)
+    setPendingDeleteId(pendingId)
+    if (confirmed) handleDeleteSet(localId)
+  }
+
+  function cancelDeleteTap() {
+    setPendingDeleteId(requestSetDelete.cancel())
   }
 
   // Tapping a set's ✓ commits it (done) and auto-starts rest for that set.
@@ -788,44 +805,36 @@ export default function WorkoutLogger({
             change
           </button>
         </div>
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-1 min-w-0">
           <p className="flex-1 min-w-0 truncate text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wide">
             {selectedExercise.name}
           </p>
-          <button
-            onClick={() => handleInfoClick(selectedExercise.id)}
-            title="Exercise info"
-            className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
-          >
-            i
-          </button>
-          <button
-            onClick={() => handlePerfClick(selectedExercise.id, selectedExercise.name, 'last')}
-            title="Last session"
-            className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
-          >
-            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="6" cy="6" r="5" /><path d="M6 3v3l1.5 1.5" />
-            </svg>
-          </button>
-          <button
-            onClick={() => handlePerfClick(selectedExercise.id, selectedExercise.name, 'best')}
-            title="Best session"
-            className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
-          >
-            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M3.5 1.5h5v3.5a2.5 2.5 0 0 1-5 0V1.5z" /><path d="M6 7v1.5" /><path d="M4 9h4" /><path d="M1.5 2.5h2" /><path d="M8.5 2.5h2" />
-            </svg>
-          </button>
-          <button
-            onClick={() => handlePerfClick(selectedExercise.id, selectedExercise.name, 'best60')}
-            title="Best · 60 days"
-            className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
-          >
-            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M7 1.5L3.5 6.5H6.5L5 10.5" />
-            </svg>
-          </button>
+          <IconHitTarget onClick={() => handleInfoClick(selectedExercise.id)} title="Exercise info">
+            <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none">
+              i
+            </span>
+          </IconHitTarget>
+          <IconHitTarget onClick={() => handlePerfClick(selectedExercise.id, selectedExercise.name, 'last')} title="Last session">
+            <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="6" cy="6" r="5" /><path d="M6 3v3l1.5 1.5" />
+              </svg>
+            </span>
+          </IconHitTarget>
+          <IconHitTarget onClick={() => handlePerfClick(selectedExercise.id, selectedExercise.name, 'best')} title="Best session">
+            <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3.5 1.5h5v3.5a2.5 2.5 0 0 1-5 0V1.5z" /><path d="M6 7v1.5" /><path d="M4 9h4" /><path d="M1.5 2.5h2" /><path d="M8.5 2.5h2" />
+              </svg>
+            </span>
+          </IconHitTarget>
+          <IconHitTarget onClick={() => handlePerfClick(selectedExercise.id, selectedExercise.name, 'best60')} title="Best · 60 days">
+            <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M7 1.5L3.5 6.5H6.5L5 10.5" />
+              </svg>
+            </span>
+          </IconHitTarget>
         </div>
         {selectedExercise?.category === 'cardio' ? (
           <div className="flex gap-2">
@@ -1162,31 +1171,24 @@ export default function WorkoutLogger({
           const group = grouped[exerciseId]
           return (
           <div key={exerciseId} className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <h2 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wide truncate">{group.name}</h2>
-                <button
-                  onClick={() => handleInfoClick(exerciseId)}
-                  title="Exercise info"
-                  className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
-                >
+            {/* Row 1: title + info/history icon buttons (44px hit areas, ADR-0008) */}
+            <div className="flex items-center gap-1 min-w-0">
+              <h2 className="flex-1 min-w-0 text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wide truncate">{group.name}</h2>
+              <IconHitTarget onClick={() => handleInfoClick(exerciseId)} title="Exercise info">
+                <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none">
                   i
-                </button>
-                <button
-                  onClick={() => handlePerfClick(exerciseId, group.name, 'last')}
-                  title="Last session"
-                  className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
-                >
+                </span>
+              </IconHitTarget>
+              <IconHitTarget onClick={() => handlePerfClick(exerciseId, group.name, 'last')} title="Last session">
+                <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none">
                   <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <circle cx="6" cy="6" r="5" />
                     <path d="M6 3v3l1.5 1.5" />
                   </svg>
-                </button>
-                <button
-                  onClick={() => handlePerfClick(exerciseId, group.name, 'best')}
-                  title="Best session"
-                  className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
-                >
+                </span>
+              </IconHitTarget>
+              <IconHitTarget onClick={() => handlePerfClick(exerciseId, group.name, 'best')} title="Best session">
+                <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none">
                   <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M3.5 1.5h5v3.5a2.5 2.5 0 0 1-5 0V1.5z" />
                     <path d="M6 7v1.5" />
@@ -1194,53 +1196,47 @@ export default function WorkoutLogger({
                     <path d="M1.5 2.5h2" />
                     <path d="M8.5 2.5h2" />
                   </svg>
-                </button>
-                <button
-                  onClick={() => handlePerfClick(exerciseId, group.name, 'best60')}
-                  title="Best · 60 days"
-                  className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
-                >
+                </span>
+              </IconHitTarget>
+              <IconHitTarget onClick={() => handlePerfClick(exerciseId, group.name, 'best60')} title="Best · 60 days">
+                <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none">
                   <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M7 1.5L3.5 6.5H6.5L5 10.5" />
                   </svg>
-                </button>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                {exerciseOrder.length > 1 && (
-                  <>
-                    <button
-                      onClick={() => moveExercise(exerciseId, 'up')}
-                      disabled={exIdx === 0}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition-colors text-base leading-none"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      onClick={() => moveExercise(exerciseId, 'down')}
-                      disabled={exIdx === exerciseOrder.length - 1}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition-colors text-base leading-none"
-                    >
-                      ↓
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={() => openGuideSetup(exerciseId)}
-                  title="Guide whole exercise (all sets, with rests)"
-                  className="flex items-center gap-1 h-8 px-2.5 rounded-full border border-orange-400 text-orange-500 hover:bg-orange-500 hover:text-white transition-colors text-xs font-bold leading-none"
-                >
-                  ▶ All
-                </button>
-                <button
-                  onClick={() => {
-                    const ex = exercises.find((e) => e.id === exerciseId)
-                    if (ex) handleSelectExercise(ex)
-                  }}
-                  className="flex items-center justify-center h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-orange-500 hover:text-white transition-colors text-lg leading-none"
-                >
+                </span>
+              </IconHitTarget>
+            </div>
+
+            {/* Row 2: reorder + guide-all + quick-add — own row so 44px targets fit on a 360px viewport */}
+            <div className="flex items-center justify-end gap-1">
+              {exerciseOrder.length > 1 && (
+                <>
+                  <IconHitTarget onClick={() => moveExercise(exerciseId, 'up')} disabled={exIdx === 0} title="Move exercise up">
+                    <span className="flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white text-base leading-none">↑</span>
+                  </IconHitTarget>
+                  <IconHitTarget onClick={() => moveExercise(exerciseId, 'down')} disabled={exIdx === exerciseOrder.length - 1} title="Move exercise down">
+                    <span className="flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white text-base leading-none">↓</span>
+                  </IconHitTarget>
+                </>
+              )}
+              <button
+                onClick={() => openGuideSetup(exerciseId)}
+                title="Guide whole exercise (all sets, with rests)"
+                className="flex items-center gap-1 h-8 px-2.5 rounded-full border border-orange-400 text-orange-500 hover:bg-orange-500 hover:text-white transition-colors text-xs font-bold leading-none"
+              >
+                ▶ All
+              </button>
+              <IconHitTarget
+                onClick={() => {
+                  const ex = exercises.find((e) => e.id === exerciseId)
+                  if (ex) handleSelectExercise(ex)
+                }}
+                title="Quick-add a set"
+              >
+                <span className="flex items-center justify-center h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-orange-500 hover:text-white transition-colors text-lg leading-none">
                   +
-                </button>
-              </div>
+                </span>
+              </IconHitTarget>
             </div>
 
             {fmtLastPerf(lastPerf[exerciseId]) && (
@@ -1343,75 +1339,93 @@ export default function WorkoutLogger({
                     <button onClick={() => setEditingId(null)} className="text-zinc-300 dark:text-zinc-700 hover:text-red-500 transition-colors text-sm shrink-0">✕</button>
                   </div>
                 ) : (
-                  <div
-                    key={s.localId}
-                    className={`grid grid-cols-[1.5rem_1.25rem_1fr_1fr_auto] items-center gap-2 rounded-xl border px-3 py-3 cursor-pointer transition-colors ${
-                      s.done
-                        ? 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-orange-400 dark:hover:border-orange-500'
-                        : 'bg-zinc-50/60 dark:bg-zinc-900/40 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-orange-400'
-                    }`}
-                    onClick={() => startEditSet(s)}
-                  >
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleDone(s.localId) }}
-                      title={s.done ? 'Completed — tap to undo' : 'Mark set done (starts rest)'}
-                      className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${
+                  <div key={s.localId} className="flex flex-col gap-1.5">
+                    <div
+                      className={`grid grid-cols-[1.5rem_1.25rem_1fr_1fr_auto] items-center gap-2 rounded-xl border px-3 py-3 cursor-pointer transition-colors ${
                         s.done
-                          ? 'bg-emerald-500 border-emerald-500 text-white'
-                          : 'border-zinc-300 dark:border-zinc-600 text-transparent hover:border-emerald-400'
+                          ? 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-orange-400 dark:hover:border-orange-500'
+                          : 'bg-zinc-50/60 dark:bg-zinc-900/40 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-orange-400'
                       }`}
+                      onClick={() => startEditSet(s)}
                     >
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6l3 3 5-6" /></svg>
-                    </button>
-                    <span className="text-xs font-bold text-zinc-400 dark:text-zinc-600">#{i + 1}</span>
-                    {s.exerciseCategory === 'cardio' ? (
-                      <>
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Duration</p>
-                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                            {s.duration_minutes != null ? `${s.duration_minutes} min` : '—'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Distance</p>
-                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                            {s.distance != null ? `${s.distance} km` : '—'}
-                          </p>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Weight</p>
-                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                            {s.weight != null ? `${s.weight} kg` : '—'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Reps</p>
-                          <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                            {s.reps != null ? s.reps : '—'}
-                          </p>
-                        </div>
-                      </>
-                    )}
-                    <div className="flex items-center gap-1.5 justify-end">
-                      {!s.done && s.exerciseCategory !== 'cardio' && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openGuidedSetupForSet(s) }}
-                          title="Guided set (adjust tempo, reps, weight)"
-                          className="shrink-0 rounded-md border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/20 px-2 py-1 text-xs font-bold transition-colors leading-none"
-                        >
-                          ▶
-                        </button>
-                      )}
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteSet(s.localId) }}
-                        className="text-zinc-300 hover:text-red-500 dark:text-zinc-700 dark:hover:text-red-500 transition-colors"
+                        onClick={(e) => { e.stopPropagation(); toggleDone(s.localId) }}
+                        title={s.done ? 'Completed — tap to undo' : 'Mark set done (starts rest)'}
+                        className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${
+                          s.done
+                            ? 'bg-emerald-500 border-emerald-500 text-white'
+                            : 'border-zinc-300 dark:border-zinc-600 text-transparent hover:border-emerald-400'
+                        }`}
                       >
-                        ✕
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6l3 3 5-6" /></svg>
                       </button>
+                      <span className="text-xs font-bold text-zinc-400 dark:text-zinc-600">#{i + 1}</span>
+                      {s.exerciseCategory === 'cardio' ? (
+                        <>
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Duration</p>
+                            <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                              {s.duration_minutes != null ? `${s.duration_minutes} min` : '—'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Distance</p>
+                            <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                              {s.distance != null ? `${s.distance} km` : '—'}
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Weight</p>
+                            <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                              {s.weight != null ? `${s.weight} kg` : '—'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Reps</p>
+                            <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                              {s.reps != null ? s.reps : '—'}
+                            </p>
+                          </div>
+                        </>
+                      )}
+                      <div className="flex items-center gap-0.5 justify-end">
+                        {!s.done && s.exerciseCategory !== 'cardio' && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openGuidedSetupForSet(s) }}
+                            title="Guided set (adjust tempo, reps, weight)"
+                            className="shrink-0 rounded-md border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/20 px-2 py-1 text-xs font-bold transition-colors leading-none"
+                          >
+                            ▶
+                          </button>
+                        )}
+                        <IconHitTarget
+                          onClick={(e) => { e.stopPropagation(); handleDeleteTap(s.localId) }}
+                          title="Delete set"
+                        >
+                          <span className="text-zinc-300 hover:text-red-500 dark:text-zinc-700 dark:hover:text-red-500 transition-colors">✕</span>
+                        </IconHitTarget>
+                      </div>
                     </div>
+                    {/* ADR-0008 (WP-09): two-tap confirm, mirrors the calendar's Confirm/Cancel (§3.15-3.17) */}
+                    {pendingDeleteId === s.localId && (
+                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => handleDeleteTap(s.localId)}
+                          className="flex-1 min-h-11 rounded-lg bg-red-500 hover:bg-red-600 text-sm font-bold uppercase tracking-wide text-white transition-colors"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={cancelDeleteTap}
+                          className="flex-1 min-h-11 rounded-lg border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ),
               )}
