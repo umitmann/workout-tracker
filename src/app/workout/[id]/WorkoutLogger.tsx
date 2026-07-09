@@ -18,7 +18,7 @@ import Stepper from './Stepper'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 import { useWakeLock } from './useWakeLock'
 import { TempoConfig, repDuration, formatTempo, parseTempo } from '@/lib/tempo'
-import { startsRestOnComplete, formatRestRow } from '@/lib/restTimer'
+import { startsRestOnComplete, formatRestRow, shouldStickRestBar } from '@/lib/restTimer'
 import { deriveInitialSets } from '@/lib/deriveInitialSets'
 import { expandTemplate } from '@/lib/expandTemplate'
 import {
@@ -883,6 +883,7 @@ export default function WorkoutLogger({
           <div className="flex gap-2">
             <input
               type="number"
+              inputMode="numeric"
               placeholder="Min"
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
@@ -891,6 +892,7 @@ export default function WorkoutLogger({
             />
             <input
               type="number"
+              inputMode="decimal"
               placeholder="km (opt)"
               value={distance}
               onChange={(e) => setDistance(e.target.value)}
@@ -912,6 +914,7 @@ export default function WorkoutLogger({
               min={0}
               max={500}
               step={2.5}
+              decimal
               onChange={(v) => setWeight(v > 0 ? String(v) : '')}
             />
             <Stepper
@@ -1205,9 +1208,9 @@ export default function WorkoutLogger({
 
       <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-6">
 
-        {/* Rest — sticky at top (but not while a field is focused, so the mobile
-            keyboard doesn't shove it around). Running timer when resting, else settings. */}
-        <div className={`${fieldFocused ? '' : 'sticky top-0'} z-20 -mx-6 px-6 py-2 bg-zinc-50/95 dark:bg-black/95 backdrop-blur border-b border-zinc-200/60 dark:border-zinc-800/60`}>
+        {/* Rest — sticky at top; see shouldStickRestBar (finding L2, commit
+            91d70ae) for when it drops out of sticky vs. stays pinned. */}
+        <div className={`${shouldStickRestBar(fieldFocused, restForSet !== null) ? 'sticky top-0' : ''} z-20 -mx-6 px-6 py-2 bg-zinc-50/95 dark:bg-black/95 backdrop-blur border-b border-zinc-200/60 dark:border-zinc-800/60`}>
           {restForSet !== null ? (
             <RestTimer
               key={`${restForSet}:${restNonce}`}
@@ -1359,6 +1362,7 @@ export default function WorkoutLogger({
                             <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Duration (min)</span>
                             <input
                               type="number"
+                              inputMode="numeric"
                               value={editDuration}
                               onChange={(e) => setEditDuration(e.target.value)}
                               onKeyDown={(e) => e.key === 'Enter' && saveEditSet(s.localId)}
@@ -1370,6 +1374,7 @@ export default function WorkoutLogger({
                             <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Distance (km)</span>
                             <input
                               type="number"
+                              inputMode="decimal"
                               value={editDistance}
                               onChange={(e) => setEditDistance(e.target.value)}
                               onKeyDown={(e) => e.key === 'Enter' && saveEditSet(s.localId)}
@@ -1386,6 +1391,7 @@ export default function WorkoutLogger({
                             min={0}
                             max={500}
                             step={2.5}
+                            decimal
                             onChange={(v) => setEditWeight(v > 0 ? String(v) : '')}
                           />
                           <Stepper
@@ -1809,6 +1815,7 @@ export default function WorkoutLogger({
                 min={0}
                 max={500}
                 step={2.5}
+                decimal
                 onChange={(v) => setGuidedSetup((g) => (g ? { ...g, weight: v > 0 ? String(v) : '' } : g))}
               />
             </div>
@@ -1920,7 +1927,7 @@ export default function WorkoutLogger({
                 <div key={r.localId} className="flex items-end gap-3">
                   <span className="text-xs font-bold text-zinc-400 w-8 pb-2">#{i + 1}</span>
                   <Stepper label="Reps" value={r.reps} min={1} max={50} onChange={(v) => updateGuideRow(r.localId, { reps: v })} />
-                  <Stepper label="Weight" sublabel="kg" value={r.weight} min={0} max={500} step={2.5} onChange={(v) => updateGuideRow(r.localId, { weight: v })} />
+                  <Stepper label="Weight" sublabel="kg" value={r.weight} min={0} max={500} step={2.5} decimal onChange={(v) => updateGuideRow(r.localId, { weight: v })} />
                   <button
                     onClick={() => removeGuideRow(r.localId)}
                     disabled={guideSetup.rows.length <= 1}
