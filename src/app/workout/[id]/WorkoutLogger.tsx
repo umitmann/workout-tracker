@@ -689,6 +689,9 @@ export default function WorkoutLogger({
 
   function handleImportTemplate(template: RoutineWithExercises) {
     setLocalSets(expandTemplate(template.routine_exercises))
+    // The whole list was just replaced — an armed delete-confirm would now
+    // point at a localId that no longer exists.
+    setPendingDeleteId(null)
     markDirty()
     setShowImportPicker(false)
   }
@@ -798,6 +801,7 @@ export default function WorkoutLogger({
       })),
     )
     setLocalSets(newSets)
+    setPendingDeleteId(null)
     markDirty()
     setShowPasteConfirm(false)
   }

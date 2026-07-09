@@ -66,7 +66,6 @@ export default function Modal({
       const trigger = triggerRef.current
       if (trigger instanceof HTMLElement) trigger.focus()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per mount; Modal instances are keyed by open state at the call site
   }, [])
 
   // Escape closes; Tab/Shift+Tab is trapped inside the panel. Only the
