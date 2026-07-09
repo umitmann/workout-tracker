@@ -389,6 +389,21 @@ dismissal *methods* they refer to now include Escape.
 
 ---
 
+## 21. Error boundaries (WP-13, finding M6)
+
+A render or data-loading crash never shows a blank page. Two boundaries, both
+Client Components per the Next 16 file convention:
+
+| # | Scenario | Expected result |
+|---|----------|----------------|
+| 21.1 | A render/data error is thrown while on `/workout/[id]` | `src/app/workout/[id]/error.tsx` renders in place of the crashed segment — a "Something went wrong" message, a "Try again" button, and a link back to `/dashboard`; the rest of the app shell (route outside the segment) is unaffected |
+| 21.2 | Tap "Try again" on the workout error boundary | Calls `reset()`; if the underlying fault has cleared, the workout UI re-renders in place — no full navigation |
+| 21.3 | Tap the "Back to dashboard" link on the workout error boundary | Navigates to `/dashboard` |
+| 21.4 | An error escapes the root layout itself (no matching nested `error.tsx` can catch it) | Root `src/app/global-error.tsx` renders — it defines its own `<html>`/`<body>` and imports its own fonts/styles (Next replaces the root layout entirely while this is active), with the same "Try again" + dashboard-link shape |
+| 21.5 | Either boundary is showing | The user-facing message is a stable, friendly sentence (`src/lib/errorBoundaryMessage.ts`) — never the raw `error.message`, since Server Component errors intentionally arrive generic and Client Component errors may contain implementation details not meant for display |
+
+---
+
 ## Known gotchas to recheck after schema changes
 
 - `routines.id` is **UUID** — never pass through `Number()`. Use `string | number` in DAL functions.
@@ -406,3 +421,5 @@ dismissal *methods* they refer to now include Escape.
 - `TemplateEditor` receives optional `date` and `workoutId` search params. `date > today` → "Schedule" mode (planned workout). `workoutId` → transition existing planned workout.
 - When routing to the template editor from the calendar, the workout is **not created** until the user taps "Start now" / "Schedule" in the editor.
 - New overlays must render through `src/components/Modal.tsx`, not a bare `fixed inset-0` div — it is the only place dialog semantics/focus-trap/Escape/backdrop rules are decided (ADR-0008). Pass `destructive` for confirms that discard user data; everything else defaults to backdrop-closes. `Modal` only supplies the `role="dialog"` wrapper and focus behaviour — callers keep their own backdrop/panel classNames so visual layout is unaffected. The Escape/Tab decisions live in the pure, unit-tested `src/lib/modalFocus.ts`; stacking order (which dialog is topmost when one opens another) lives in `src/lib/modalStack.ts`.
+- `src/app/global-error.tsx` replaces the root layout entirely while active — it cannot rely on anything `layout.tsx` provides (fonts, `Providers`, `globals.css`). It imports `./globals.css` and its own font loader directly. It is not an overlay (no "page behind" to dim), so it does not use `src/components/Modal.tsx`; nested route boundaries (`error.tsx`) also render as full-page fallback content, not a Modal overlay, for the same reason.
+- Error boundaries never show the raw `error.message` to the user (`src/lib/errorBoundaryMessage.ts` is the one seam that decides the display string) — Next 16 intentionally gives Server Component errors a generic message, and showing Client Component messages raw would be inconsistent and could leak implementation detail. `console.error(error)` in the boundary is still the place to log the real error/digest for developers.
