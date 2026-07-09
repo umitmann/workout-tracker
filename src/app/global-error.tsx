@@ -20,10 +20,10 @@ const geistSans = Geist({
 
 export default function GlobalError({
   error,
-  reset,
+  unstable_retry,
 }: {
   error: Error & { digest?: string }
-  reset: () => void
+  unstable_retry: () => void
 }) {
   useEffect(() => {
     console.error(error)
@@ -41,7 +41,7 @@ export default function GlobalError({
           </p>
           <div className="flex items-center gap-3 pt-2">
             <button
-              onClick={() => reset()}
+              onClick={() => unstable_retry()}
               className="rounded-full bg-orange-500 hover:bg-orange-600 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-white transition-colors"
             >
               Try again

@@ -23,9 +23,12 @@ export function fmtDate(d: string): string {
 export const LABEL_FONT_SIZE = 12 // data-point value labels (§5.3/§5.4)
 export const AXIS_FONT_SIZE = 11 // x-axis first/last date labels (§5.5)
 
-// Weight line stays orange (§5.2, unregressed). Orange (#f97316) passes AA
-// against both a white light-mode panel and dark:bg-zinc-900, so it can
-// stay a fixed hex.
+// Weight line stays orange (§5.2, unregressed). Contrast reality (WCAG
+// relative luminance): 6.32:1 on dark:bg-zinc-900 (passes AA) but only
+// 2.80:1 on the white light-mode panel (fails AA text and 3:1 graphics).
+// Accepted pre-existing debt: this orange is the brand series color the
+// checklist pins; making light mode AA needs a scheme-aware darker orange
+// (like the reps series' currentColor approach) — tracked, not done here.
 export const WEIGHT_STROKE = '#f97316'
 
 // Reps line/labels: no single hex clears WCAG AA (4.5:1 text / 3:1 marks)

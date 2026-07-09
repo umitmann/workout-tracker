@@ -344,3 +344,27 @@ test('startWorkoutCore and logWorkoutForDateCore each look up independently -- o
   assert.match(String(err2?.digest ?? err2?.message ?? err2), /500/)
   assert.equal(fake.mutationCount('workouts', 'insert'), 0)
 })
+
+test('startWorkout: an empty in_progress workout WITH a template_id is never reused by the blank-start path', async () => {
+  const fake = createFakeSupabaseClient({
+    user: { id: 'u1' },
+    selectResults: {
+      workouts: { data: [{ id: 9, template_id: 'tpl-1', sets: [] }], error: null },
+    },
+    insertResults: { workouts: { data: { id: 10 }, error: null } },
+  })
+  await assert.rejects(() => startWorkoutCore(fake, '2026-07-09'), /NEXT_REDIRECT/)
+  // The template-origin empty workout is not adopted — a fresh insert happens.
+  assert.equal(fake.mutationCount('workouts', 'insert'), 1)
+})
+
+test('startWorkout: an empty in_progress workout with template_id null IS still reused', async () => {
+  const fake = createFakeSupabaseClient({
+    user: { id: 'u1' },
+    selectResults: {
+      workouts: { data: [{ id: 9, template_id: null, sets: [] }], error: null },
+    },
+  })
+  await assert.rejects(() => startWorkoutCore(fake, '2026-07-09'), /NEXT_REDIRECT/)
+  assert.equal(fake.mutationCount('workouts', 'insert'), 0)
+})

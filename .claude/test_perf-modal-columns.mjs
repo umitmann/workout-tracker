@@ -9,7 +9,7 @@
  * null-safe with an em-dash placeholder — mirroring the branch WorkoutLogger
  * already uses for its own set rows (WorkoutLogger.tsx:1034-1064).
  *
- * Run: node --experimental-strip-types --test .claude/test_perf-modal-columns.mjs
+ * Run: node --import tsx --test .claude/test_perf-modal-columns.mjs
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

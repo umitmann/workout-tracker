@@ -43,7 +43,16 @@ export default function Stepper({
   }
 
   const clamp = (v: number) => Math.min(max, Math.max(min, v))
-  const bump = (dir: 1 | -1) => onChange(clamp(Math.round((value + dir * step) * 100) / 100))
+  const bump = (dir: 1 | -1) => {
+    // Commit any in-progress typing first: the ▲/▼ pointerdown is
+    // preventDefault'ed (keeps focus), so blur never fires and bumping the
+    // raw prop would act on a stale value and strand the uncommitted draft.
+    const base = isEditing ? commitNumericDraft(draft, { min, max }) : value
+    setIsEditing(false)
+    const next = clamp(Math.round((base + dir * step) * 100) / 100)
+    setDraft(String(next))
+    onChange(next)
+  }
 
   function startHold(dir: 1 | -1) {
     bump(dir)

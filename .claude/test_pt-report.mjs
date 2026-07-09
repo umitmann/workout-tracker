@@ -1,6 +1,6 @@
 /**
  * Unit tests for buildReport — scenario: pt-export-report
- * Run: node --experimental-strip-types --test .claude/test_pt-report.mjs
+ * Run: node --import tsx --test .claude/test_pt-report.mjs
  *
  * WP-15 (findings M10/L5): pins previously-untested branches — bodyweight-only
  * report (empty workouts + >=2 weigh-ins), single weigh-in (no delta arrow),

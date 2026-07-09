@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createTemplate, saveTemplateExercises, deleteTemplate, TemplateExercisePayload } from '@/app/actions/templates'
+import { readDistanceUnitPref } from '@/lib/distanceUnit'
 import { startWorkoutFromTemplate, startPlannedWorkout, scheduleWorkout } from '@/app/actions/workouts'
 import { fetchExerciseDetails, fetchLastExercisePerformance, fetchBestExercisePerformance, fetchBestExercisePerformance60Days } from '@/app/actions/exercises'
 import { LastExercisePerformance, RoutineWithExercises, SetDetail } from '@/lib/dal'
@@ -654,6 +655,7 @@ export default function TemplateEditor({
       )}
       {perfModal && (
         <LastPerfModal
+          distanceUnit={readDistanceUnitPref()}
           exerciseName={perfModal.name}
           category={perfModal.category}
           title={PERF_TITLE[perfModal.mode]}

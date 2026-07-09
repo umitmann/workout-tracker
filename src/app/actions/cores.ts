@@ -182,14 +182,22 @@ async function findReusableInProgressWorkout(
 ): Promise<number | null> {
   const { data, error } = await supabase
     .from('workouts')
-    .select('id, sets(id)')
+    .select('id, template_id, sets(id)')
     .eq('user_id', userId)
     .eq('date', date)
     .eq('status', 'in_progress')
 
   if (error || !Array.isArray(data)) return null
 
-  const empty = data.find((row: { id: number; sets?: { id: number }[] | null }) => !(row.sets && row.sets.length > 0))
+  // Only a blank, template-free workout is a no-op-equivalent duplicate. An
+  // empty workout carrying a template_id came from "Start now" on a template
+  // (§1.2 — its exercises live in logger local state, not the sets table);
+  // adopting it from the blank "Start workout" path would surprise the user
+  // with template exercises they didn't ask for — or, worse, hide them.
+  const empty = data.find(
+    (row: { id: number; template_id?: string | null; sets?: { id: number }[] | null }) =>
+      row.template_id == null && !(row.sets && row.sets.length > 0),
+  )
   return empty ? empty.id : null
 }
 
