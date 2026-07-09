@@ -282,7 +282,7 @@ export async function getMonthWorkoutsWithPreviews(
 
 export type LastExercisePerformance = {
   date: string
-  sets: { weight: number | null; reps: number | null }[]
+  sets: { weight: number | null; reps: number | null; duration_minutes: number | null; distance: number | null }[]
 }
 
 export async function getLastExercisePerformance(exerciseId: number): Promise<LastExercisePerformance | null> {
@@ -302,9 +302,12 @@ export async function getLastExercisePerformance(exerciseId: number): Promise<La
 
   const workoutIds = completedWorkouts.map((w: any) => w.id)
 
+  // duration_minutes/distance are selected alongside weight/reps (WP-11,
+  // checklist §19.8) so LastPerfModal can render cardio columns instead of
+  // hardcoding weight/reps and showing em-dashes for every cardio set.
   const { data: sets } = await supabase
     .from('sets')
-    .select('workout_id, weight, reps')
+    .select('workout_id, weight, reps, duration_minutes, distance')
     .eq('exercise_id', exerciseId)
     .in('workout_id', workoutIds)
     .order('id', { ascending: true })
@@ -312,10 +315,15 @@ export async function getLastExercisePerformance(exerciseId: number): Promise<La
   if (!sets?.length) return null
 
   // Group sets by workout, preserving insertion order
-  const setsByWorkout = new Map<number, { weight: number | null; reps: number | null }[]>()
+  const setsByWorkout = new Map<number, LastExercisePerformance['sets']>()
   for (const s of sets as any[]) {
     if (!setsByWorkout.has(s.workout_id)) setsByWorkout.set(s.workout_id, [])
-    setsByWorkout.get(s.workout_id)!.push({ weight: s.weight, reps: s.reps })
+    setsByWorkout.get(s.workout_id)!.push({
+      weight: s.weight,
+      reps: s.reps,
+      duration_minutes: s.duration_minutes ?? null,
+      distance: s.distance ?? null,
+    })
   }
 
   // Return all sets from the most recent completed workout that has this exercise
@@ -358,14 +366,29 @@ export async function getBestExercisePerformance(exerciseId: number, limitDays?:
 
   const workoutIds = completedWorkouts.map((w: any) => w.id)
 
+  // duration_minutes/distance selected alongside weight/reps (WP-11,
+  // checklist §19.8) — see getLastExercisePerformance above for rationale.
   const { data: sets } = await supabase
     .from('sets')
-    .select('id, workout_id, weight, reps')
+    .select('id, workout_id, weight, reps, duration_minutes, distance')
     .eq('exercise_id', exerciseId)
     .in('workout_id', workoutIds)
     .order('id', { ascending: true })
 
-  return selectBestSession((sets ?? []) as SessionSetRow[], completedWorkouts as WorkoutRef[])
+  const best = selectBestSession((sets ?? []) as SessionSetRow[], completedWorkouts as WorkoutRef[])
+  if (!best) return null
+  // This call site always selects duration_minutes/distance above, so
+  // selectBestSession's generic (optional-field) SessionSet shape is always
+  // fully populated here — normalize to LastExercisePerformance's contract.
+  return {
+    date: best.date,
+    sets: best.sets.map((s) => ({
+      weight: s.weight,
+      reps: s.reps,
+      duration_minutes: s.duration_minutes ?? null,
+      distance: s.distance ?? null,
+    })),
+  }
 }
 
 export async function getExerciseHistory(exerciseId: number, limitDays = 90, today?: string): Promise<ExerciseHistoryPoint[]> {

@@ -2,6 +2,7 @@
 
 import { LastExercisePerformance } from '@/lib/dal'
 import Modal from '@/components/Modal'
+import { perfModalColumns } from '@/lib/perfModalColumns'
 
 function fmtDate(d: string) {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-US', {
@@ -11,17 +12,24 @@ function fmtDate(d: string) {
 
 export default function LastPerfModal({
   exerciseName,
+  category = null,
   data,
   loading,
   onClose,
   title = 'Last session',
 }: {
   exerciseName: string
+  /** Exercise category (e.g. 'cardio') — decides Duration/Distance vs
+   *  Weight/Reps columns (WP-11, checklist §19.8). Defaults to null (renders
+   *  the pre-existing Weight/Reps layout) so this stays a purely additive,
+   *  optional prop for any caller that hasn't been updated to pass it. */
+  category?: string | null
   data: LastExercisePerformance | null
   loading: boolean
   onClose: () => void
   title?: string
 }) {
+  const columns = data ? perfModalColumns(data.sets, category) : null
   return (
     <Modal
       title={`${title}: ${exerciseName}`}
@@ -49,20 +57,20 @@ export default function LastPerfModal({
           <div className="flex justify-center py-4">
             <div className="w-7 h-7 rounded-full border-2 border-zinc-300 border-t-orange-500 dark:border-zinc-700 dark:border-t-orange-500 animate-spin" />
           </div>
-        ) : data ? (
+        ) : data && columns ? (
           <>
             <p className="text-xs text-zinc-400 dark:text-zinc-600">{fmtDate(data.date)}</p>
             <div className="flex flex-col gap-1">
               <div className="grid grid-cols-3 gap-2 text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 pb-1 border-b border-zinc-100 dark:border-zinc-800">
                 <span>Set</span>
-                <span>Weight</span>
-                <span>Reps</span>
+                <span>{columns.headers[0]}</span>
+                <span>{columns.headers[1]}</span>
               </div>
-              {data.sets.map((s, i) => (
-                <div key={i} className="grid grid-cols-3 gap-2 text-sm text-zinc-900 dark:text-white py-1">
+              {columns.rows.map((row, i) => (
+                <div key={row.key} className="grid grid-cols-3 gap-2 text-sm text-zinc-900 dark:text-white py-1">
                   <span className="text-zinc-400 dark:text-zinc-600">{i + 1}</span>
-                  <span>{s.weight != null ? `${s.weight} kg` : '—'}</span>
-                  <span>{s.reps != null ? s.reps : '—'}</span>
+                  <span>{row.primary}</span>
+                  <span>{row.secondary}</span>
                 </div>
               ))}
             </div>
