@@ -9,6 +9,7 @@ Run through this list manually after any change to routing, workout actions, dat
 | # | Action | Expected result |
 |---|--------|----------------|
 | 1.1 | Tap "Start workout" on dashboard | Creates `in_progress` workout for today → navigates to `/workout/[id]` — logger shows empty set list |
+| 1.1b | Double-tap "Start workout" (or otherwise trigger it twice before the redirect lands) | Only **one** `in_progress` workout is created for the day — the second tap redirects to the same workout instead of inserting a duplicate. The button is also disabled (`isPending`) after the first tap, so this is a defence-in-depth guard, not the only protection |
 | 1.2 | Tap "Start now" on a template | Creates `in_progress` workout, **no sets written to DB yet** → navigates to `/workout/[id]` — logger pre-loads template exercises into local state only |
 | 1.3 | Tap "Save" in workout logger (first time) | Warning modal appears: "Progress won't be tracked" |
 | 1.4 | Confirm "Save anyway" | Sets written to DB, status stays `in_progress`, stays on logger |
@@ -48,7 +49,7 @@ Run through this list manually after any change to routing, workout actions, dat
 | 3.1 | Open dashboard | Current month calendar shown, today highlighted with orange ring |
 | 3.2 | Tap prev/next month arrow | Calendar navigates, URL updates to `?y=...&m=...` |
 | 3.3 | Tap empty **past or today** cell | Sheet opens immediately with template list already populated (no loading spinner) — shows "Log a workout", template picker, "Start workout" button |
-| 3.4 | Select **no template** and tap "Start workout" | Creates `in_progress` blank workout for that date, navigates to logger |
+| 3.4 | Select **no template** and tap "Start workout" | Creates `in_progress` blank workout for that date, navigates to logger. Double-tapping (or re-opening the sheet and repeating before the redirect lands) reuses the same empty `in_progress` workout for that date rather than creating a second one — same guard as 1.1b |
 | 3.5 | Select **a template** and tap "Start workout" | Navigates to template editor `/workouts/[id]?date=...` — **does not create workout yet** |
 | 3.6 | Tap empty **future** cell | Sheet: "Schedule a workout", template picker, "Schedule" button |
 | 3.7 | Select **no template** and tap "Schedule" | Creates `planned` blank workout, calendar refreshes, dot appears |
@@ -405,4 +406,5 @@ dismissal *methods* they refer to now include Escape.
 - ↑/↓ reorder buttons are always visible when 2+ exercises exist — there is no separate "reorder mode" toggle.
 - `TemplateEditor` receives optional `date` and `workoutId` search params. `date > today` → "Schedule" mode (planned workout). `workoutId` → transition existing planned workout.
 - When routing to the template editor from the calendar, the workout is **not created** until the user taps "Start now" / "Schedule" in the editor.
+- The duplicate-workout guard (`findReusableInProgressWorkout` in `cores.ts`, WP-14/Finding L1) only reuses an existing `in_progress` workout for (user, date) if it has **zero sets**. A workout with any sets is real progress and is never reused, deleted, or silently redirected into — a new workout is inserted alongside it instead. The guard covers `startWorkout` and `logWorkoutForDate` only; `scheduleWorkout` (status `planned`) is intentionally unguarded — a user may legitimately want more than one planned workout on the same future date.
 - New overlays must render through `src/components/Modal.tsx`, not a bare `fixed inset-0` div — it is the only place dialog semantics/focus-trap/Escape/backdrop rules are decided (ADR-0008). Pass `destructive` for confirms that discard user data; everything else defaults to backdrop-closes. `Modal` only supplies the `role="dialog"` wrapper and focus behaviour — callers keep their own backdrop/panel classNames so visual layout is unaffected. The Escape/Tab decisions live in the pure, unit-tested `src/lib/modalFocus.ts`; stacking order (which dialog is topmost when one opens another) lives in `src/lib/modalStack.ts`.

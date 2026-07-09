@@ -156,12 +156,52 @@ async function saveSetSnapshot(
   return {}
 }
 
+// WP-14 (Finding L1): double-tapping "Start workout" (or otherwise firing
+// startWorkout/logWorkoutForDate twice for the same date before the first
+// request's redirect lands) previously inserted a second in_progress workout
+// with zero sets — an orphan the user never asked for. Looks up an existing
+// in_progress workout for (user, date) with no sets yet, and returns its id
+// so callers can redirect there instead of inserting a duplicate.
+//
+// Deliberately scoped to startWorkout/logWorkoutForDate only — scheduleWorkout
+// (status 'planned') is a separate path per the WP-14 spec and stays
+// unguarded: a user may legitimately plan more than one workout for a future
+// date, and a planned workout is not the "orphaned in_progress" problem this
+// guard targets.
+//
+// A workout WITH sets is real, logged progress: it is never reused, never
+// deleted, never silently redirected into — only an empty in_progress
+// workout is a safe, no-op-equivalent duplicate. If the lookup itself fails
+// (network/DB error) or returns malformed data, this resolves to null so the
+// caller falls back to its normal insert path rather than throwing or
+// blocking workout creation on a non-critical read.
+async function findReusableInProgressWorkout(
+  supabase: SupabaseServerClient,
+  userId: string,
+  date: string,
+): Promise<number | null> {
+  const { data, error } = await supabase
+    .from('workouts')
+    .select('id, sets(id)')
+    .eq('user_id', userId)
+    .eq('date', date)
+    .eq('status', 'in_progress')
+
+  if (error || !Array.isArray(data)) return null
+
+  const empty = data.find((row: { id: number; sets?: { id: number }[] | null }) => !(row.sets && row.sets.length > 0))
+  return empty ? empty.id : null
+}
+
 // ADR-0005: the caller (client) always supplies the local calendar date —
 // these cores never compute "today" themselves, which would use the
 // server's clock/timezone rather than the user's.
 export async function startWorkoutCore(supabase: SupabaseServerClient, date: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
+
+  const reusableId = await findReusableInProgressWorkout(supabase, user.id, date)
+  if (reusableId != null) redirect(`/workout/${reusableId}`)
 
   const { data, error } = await supabase
     .from('workouts')
@@ -189,6 +229,33 @@ export async function startWorkoutFromTemplateCore(
     .single()
 
   if (workoutError || !workout) redirect('/dashboard')
+
+  redirect(`/workout/${workout.id}`)
+}
+
+// Creates an in_progress workout for any date (for logging in hindsight or
+// today) — same duplicate-workout guard as startWorkoutCore (WP-14, Finding
+// L1). templateId is only used on the insert path; a reused empty workout's
+// existing template_id (if any) is left untouched — this guard is about
+// avoiding a duplicate empty workout row, not reconciling templates.
+export async function logWorkoutForDateCore(
+  supabase: SupabaseServerClient,
+  date: string,
+  templateId?: string,
+) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/')
+
+  const reusableId = await findReusableInProgressWorkout(supabase, user.id, date)
+  if (reusableId != null) redirect(`/workout/${reusableId}`)
+
+  const { data: workout } = await supabase
+    .from('workouts')
+    .insert({ user_id: user.id, date, status: 'in_progress', template_id: templateId ?? null })
+    .select('id')
+    .single()
+
+  if (!workout) redirect('/workouts')
 
   redirect(`/workout/${workout.id}`)
 }

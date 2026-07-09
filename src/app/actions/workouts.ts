@@ -2,7 +2,7 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getWorkoutWithSets, getMonthWorkouts, getMonthWorkoutsWithPreviews, WorkoutCalendarEntry, WorkoutPreviewExercise, MonthWorkoutsWithPreviews } from '@/lib/dal'
-import { saveWorkoutProgressCore, completeWorkoutCore, startWorkoutCore, startWorkoutFromTemplateCore, SetPayload } from './cores'
+import { saveWorkoutProgressCore, completeWorkoutCore, startWorkoutCore, startWorkoutFromTemplateCore, logWorkoutForDateCore, SetPayload } from './cores'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -47,19 +47,7 @@ export async function startWorkoutFromTemplate(templateId: string | number, date
 
 // Creates an in_progress workout for any date (for logging in hindsight or today)
 export async function logWorkoutForDate(date: string, templateId?: string) {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/')
-
-  const { data: workout } = await supabase
-    .from('workouts')
-    .insert({ user_id: user.id, date, status: 'in_progress', template_id: templateId ?? null })
-    .select('id')
-    .single()
-
-  if (!workout) redirect('/workouts')
-
-  redirect(`/workout/${workout.id}`)
+  return logWorkoutForDateCore(await createServerSupabaseClient(), date, templateId)
 }
 
 // Creates a planned workout for a future date
