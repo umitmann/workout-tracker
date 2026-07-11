@@ -27,15 +27,20 @@ tile they belong to. A single refactor follows once the whole screen is pinned.
 - ⬜ Tile 3 — distance-unit toggle (deferred to cardio set-row tile)
 - ✅ Tile 4 — Copy / Paste (lossless copy; overwrite/append on paste)
 - ✅ Tile 5 — Save-state bar (3× jittered auto-retry; block Complete on unsaved)
-- 🔶 Tile 6 — Rest bar. Sacred-running-timer rule pinned (notes #1, #2). **OPEN
-  QUESTION left off here:** should the rest target be one global value (today) or
-  remembered per-exercise? Decide, then continue down the screen.
+- ✅ Tile 6 — Rest bar. Sacred-running-timer rule pinned (notes #1, #2). Target
+  source resolved: PT prescription in the plan wins per exercise; else one global
+  value invariant across exercises (NOT per-exercise memory).
+- ✅ Tile 7 — Exercise group header (ⓘ / ◷ last / 🏆 best / best·60 / inline Last).
+  Read-only reference over completed history only. "Best" stays = heaviest-single-
+  set's session. Latent issue flagged: ◷/inline Last scan only the last 50 workouts.
+- ✅ Tile 8 — Controls row (reorder ↑↓, ▶ All, quick-add +). Reorder = pure
+  neighbor swap. quick-add + opens the prefilled add-set form; prefill source
+  extended to last weight/reps from this workout, else the previous session.
+- ✅ Tile 9 — Set rows (✓ done / edit / ✕ delete, weight·reps or duration·distance).
+  Folds field note: typed values AUTO-COMMIT as a kept-but-not-done set on tap-away
+  — nothing typed is ever discarded. Delete stays two-tap (ADR-0008).
 
 ### Remaining tiles to interview (top → bottom)
-- Tile 7 — Exercise group header: name, info(i), last(◷), best(🏆), best·60
-- Tile 8 — Exercise controls row: reorder ↑↓, ▶ All (guide whole exercise), quick-add +
-- Tile 9 — Set rows: #, weight/reps or duration/distance, done ✓, edit, delete ✕
-  · folds field note: *"if I don't hit complete, the value is removed when tapping elsewhere"*
 - Tile 10 — Add-set form: the Stepper (weight/reps), ▶ Guided, Add
   · folds field notes: *"always goes back to 12.5?"*, *"open a 1–10 panel instead
     of keyboard + .25/.5/.75 buttons"*, *"last set: 1 to 5 how heavy it was"* (NEW
@@ -58,6 +63,26 @@ tile they belong to. A single refactor follows once the whole screen is pinned.
   dirty/error (Tile 5).
 - `startRestFor` must become start-only-if-idle, with the explicit button as the
   sole restart path (Tile 6).
+- Rest target needs a PT-prescribed source on the plan: add a rest field to
+  `routine_exercises` (parallel to `tempo`, `dal.ts:544`) + a TemplateEditor
+  control to set it. The logger reads it like `ptTempo` and falls back to the one
+  global stepper value. The global target/mode stay single scalars — NOT a
+  per-exercise learned map (Tile 6). Distinct from `sets.rest_seconds`, which is
+  the timer's *logged elapsed*, not a prescribed target.
+- ◷ Last / inline "Last:" scan only the 50 most recent completed workouts
+  (`dal.ts:293`), so a rotated exercise shows blank Last while all-time Best still
+  resolves — query last-by-exercise_id instead, or document the cap (Tile 7).
+- `handleSelectExercise` (:308) prefills only from the current workout's last set,
+  so an exercise's first set this session opens blank. Extend prefill to fall back
+  to the previous session's last set for that exercise (reuse `getLastExercise-
+  Performance` / `lastPerf`) so the form always seeds with last weight/reps (Tile 8).
+- Auto-commit typed values (Tile 9): (a) the add-set form must flush typed
+  weight/reps into a not-done set when the user navigates away / re-selects an
+  exercise, instead of dropping them — guard against committing a fully-empty form;
+  (b) `saveEditSet` (:655) writes `null` on an empty field, wiping a previously-saved
+  value — align it with `completeFromEdit` (:458) which falls back to the prior
+  value; (c) an auto-committed not-done set must NOT start rest (only ✓/Complete
+  does — Tile 6), and editing an already-done set on blur keeps it done.
 
 ---
 
@@ -248,8 +273,23 @@ newest set, wiping the running one — auto-complete on ANY set clobbers rest.
   while a rest runs logs the current elapsed to its set, then starts a fresh
   timer from 0:00. Implicit actions are sacred; the explicit button is allowed.
 
-VARIANT (stays configurable): Fixed vs Variable mode; the target seconds (±5s);
-which set manual Start rest attaches to (currently the last set).
+**Decision — where the rest TARGET comes from (resolves the open question).**
+Two sources, in priority order:
+1. **PT prescription in the plan wins.** If the template prescribes a rest target
+   for an exercise (a new field on `routine_exercises`, parallel to `tempo`), that
+   is the target while resting from that exercise.
+2. **Else one global value, invariant across exercises.** With no prescription,
+   every exercise uses the single global stepper value (localStorage `wt.restTarget`
+   / `wt.restMode`), exactly as today — one shared number for the whole screen.
+
+The target does NOT drift per exercise on its own: there is **no per-exercise
+memory / learned map**. It only differs between exercises when the plan explicitly
+prescribes different values. `sets.rest_seconds` (the timer's logged elapsed on a
+completed set) is a separate concept and is untouched by this.
+
+VARIANT (stays configurable): Fixed vs Variable mode (global); the global target
+seconds (±5s) used as the fallback; the per-exercise prescribed target set by the
+PT in the template; which set manual Start rest attaches to (currently the last set).
 
 ### Contract
 - given: no rest timer is running
@@ -266,9 +306,18 @@ which set manual Start rest attaches to (currently the last set).
 - given: a rest timer is running
 - when: the explicit "Start rest" button is tapped
 - then: the current elapsed is logged to its set, and a fresh timer starts at 0:00
+- given: an exercise whose plan (template) prescribes a rest target
+- when: a rest timer starts for one of its sets
+- then: the timer counts toward the PT-prescribed target, not the global stepper value
+- given: an exercise with no prescribed rest in the plan
+- when: a rest timer starts for one of its sets
+- then: the timer counts toward the single global target (localStorage stepper),
+  the same value used for every other unprescribed exercise
 - invariant: no implicit action ever resets or re-points a running rest timer
 - invariant: rest elapsed is always logged to the set the timer was started for
 - invariant: cardio set completion never starts a rest (unchanged, `startsRestOnComplete`)
+- invariant: the global target never varies per exercise on its own — only an
+  explicit PT prescription makes an exercise's target differ from the global value
 
 ### Steps
 1. Complete set 1 → rest starts. At ~0:45 complete set 2 → rest STILL at 0:45+,
@@ -278,3 +327,205 @@ which set manual Start rest attaches to (currently the last set).
    untouched
 4. While a rest runs, tap the explicit "Start rest" button → old elapsed logged,
    new timer at 0:00
+5. Exercise A has a plan-prescribed 180s rest, B has none → rest from A targets
+   180s; rest from B targets the global stepper value; nudging the global stepper
+   changes B's target but not A's
+
+---
+
+## Tile 7 — Exercise group header (reference affordances) ✅
+
+Seam: header Row 1 (:1256-1290), `handleInfoClick`, `handlePerfClick` (:677),
+`getLastExercisePerformance`/`getBestExercisePerformance` (`dal.ts:288`, `:349`),
+`selectBestSession` (`dalCores.ts:41`), inline "Last:" (:1324), `lastPerf` load (:254).
+
+The exercise title plus four reference affordances and one inline summary line:
+- **ⓘ info** — opens the exercise-details modal.
+- **◷ last** — most recent *completed* workout (scanning the last 50) that contains
+  this exercise; shows all its sets in a modal.
+- **🏆 best** — across all completed workouts, the session containing the single
+  highest-weight set; reps-only/bodyweight falls back to most-recent. Whole session shown.
+- **best·60** — the same "best" rule windowed to the last 60 days.
+- **inline "Last:"** — a preloaded one-line summary of the last session, always shown.
+
+**Feared regression:** the numbers you consult mid-set become misleading — a "best"
+that isn't your real best effort, or reference figures that silently reflect the
+*current* in-progress workout and move under you as you log.
+
+**Decision — "Best" stays = the heaviest-single-set's session.** The session
+containing your single highest-weight set wins, and its whole set list is shown
+(today's `selectBestSession`). Not e1RM, not volume. Accepted as the stable rule.
+
+VARIANT (may change later): the "best" scoring rule (e1RM / volume were considered
+and declined for now); whether warm-up sets should be excluded from the pool
+(today they are NOT — a heavy warm-up top-set can define "best"); the 50/60-day windows.
+
+### Contract
+- given: the logging screen for any exercise
+- when: ⓘ / ◷ / 🏆 / best·60 is tapped, or the inline "Last:" renders
+- then: a read-only modal or text is shown; the live workout's sets are never
+  created, edited, deleted, or reordered by any of these
+- given: "best" (all-time or 60-day) is requested
+- when: computed
+- then: the winning session is the one holding the single heaviest-weight set in
+  the candidate pool; its full set list is displayed
+- given: an exercise with no weighted sets in history (reps-only/bodyweight)
+- when: "best" is requested
+- then: it falls back to the most recent session that has any sets
+- invariant: every affordance here is READ-ONLY — none mutates the current workout
+- invariant: all figures compare against **completed** history only; the
+  in-progress workout is never counted as "last" or "best"
+- invariant: "best" is defined solely by heaviest single set, consistently across
+  all-time and 60-day windows
+
+### Steps
+1. Tap ⓘ / ◷ / 🏆 / best·60 in turn → each opens its modal; the live set list is
+   unchanged after closing every one
+2. History has a 100kg×1 day and a 95kg×5×5 day → 🏆 Best shows the 100kg×1 session
+3. Log a new heaviest-ever set in the *current* (in-progress) workout, reopen 🏆 →
+   still shows the historical best, not the in-progress set
+
+### Latent issue surfaced (refactor item)
+`getLastExercisePerformance` only scans the **50** most recent completed workouts
+(`dal.ts:293-299`). An exercise not trained within those 50 sessions returns null,
+so both ◷ Last and the inline "Last:" line go blank even though older history
+exists. "Best" (all-time) has no such limit, so the two can disagree. Either lift
+the scan to "most recent session containing this exercise" (query by exercise_id,
+not a fixed workout window) or document the 50-session cap as intended.
+
+---
+
+## Tile 8 — Exercise controls row (reorder / guide-all / quick-add) ✅
+
+Seam: header Row 2 (:1292-1322), `moveExercise` (:831) → `reorderExercise`
+(`setListOps.ts:45`), `openGuideSetup` (:545), quick-add + → `handleSelectExercise`
+(:308). Row only rendered with >1 exercise for the reorder arrows.
+
+- **reorder ↑↓** — swaps this exercise group with its immediate neighbor (one
+  slot), preserving every set and its data; persists via `markDirty` (autosave).
+- **▶ All** — opens the whole-exercise guide setup. Entry point only; the guide
+  screen itself is Tile 12.
+- **quick-add +** — selects this exercise and opens the add-set form prefilled
+  with its last weight/reps; you review/adjust and tap Add. Not an instant log.
+
+**Feared regression:** (a) reordering scrambles or drops logged sets, or resets the
+running rest timer; (b) the + opens a **blank** form the first time you touch an
+exercise in a session, so you retype numbers you did last week that the app already knows.
+
+**Decision — reorder is a pure presentational swap.** ↑↓ moves the whole exercise
+group by one position and nothing else — set values, done-state, and any running
+rest timer are untouched (consistent with Tile 6: reorder is admin, sacred rest is
+not disturbed). Order persists.
+
+**Decision — quick-add + opens the prefilled form (not an instant log), and the
+prefill source is the last weight/reps for that exercise.** Resolve the prefill in
+priority order: the exercise's **most recent set in the current workout** if one
+exists, otherwise **the last set from the previous completed session** for that
+exercise. The form is never blank when any history — this workout or prior — exists.
+
+> **Refactor item:** `handleSelectExercise` only reverse-finds within `localSets`
+> (current workout), so the first set of an exercise this session opens blank. Add
+> the historical fallback via `getLastExercisePerformance` / the already-loaded
+> `lastPerf` map. The add-set form (Tile 10) shares this seed, and the "always goes
+> back to 12.5?" note there is about the *stepper default* when even history is empty.
+
+VARIANT: whether reorder is one-slot arrows (today) or drag; the + tooltip wording
+(should read "Add a set", not "Quick-add", since it opens a form).
+
+### Contract
+- given: a workout with ≥2 exercises
+- when: ↑ or ↓ is tapped on an exercise
+- then: that exercise group swaps position with its neighbor; every set's values,
+  order-within-exercise, and done-state are unchanged; a running rest timer keeps
+  running untouched; the new order persists
+- given: an exercise already has ≥1 set in the current workout
+- when: quick-add + is tapped
+- then: the add-set form opens prefilled from that exercise's most recent set in
+  this workout
+- given: an exercise has no set yet in the current workout but has prior history
+- when: quick-add + is tapped
+- then: the form opens prefilled from that exercise's last set in the previous
+  completed session
+- invariant: reorder never changes, drops, or reassigns any set — it is pure ordering
+- invariant: reorder never resets or re-points a running rest timer (Tile 6)
+- invariant: the add-set form seeds with last weight/reps whenever any history
+  (current workout or prior session) exists for the exercise
+
+### Steps
+1. Two exercises A (2 sets) then B (3 sets); tap ↓ on A → order is B then A; all
+   five sets intact with identical values; reopen workout → order persisted
+2. Start a rest, then reorder an exercise → rest keeps running untouched
+3. Exercise with sets logged earlier this workout, tap + → form prefilled from the
+   latest of those sets
+4. Exercise not yet touched this workout but done last week at 40kg×10, tap + →
+   form prefilled 40kg×10 (was blank before)
+
+---
+
+## Tile 9 — Set rows (per-set display / edit / complete / delete) ✅ ← field note
+
+Seam: display row (:1426-1517), edit row (:1348-1425), `toggleDone` (:399),
+`startEditSet` (:647), `saveEditSet` (:655), `completeFromEdit` (:458),
+`handleDeleteTap`/two-tap confirm (:1489-1516), `openGuidedSetupForSet` (:1482).
+Folds field note: *"if I don't hit complete, the value is removed when tapping elsewhere."*
+
+Each set renders as a row: **✓ done-toggle · #index · weight·reps (or duration·
+distance) · [▶ guided when not-done & non-cardio] · ✕ delete**, with a rest line
+below when `rest_seconds` is set. Tapping the row body opens the inline editor
+(two Steppers / cardio inputs + ▶ guided + ✓ Complete + ✕ cancel). A **not-done**
+set is already a first-class visual: dashed border, muted background.
+
+**Feared regression (the field note):** you type a weight/reps, get interrupted, tap
+elsewhere without hitting ✓/Complete, and the number vanishes. Today two paths lose
+data — the add-set form drops uncommitted input entirely, and `saveEditSet` (blur)
+writes `null` for an emptied field, wiping the prior value.
+
+**Decision — typed values AUTO-COMMIT as a kept-but-not-done set.** Tapping away
+from any weight/reps entry (add-set form OR inline editor) saves what was typed as
+a set that is **kept but not marked done** — no ✓, no rest started. Nothing typed
+is ever discarded; you return later and tap ✓ to complete it. This is the direct
+kill for the field note and the north-star rule for the whole screen.
+- A fully-empty form/field commits nothing (no phantom empty sets).
+- Editing an already-done set and tapping away keeps its typed value AND its done
+  state (auto-commit's "not-done" applies only to never-completed entries).
+- An auto-committed not-done set does NOT start a rest timer — only ✓/Complete does
+  (Tile 6).
+
+**Decision — delete stays two-tap.** ✕ arms a Confirm/Cancel pair (ADR-0008),
+mirroring the calendar and the Back-button Delete (Tile 1). No single-tap deletes.
+
+VARIANT: the ▶ guided affordance on a not-done set (covered by Tiles 11/12); the
+row's exact columns per category; the not-done row styling.
+
+### Contract
+- given: the add-set form (or an inline set editor) with typed weight/reps
+- when: the user taps elsewhere / navigates away without ✓/Complete/Add
+- then: the typed values are saved as a set that is kept but **not** marked done;
+  no rest timer starts; the values are visible on the (dashed) row afterwards
+- given: an empty add-set form or an editor field left blank
+- when: focus leaves it
+- then: nothing is committed, and no existing value is nulled — an emptied editor
+  field falls back to the set's prior value rather than writing null
+- given: an already-completed (done) set is edited
+- when: the user taps away
+- then: the new value is saved and the set stays done
+- given: a not-done set
+- when: ✓ is tapped
+- then: it becomes done and a rest timer starts if none is running (Tile 6)
+- given: any set
+- when: ✕ is tapped
+- then: a Confirm/Cancel pair appears; the set is removed only on Confirm
+- invariant: a typed weight/reps value is NEVER lost by tapping away — it is always
+  either committed (as done or not-done) or, if the field was empty, left unchanged
+- invariant: only ✓/Complete marks a set done and starts rest; auto-commit never does
+- invariant: deleting a set always requires the two-tap confirm
+
+### Steps
+1. Type 60×10 into the add-set form, then tap another exercise's row → a not-done
+   60×10 set now exists (dashed, no ✓); it survives a reload
+2. Tap a done 60×10 set, change to 65, tap away without ✓ → row shows 65 and is
+   still done
+3. Tap a set, clear the weight field, tap away → weight is NOT nulled (prior value
+   kept); clearing is not a data-loss path
+4. Tap ✓ on the auto-committed not-done set → it goes done and starts rest
+5. Tap ✕ on a set → Confirm/Cancel; Cancel leaves it, Confirm removes it
