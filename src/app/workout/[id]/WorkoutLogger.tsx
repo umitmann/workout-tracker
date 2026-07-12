@@ -29,6 +29,8 @@ import {
   reorderExercise,
   recordRestForSet,
   requestSetDelete,
+  commitPending,
+  resolveEditFields,
 } from '@/lib/setListOps'
 import IconHitTarget from './IconHitTarget'
 import { localDateStr } from '@/lib/localDate'
@@ -354,21 +356,59 @@ export default function WorkoutLogger({
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
   function handleSelectExercise(ex: SlimExercise) {
+    // Tile 9: switching exercises abandons whatever is typed in the current
+    // add form — flush it as a not-done set first (no-op if empty/unselected).
+    autoCommitAddForm()
     const previous = [...localSets].reverse().find((s) => s.exerciseId === ex.id)
+    // Tile 8: no set logged for this exercise yet THIS workout — fall back to
+    // the previous completed session's last set for it, so the form is only
+    // ever blank when there's truly no history at all.
+    const priorSets = lastPerf[ex.id]?.sets
+    const priorSet = priorSets && priorSets.length > 0 ? priorSets[priorSets.length - 1] : null
     setSelectedExercise(ex)
     setShowPicker(false)
     if (ex.category === 'cardio') {
-      setDuration(previous?.duration_minutes != null ? String(previous.duration_minutes) : '')
-      setDistance(previous?.distance != null ? String(previous.distance) : '')
+      setDuration(previous?.duration_minutes != null ? String(previous.duration_minutes) : priorSet?.duration_minutes != null ? String(priorSet.duration_minutes) : '')
+      setDistance(previous?.distance != null ? String(previous.distance) : priorSet?.distance != null ? String(priorSet.distance) : '')
       setWeight('')
       setReps('')
     } else {
-      setWeight(previous?.weight != null ? String(previous.weight) : '')
-      setReps(previous?.reps != null ? String(previous.reps) : '')
+      setWeight(previous?.weight != null ? String(previous.weight) : priorSet?.weight != null ? String(priorSet.weight) : '')
+      setReps(previous?.reps != null ? String(previous.reps) : priorSet?.reps != null ? String(priorSet.reps) : '')
       setDuration('')
       setDistance('')
     }
     setAddError(null)
+  }
+
+  // Tile 9: flushes whatever is currently typed in the add-set form into a
+  // NOT-DONE set (never done, never starts rest) — called whenever the form
+  // is about to be abandoned (exercise switch, tap-away blur). A fully-empty
+  // form is a no-op — never commits a phantom empty set. Persists immediately
+  // via the same save queue as a real Add (D6), so it survives a reload.
+  function autoCommitAddForm() {
+    if (!selectedExercise) return
+    const isCardio = selectedExercise.category === 'cardio'
+    const newSet = commitPending(
+      { weight, reps, duration_minutes: duration, distance },
+      {
+        localId: crypto.randomUUID(),
+        exerciseId: selectedExercise.id,
+        exerciseName: selectedExercise.name,
+        exerciseCategory: selectedExercise.category,
+      },
+      isCardio,
+    )
+    if (!newSet) return
+    const nextSets = addSetOp(localSets, newSet)
+    setLocalSets(nextSets)
+    setWeight('')
+    setReps('')
+    setDuration('')
+    setDistance('')
+    setAddError(null)
+    persist(nextSets)
+    // Deliberately no startRestFor — auto-commit never starts rest (Tile 6/D5).
   }
 
   function handleAddSet() {
@@ -395,10 +435,12 @@ export default function WorkoutLogger({
     setLocalSets(nextSets)
     // Completing a set (plain add) auto-starts rest for it.
     if (startsRestOnComplete(selectedExercise.category)) startRestFor(newSet.localId)
-    setWeight('')
-    setReps('')
-    setDuration('')
-    setDistance('')
+    // Tile 10a: re-seed from the just-logged set instead of blanking — straight
+    // sets are Add, Add, Add with no re-entry ("always goes back to 12.5").
+    setWeight(newSet.weight != null ? String(newSet.weight) : '')
+    setReps(newSet.reps != null ? String(newSet.reps) : '')
+    setDuration(newSet.duration_minutes != null ? String(newSet.duration_minutes) : '')
+    setDistance(newSet.distance != null ? String(newSet.distance) : '')
     setAddError(null)
     setSavedOnce(true)
     persist(nextSets)
@@ -707,17 +749,23 @@ export default function WorkoutLogger({
     setEditDistance(s.distance != null ? String(s.distance) : '')
   }
 
+  // Tile 9(b): tapping away from the inline editor without ✓/Complete keeps
+  // it typed value AND — crucially — never nulls a field the user cleared.
+  // An emptied field falls back to the set's PRIOR value (`resolveEditFields`),
+  // mirroring `completeFromEdit`'s fallback, so clearing-then-blurring is not
+  // a data-loss path. `done` is untouched here, so a done set stays done and
+  // a not-done set stays not-done — auto-commit's "not-done" only ever
+  // applies to a never-completed entry, which this already is.
   function saveEditSet(localId: string) {
     const target = localSets.find((s) => s.localId === localId)
-    const isCardio = target?.exerciseCategory === 'cardio'
-    setLocalSets((prev) =>
-      applyEdit(prev, localId, {
-        weight: !isCardio && editWeight ? Number(editWeight) : null,
-        reps: !isCardio && editReps ? Number(editReps) : null,
-        duration_minutes: isCardio && editDuration ? Number(editDuration) : null,
-        distance: isCardio && editDistance ? Number(editDistance) : null,
-      }),
+    if (!target) { setEditingId(null); return }
+    const isCardio = target.exerciseCategory === 'cardio'
+    const fields = resolveEditFields(
+      { weight: editWeight, reps: editReps, duration_minutes: editDuration, distance: editDistance },
+      target,
+      isCardio,
     )
+    setLocalSets((prev) => applyEdit(prev, localId, fields))
     setEditingId(null)
     markDirty()
   }
@@ -761,6 +809,10 @@ export default function WorkoutLogger({
   }
 
   function handleBack() {
+    // Tile 9 safety net: Back is a "navigate away" — flush any typed-but-
+    // uncommitted add-form values (no-op if empty/unselected) so they're
+    // never silently dropped, regardless of blur/focus ordering.
+    autoCommitAddForm()
     if (workout.status === 'completed') {
       if (isEditing) { setShowDiscardEditsPrompt(true); return }
       window.location.href = '/dashboard'
@@ -906,11 +958,23 @@ export default function WorkoutLogger({
   function renderAddSetForm() {
     if (!selectedExercise) return null
     return (
-      <div className="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 flex flex-col gap-3">
+      <div
+        className="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 flex flex-col gap-3"
+        // Tile 9: tapping fully away from the add form (focus leaves this
+        // container, e.g. Back/Save/scrolling to another set) flushes typed
+        // values as a not-done set. Switching exercises (quick-add +, the
+        // "change" button below) is handled explicitly in
+        // handleSelectExercise so it doesn't depend on focus/blur ordering.
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            autoCommitAddForm()
+          }
+        }}
+      >
         <div className="flex items-center justify-between">
           <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-600">Adding set</p>
           <button
-            onClick={() => setShowPicker(true)}
+            onClick={() => { autoCommitAddForm(); setShowPicker(true) }}
             className="text-xs font-bold text-orange-500 hover:text-orange-600 transition-colors"
           >
             change

@@ -66,6 +66,64 @@ export function recordRestForSet(sets: LocalSet[], localId: string, elapsedSecon
   return sets.map((s) => (s.localId === localId ? { ...s, rest_seconds: elapsedSeconds } : s))
 }
 
+// ─── Tile 9: auto-commit typed-but-uncommitted values ──────────────────────
+// The field note this kills: "if I don't hit complete, the value is removed
+// when tapping elsewhere." Both the add-set form and the inline set editor
+// funnel their typed strings through these two pure helpers so the
+// commit-on-blur / commit-on-navigate logic can be unit tested without React.
+
+export type PendingFields = {
+  weight: string
+  reps: string
+  duration_minutes: string
+  distance: string
+}
+
+// Builds a brand-new NOT-DONE LocalSet from the add-set form's typed values,
+// or returns null when the form is effectively empty — the caller (add-form
+// blur / exercise-switch) must not commit a phantom empty set. `base` supplies
+// the identity fields (localId/exerciseId/exerciseName/exerciseCategory); this
+// never sets `done: true` and never touches rest — only ✓/Complete does that.
+export function commitPending(
+  fields: PendingFields,
+  base: Pick<LocalSet, 'localId' | 'exerciseId' | 'exerciseName' | 'exerciseCategory'>,
+  isCardio: boolean,
+): LocalSet | null {
+  const hasValue = isCardio
+    ? !!(fields.duration_minutes || fields.distance)
+    : !!(fields.weight || fields.reps)
+  if (!hasValue) return null
+  return {
+    ...base,
+    weight: !isCardio && fields.weight ? Number(fields.weight) : null,
+    reps: !isCardio && fields.reps ? Number(fields.reps) : null,
+    duration_minutes: isCardio && fields.duration_minutes ? Number(fields.duration_minutes) : null,
+    distance: isCardio && fields.distance ? Number(fields.distance) : null,
+    rest_seconds: null,
+    done: false,
+  }
+}
+
+// Resolves the inline set editor's typed values against the set's PRIOR
+// values (never null) — an emptied field falls back to what was already
+// saved instead of wiping it, mirroring `completeFromEdit`'s fallback. Does
+// not touch `done`, so editing an already-done set and blurring away keeps
+// it done; editing a not-done set keeps it not-done. Pure — no rest, no
+// commit-vs-empty decision (the set already exists, so there is nothing to
+// "not commit").
+export function resolveEditFields(
+  fields: PendingFields,
+  prior: Pick<LocalSet, 'weight' | 'reps' | 'duration_minutes' | 'distance'>,
+  isCardio: boolean,
+): SetEdit {
+  return {
+    weight: !isCardio && fields.weight ? Number(fields.weight) : prior.weight,
+    reps: !isCardio && fields.reps ? Number(fields.reps) : prior.reps,
+    duration_minutes: isCardio && fields.duration_minutes ? Number(fields.duration_minutes) : prior.duration_minutes,
+    distance: isCardio && fields.distance ? Number(fields.distance) : prior.distance,
+  }
+}
+
 export type SetDeleteRequest = { pendingId: string | null; confirmed: boolean }
 
 // ADR-0008 (WP-09): two-tap confirm transition for the set-delete ✕, mirroring

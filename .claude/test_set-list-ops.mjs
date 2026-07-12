@@ -6,9 +6,17 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-const { addSet, deleteSet, applyEdit, cancelEdit, reorderExercise, recordRestForSet, requestSetDelete } = await import(
-  '../src/lib/setListOps.ts'
-)
+const {
+  addSet,
+  deleteSet,
+  applyEdit,
+  cancelEdit,
+  reorderExercise,
+  recordRestForSet,
+  requestSetDelete,
+  commitPending,
+  resolveEditFields,
+} = await import('../src/lib/setListOps.ts')
 
 function set(overrides = {}) {
   return {
@@ -155,4 +163,94 @@ test('requestSetDelete re-arms on a different localId rather than confirming', (
 
 test('requestSetDelete.cancel clears pending unconditionally', () => {
   assert.equal(requestSetDelete.cancel(), null)
+})
+
+// ─── commitPending (Tile 9: add-set form auto-commit) ──────────────────────
+
+const base = { localId: 'new', exerciseId: 1, exerciseName: 'Bench Press', exerciseCategory: 'strength' }
+
+test('commitPending builds a NOT-DONE set from typed weight/reps', () => {
+  const result = commitPending({ weight: '60', reps: '10', duration_minutes: '', distance: '' }, base, false)
+  assert.ok(result)
+  assert.equal(result.weight, 60)
+  assert.equal(result.reps, 10)
+  assert.equal(result.done, false)
+  assert.equal(result.rest_seconds, null)
+})
+
+test('commitPending accepts a partial value (weight only)', () => {
+  const result = commitPending({ weight: '60', reps: '', duration_minutes: '', distance: '' }, base, false)
+  assert.ok(result)
+  assert.equal(result.weight, 60)
+  assert.equal(result.reps, null)
+  assert.equal(result.done, false)
+})
+
+test('commitPending returns null for a fully-empty non-cardio form (no phantom set)', () => {
+  const result = commitPending({ weight: '', reps: '', duration_minutes: '', distance: '' }, base, false)
+  assert.equal(result, null)
+})
+
+test('commitPending returns null for a fully-empty cardio form (no phantom set)', () => {
+  const result = commitPending({ weight: '', reps: '', duration_minutes: '', distance: '' }, base, true)
+  assert.equal(result, null)
+})
+
+test('commitPending builds a NOT-DONE cardio set from typed duration/distance', () => {
+  const result = commitPending({ weight: '', reps: '', duration_minutes: '30', distance: '5' }, base, true)
+  assert.ok(result)
+  assert.equal(result.duration_minutes, 30)
+  assert.equal(result.distance, 5)
+  assert.equal(result.done, false)
+})
+
+test('commitPending ignores weight/reps typed while in cardio mode (category-consistent fields only)', () => {
+  const result = commitPending({ weight: '60', reps: '10', duration_minutes: '', distance: '' }, base, true)
+  // weight/reps alone don't count as cardio content, so this is empty
+  assert.equal(result, null)
+})
+
+// ─── resolveEditFields (Tile 9b: saveEditSet empty-field fallback) ─────────
+
+const prior = { weight: 60, reps: 10, duration_minutes: null, distance: null }
+
+test('resolveEditFields uses the typed value when present', () => {
+  const result = resolveEditFields({ weight: '65', reps: '8', duration_minutes: '', distance: '' }, prior, false)
+  assert.equal(result.weight, 65)
+  assert.equal(result.reps, 8)
+})
+
+test('resolveEditFields falls back to the PRIOR value (never null) when a field is emptied', () => {
+  const result = resolveEditFields({ weight: '', reps: '8', duration_minutes: '', distance: '' }, prior, false)
+  assert.equal(result.weight, 60) // NOT null — the prior value is kept
+  assert.equal(result.reps, 8)
+})
+
+test('resolveEditFields falls back to prior for both fields when both are emptied', () => {
+  const result = resolveEditFields({ weight: '', reps: '', duration_minutes: '', distance: '' }, prior, false)
+  assert.equal(result.weight, 60)
+  assert.equal(result.reps, 10)
+})
+
+test('resolveEditFields does not touch `done` — applying it preserves whatever done state the set already had', () => {
+  const sets = [set({ localId: 'a', weight: 60, reps: 10, done: true })]
+  const fields = resolveEditFields({ weight: '65', reps: '', duration_minutes: '', distance: '' }, sets[0], false)
+  const next = applyEdit(sets, 'a', fields)
+  assert.equal(next[0].weight, 65)
+  assert.equal(next[0].reps, 10) // fallback, not nulled
+  assert.equal(next[0].done, true) // untouched — stays done
+})
+
+test('resolveEditFields on a not-done set leaves it not-done after applying', () => {
+  const sets = [set({ localId: 'a', weight: 60, reps: 10, done: false })]
+  const fields = resolveEditFields({ weight: '65', reps: '12', duration_minutes: '', distance: '' }, sets[0], false)
+  const next = applyEdit(sets, 'a', fields)
+  assert.equal(next[0].done, false)
+})
+
+test('resolveEditFields cardio: falls back to prior duration/distance when cleared', () => {
+  const cardioPrior = { weight: null, reps: null, duration_minutes: 30, distance: 5 }
+  const result = resolveEditFields({ weight: '', reps: '', duration_minutes: '', distance: '' }, cardioPrior, true)
+  assert.equal(result.duration_minutes, 30)
+  assert.equal(result.distance, 5)
 })
