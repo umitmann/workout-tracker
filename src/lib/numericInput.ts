@@ -23,3 +23,34 @@ export function commitNumericDraft(
   const clamped = Math.min(max, Math.max(min, value))
   return Math.round(clamped * 100) / 100
 }
+
+// ─── Numpad (D2) — pure draft-string transforms for the custom numpad ─────
+// The numpad never touches a number directly; every key press produces a new
+// raw draft string that flows through the same `isDraftableNumericInput` /
+// `commitNumericDraft` pipeline as hardware-keyboard typing (finding L3 —
+// never coerce mid-entry). Digits build the string left-to-right; the
+// fraction keys (.25/.5/.75, decimal/weight mode only) replace whatever
+// fractional part is currently there rather than appending onto it, so
+// "60" + [.5] => "60.5" and "60.25" + [.5] => "60.5" (not "60.25.5").
+
+// Append a single digit (0-9) to the draft. A leading "0" is replaced rather
+// than accumulated ("0" + "6" => "6", not "06").
+export function appendNumpadDigit(draft: string, digit: string): string {
+  if (!/^[0-9]$/.test(digit)) return draft
+  const next = draft === '0' ? digit : draft + digit
+  return isDraftableNumericInput(next) ? next : draft
+}
+
+// Apply a fraction shortcut key: keep the integer part typed so far (default
+// "0" if nothing was typed yet) and set the fractional part to .25/.5/.75,
+// discarding any fractional digits already present.
+export function appendNumpadFraction(draft: string, fraction: '25' | '5' | '75'): string {
+  const intPart = draft.split('.')[0]
+  const whole = intPart === '' || intPart === '-' ? `${intPart}0` : intPart
+  return `${whole}.${fraction}`
+}
+
+// Delete the last character of the draft (backspace key).
+export function deleteNumpadChar(draft: string): string {
+  return draft.slice(0, -1)
+}

@@ -913,7 +913,6 @@ export default function WorkoutLogger({
               value={Number(weight) || 0}
               min={0}
               max={500}
-              step={2.5}
               decimal
               onChange={(v) => setWeight(v > 0 ? String(v) : '')}
             />
@@ -1391,7 +1390,6 @@ export default function WorkoutLogger({
                             value={Number(editWeight) || 0}
                             min={0}
                             max={500}
-                            step={2.5}
                             decimal
                             onChange={(v) => setEditWeight(v > 0 ? String(v) : '')}
                           />
@@ -1816,7 +1814,6 @@ export default function WorkoutLogger({
                 value={Number(guidedSetup.weight) || 0}
                 min={0}
                 max={500}
-                step={2.5}
                 decimal
                 onChange={(v) => setGuidedSetup((g) => (g ? { ...g, weight: v > 0 ? String(v) : '' } : g))}
               />
@@ -1929,7 +1926,7 @@ export default function WorkoutLogger({
                 <div key={r.localId} className="flex items-end gap-3">
                   <span className="text-xs font-bold text-zinc-400 w-8 pb-2">#{i + 1}</span>
                   <Stepper label="Reps" value={r.reps} min={1} max={50} onChange={(v) => updateGuideRow(r.localId, { reps: v })} />
-                  <Stepper label="Weight" sublabel="kg" value={r.weight} min={0} max={500} step={2.5} decimal onChange={(v) => updateGuideRow(r.localId, { weight: v })} />
+                  <Stepper label="Weight" sublabel="kg" value={r.weight} min={0} max={500} decimal onChange={(v) => updateGuideRow(r.localId, { weight: v })} />
                   <button
                     onClick={() => removeGuideRow(r.localId)}
                     disabled={guideSetup.rows.length <= 1}

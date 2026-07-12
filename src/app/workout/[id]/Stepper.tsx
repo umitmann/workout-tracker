@@ -1,7 +1,34 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { isDraftableNumericInput, commitNumericDraft } from '@/lib/numericInput'
+import Numpad from './Numpad'
+
+// Detects a touch-primary device via pointer capability, not user-agent
+// sniffing (D2 decision 3): `(pointer: coarse)` is true on phones/tablets
+// and false on mouse/trackpad devices, including touch-capable laptops used
+// with a mouse. Read once per mount on the client — SSR has no window, so
+// this starts `false` (desktop behaviour) and settles after hydration.
+function matchesCoarsePointer(): boolean {
+  if (typeof window === 'undefined' || !window.matchMedia) return false
+  return window.matchMedia('(pointer: coarse)').matches
+}
+function useIsTouchDevice(): boolean {
+  // Lazy initializer reads the media query synchronously on first client
+  // render (SSR has no window, so it falls back to `false` — desktop
+  // behaviour — until hydration). The effect only subscribes to later
+  // changes (e.g. a touch-capable laptop docking/undocking a mouse); it
+  // never calls setState with the value it just read.
+  const [isTouch, setIsTouch] = useState(matchesCoarsePointer)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mql = window.matchMedia('(pointer: coarse)')
+    const handler = (e: MediaQueryListEvent) => setIsTouch(e.matches)
+    mql.addEventListener('change', handler)
+    return () => mql.removeEventListener('change', handler)
+  }, [])
+  return isTouch
+}
 
 // Vertical ▲/value/▼ stepper for small bounded values (weight, reps, tempo
 // seconds). Press-and-hold repeats; the value is tappable to type as a
@@ -9,12 +36,21 @@ import { isDraftableNumericInput, commitNumericDraft } from '@/lib/numericInput'
 // only committed (clamped, coerced to a number, sent to onChange) on blur or
 // a ▲/▼ bump — never on every keystroke — so a partial decimal like "2." is
 // never snapped to 0 while the user is still typing (finding L3).
+//
+// ▲/▼ always step by 1 (D2 decision 2) — all sub-integer precision comes
+// from the numpad's .25/.5/.75 fraction keys, never the arrows. On touch
+// devices the value is readOnly and tapping it opens the custom Numpad
+// (OS keyboard suppressed); on desktop the field stays natively editable.
+// Manual entry (numpad or hardware keyboard) is authoritative over the
+// arrows: it always overwrites the current value via onChange, and any
+// later bump starts from that committed value (D2 decision 4) — this falls
+// out of `bump()` always reading the just-updated `value` prop rather than
+// tracking its own separate "last arrow value".
 export default function Stepper({
   value,
   onChange,
   min = 0,
   max = 10,
-  step = 1,
   label,
   sublabel,
   decimal = false,
@@ -23,7 +59,6 @@ export default function Stepper({
   onChange: (v: number) => void
   min?: number
   max?: number
-  step?: number
   label: string
   sublabel?: string
   decimal?: boolean
@@ -32,6 +67,8 @@ export default function Stepper({
   const [draft, setDraft] = useState(String(value))
   const [prevValue, setPrevValue] = useState(value)
   const [isEditing, setIsEditing] = useState(false)
+  const [numpadOpen, setNumpadOpen] = useState(false)
+  const isTouch = useIsTouchDevice()
 
   // Stay in sync with external value changes (bumps, parent resets) — but
   // only when the user isn't mid-keystroke in the text field. Adjusting
@@ -49,7 +86,7 @@ export default function Stepper({
     // raw prop would act on a stale value and strand the uncommitted draft.
     const base = isEditing ? commitNumericDraft(draft, { min, max }) : value
     setIsEditing(false)
-    const next = clamp(Math.round((base + dir * step) * 100) / 100)
+    const next = clamp(Math.round((base + dir * 1) * 100) / 100)
     setDraft(String(next))
     onChange(next)
   }
@@ -73,6 +110,14 @@ export default function Stepper({
     const committed = commitNumericDraft(draft, { min, max })
     setDraft(String(committed))
     onChange(committed)
+  }
+  function openNumpad() {
+    setIsEditing(true)
+    setNumpadOpen(true)
+  }
+  function closeNumpad() {
+    setNumpadOpen(false)
+    commitDraft()
   }
 
   const btn =
@@ -101,14 +146,26 @@ export default function Stepper({
       </button>
       <input
         type="text"
-        inputMode={decimal ? 'decimal' : 'numeric'}
+        inputMode={isTouch ? 'none' : decimal ? 'decimal' : 'numeric'}
+        readOnly={isTouch}
         aria-label={label}
+        aria-haspopup={isTouch ? 'dialog' : undefined}
         value={draft}
         onChange={(e) => handleDraftChange(e.target.value)}
         onBlur={commitDraft}
         onKeyDown={(e) => { if (e.key === 'Enter') commitDraft() }}
+        onClick={() => { if (isTouch) openNumpad() }}
         className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-1 py-1.5 text-center text-base font-black tabular-nums outline-none focus:border-orange-400"
       />
+      {numpadOpen && (
+        <Numpad
+          label={label}
+          draft={draft}
+          decimal={decimal}
+          onDraftChange={handleDraftChange}
+          onClose={closeNumpad}
+        />
+      )}
       <button
         type="button"
         aria-label={`Decrease ${label}`}
