@@ -118,6 +118,16 @@ export default function WorkoutLogger({
   const saveQueueRef = useRef(createSaveQueue<LocalSet[]>((sets) => saveWorkoutProgress(workout.id, sets.map(toPayload))))
   const [saveState, setSaveState] = useState<SaveState>(() => saveQueueRef.current.getState(String(workout.id)))
 
+  // D6: the queue auto-retries a failed save internally (bounded, jittered
+  // backoff) — subscribe so the save-state strip renders every transition
+  // (pending → retrying → error/clean), not just the state once enqueue()'s
+  // promise finally settles after the whole retry cycle.
+  useEffect(() => {
+    const key = String(workout.id)
+    setSaveState(saveQueueRef.current.getState(key))
+    return saveQueueRef.current.subscribe(key, setSaveState)
+  }, [workout.id])
+
   // Add-set form
   const [selectedExercise, setSelectedExercise] = useState<SlimExercise | null>(null)
   const [weight, setWeight] = useState('')
@@ -809,22 +819,35 @@ export default function WorkoutLogger({
   // autosave for this workout (ADR-0004 §2), inspect the result, and on
   // failure surface it instead of the redirect the happy path gets — Done
   // must never navigate away while the final save has failed.
+  //
+  // D6: `idle()` alone isn't enough — a save that failed all its auto-
+  // retries is idle-WITH-error, and a local-only edit (markDirty, no persist
+  // call site) is idle-WITH-dirty. Either must block Complete: wait out any
+  // in-flight/retrying save, then refuse unless the latest snapshot has
+  // actually persisted clean. The save-state strip's Retry / next autosave
+  // is what clears dirty/error and re-enables Done.
   function handleComplete() {
     startTransition(async () => {
       await saveQueueRef.current.idle(String(workout.id))
+      const state = saveQueueRef.current.getState(String(workout.id))
+      if (state.dirty || state.error) {
+        setSaveState(state) // surface the notice/strip if it isn't already visible
+        return
+      }
       // Unlike persist(), this bypasses the queue's try/catch — a transport
       // failure REJECTS rather than returning {error}, and an unhandled
       // rejection here would be the silent Done-failure ADR-0004 forbids.
       try {
         const result = await completeWorkout(workout.id, buildPayload())
         if (result?.error) {
-          setSaveState({ dirty: true, pending: false, error: result.error })
+          setSaveState({ dirty: true, pending: false, error: result.error, retrying: false })
         }
       } catch (e) {
         setSaveState({
           dirty: true,
           pending: false,
           error: e instanceof Error ? e.message : String(e),
+          retrying: false,
         })
       }
     })
@@ -1230,7 +1253,13 @@ export default function WorkoutLogger({
           </button>
           <button
             onClick={handleComplete}
-            disabled={isPending}
+            // D6: Done must not fire over unsaved data — block while a save
+            // is in flight/retrying, dirty (unsaved local edit), or has
+            // failed all its retries. handleComplete re-checks this after
+            // idle() too, so this is belt-and-suspenders against a stale
+            // disabled prop, not the sole guard.
+            disabled={isPending || saveState.pending || saveState.dirty || !!saveState.error}
+            title={saveState.error ? 'Fix the save error before completing' : saveState.dirty ? 'Waiting for changes to save' : undefined}
             className="rounded-full bg-orange-500 hover:bg-orange-600 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-white disabled:opacity-40 transition-colors"
           >
             {isPending ? '…' : 'Done'}
@@ -1240,13 +1269,19 @@ export default function WorkoutLogger({
 
       {/* ADR-0004: aria-live "not saved" state. Announces failures immediately
           (assertive) and clears silently on success — never a silent-failure
-          path (finding C2). Retry re-runs the exact same snapshot save. */}
+          path (finding C2). Retry re-runs the exact same snapshot save.
+          D6: a failed autosave auto-retries (bounded, jittered backoff) with
+          no user action; `saveState.error` only becomes truthy once that
+          retry budget is exhausted, which is when this becomes a PERSISTENT
+          notice (not a transient toast) with a manual Retry — the
+          beforeunload guard (:260ish) stays armed the whole time via
+          dirty/pending/error. */}
       <div aria-live="assertive" className="sr-only">
-        {saveState.error ? `Not saved: ${saveState.error}` : ''}
+        {saveState.error ? `Not saved: ${saveState.error}` : saveState.retrying ? 'Retrying save…' : ''}
       </div>
       {saveState.error && (
         <div className="flex items-center justify-between gap-3 px-6 py-2 bg-red-50 dark:bg-red-950/40 border-b border-red-200 dark:border-red-900 text-red-700 dark:text-red-300">
-          <p className="text-xs font-bold">Not saved — {saveState.error}</p>
+          <p className="text-xs font-bold">Couldn&apos;t save yet — {saveState.error}</p>
           <button
             onClick={() => persist(localSets)}
             className="rounded-full border border-red-300 dark:border-red-800 px-3 py-1 text-xs font-bold uppercase tracking-wide hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
@@ -1255,7 +1290,12 @@ export default function WorkoutLogger({
           </button>
         </div>
       )}
-      {!saveState.error && saveState.dirty && (
+      {!saveState.error && saveState.retrying && (
+        <div className="px-6 py-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-900">
+          Retrying save…
+        </div>
+      )}
+      {!saveState.error && !saveState.retrying && saveState.dirty && (
         <div className="px-6 py-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
           Unsaved changes
         </div>
