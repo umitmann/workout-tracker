@@ -38,6 +38,17 @@ export function formatRestRow(restSeconds: number | null | undefined): string | 
   return `Rest ${formatClock(restSeconds)}`
 }
 
+// A running rest timer is sacred (Tile 6 / D5): no implicit action may reset
+// or re-point it. Pure decision helper for `startRestFor` — implicit callers
+// (toggleDone, handleAddSet, completeFromEdit, guided-stop) only get to start
+// a rest when none is currently running; if one is already running for some
+// set, the request is a no-op. The ONE deliberate exception is the explicit
+// "Start rest" button, which always force-restarts (see WorkoutLogger's
+// `forceRestartRestFor`) and does not consult this helper.
+export function canStartRestImplicitly(restForSet: string | null): boolean {
+  return restForSet === null
+}
+
 // Should the rest bar keep `sticky` positioning? Normally it drops out of
 // sticky while any field is focused so the mobile keyboard doesn't shove its
 // multi-row settings layout around (commit 91d70ae). But a running countdown

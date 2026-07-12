@@ -18,7 +18,7 @@ import Stepper from './Stepper'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 import { useWakeLock } from './useWakeLock'
 import { TempoConfig, repDuration, formatTempo, parseTempo } from '@/lib/tempo'
-import { startsRestOnComplete, formatRestRow, shouldStickRestBar } from '@/lib/restTimer'
+import { startsRestOnComplete, formatRestRow, shouldStickRestBar, canStartRestImplicitly } from '@/lib/restTimer'
 import { deriveInitialSets } from '@/lib/deriveInitialSets'
 import { expandTemplate } from '@/lib/expandTemplate'
 import {
@@ -183,9 +183,36 @@ export default function WorkoutLogger({
   // Bumped every time rest (re)starts so the timer always resets from 0 —
   // never continues a previous rest, even for the same set.
   const [restNonce, setRestNonce] = useState(0)
+  // Wall-clock moment the current rest began (Date.now()), tracked alongside
+  // RestTimer's own internal clock so the explicit force-restart path (which
+  // renders outside <RestTimer>) can compute "current elapsed" itself without
+  // reaching into that component's state.
+  const [restStartedAt, setRestStartedAt] = useState<number | null>(null)
+
+  // D5 (sacred rest): a running rest timer is never reset or re-pointed by an
+  // implicit action. This is the ONLY entry point implicit callers (toggleDone,
+  // handleAddSet, completeFromEdit, handleGuidedStop) use — if a rest is
+  // already running for some set, this is a no-op; the running timer and the
+  // set it belongs to are left completely untouched.
   function startRestFor(localId: string) {
+    if (!canStartRestImplicitly(restForSet)) return
     setRestForSet(localId)
     setRestNonce((n) => n + 1)
+    setRestStartedAt(Date.now())
+  }
+
+  // The ONE deliberate restart: the explicit "Start rest" button. Unlike
+  // `startRestFor`, this always proceeds — if a rest is currently running, its
+  // elapsed is logged to the set it was running for first, then a fresh
+  // 0:00 timer starts for `localId`.
+  function forceRestartRestFor(localId: string) {
+    if (restForSet !== null && restStartedAt !== null) {
+      const elapsedSeconds = Math.round((Date.now() - restStartedAt) / 1000)
+      logRestElapsed(restForSet, elapsedSeconds)
+    }
+    setRestForSet(localId)
+    setRestNonce((n) => n + 1)
+    setRestStartedAt(Date.now())
   }
   // exerciseId currently being guided as a whole (full-screen set→rest→set…)
   const [guidingExerciseId, setGuidingExerciseId] = useState<number | null>(null)
@@ -635,13 +662,20 @@ export default function WorkoutLogger({
 
   // ── Rest timer ─────────────────────────────────────────────────────────────
 
+  // Shared by the normal Done path and the explicit force-restart path: logs
+  // elapsed rest seconds onto the set the (now-ending) timer was running for.
+  function logRestElapsed(targetId: string, elapsedSeconds: number) {
+    const nextSets = recordRestForSet(localSets, targetId, elapsedSeconds)
+    setLocalSets(nextSets)
+    persist(nextSets)
+  }
+
   function finishRest(elapsedSeconds: number) {
     const target = restForSet
     setRestForSet(null)
+    setRestStartedAt(null)
     if (!target) return // rest with no set to attach to
-    const nextSets = recordRestForSet(localSets, target, elapsedSeconds)
-    setLocalSets(nextSets)
-    persist(nextSets)
+    logRestElapsed(target, elapsedSeconds)
   }
 
   function startEditSet(s: LocalSet) {
@@ -1212,13 +1246,27 @@ export default function WorkoutLogger({
             91d70ae) for when it drops out of sticky vs. stays pinned. */}
         <div className={`${shouldStickRestBar(fieldFocused, restForSet !== null) ? 'sticky top-0' : ''} z-20 -mx-6 px-6 py-2 bg-zinc-50/95 dark:bg-black/95 backdrop-blur border-b border-zinc-200/60 dark:border-zinc-800/60`}>
           {restForSet !== null ? (
-            <RestTimer
-              key={`${restForSet}:${restNonce}`}
-              initialMode={restMode}
-              initialTarget={restTarget}
-              onDone={finishRest}
-              onSettingsChange={(m, t) => { setRestMode(m); setRestTarget(t) }}
-            />
+            <div className="flex flex-col gap-1.5">
+              <RestTimer
+                key={`${restForSet}:${restNonce}`}
+                initialMode={restMode}
+                initialTarget={restTarget}
+                onDone={finishRest}
+                onSettingsChange={(m, t) => { setRestMode(m); setRestTarget(t) }}
+              />
+              {/* The ONE deliberate restart, even while a rest is already running
+                  (D5/Tile 6): logs the current elapsed to its set, then starts a
+                  fresh 0:00 timer. Every other completion path is idle-gated and
+                  leaves a running rest untouched. */}
+              {localSets.length > 0 && (
+                <button
+                  onClick={() => forceRestartRestFor(localSets[localSets.length - 1].localId)}
+                  className="self-end rounded-full bg-orange-500 hover:bg-orange-600 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-white transition-colors"
+                >
+                  Start rest
+                </button>
+              )}
+            </div>
           ) : (
             <div className="flex items-center gap-2 text-xs flex-wrap">
               <span className="font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Rest</span>
