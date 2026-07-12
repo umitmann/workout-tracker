@@ -18,7 +18,7 @@ import Stepper from './Stepper'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 import { useWakeLock } from './useWakeLock'
 import { TempoConfig, repDuration, formatTempo, parseTempo } from '@/lib/tempo'
-import { startsRestOnComplete, formatRestRow, shouldStickRestBar, canStartRestImplicitly } from '@/lib/restTimer'
+import { startsRestOnComplete, formatRestRow, shouldStickRestBar, canStartRestImplicitly, resolveRestTarget } from '@/lib/restTimer'
 import { deriveInitialSets } from '@/lib/deriveInitialSets'
 import { expandTemplate } from '@/lib/expandTemplate'
 import {
@@ -153,6 +153,17 @@ export default function WorkoutLogger({
     for (const ex of initialTemplate?.routine_exercises ?? []) {
       const t = ex.tempo ? parseTempo(ex.tempo) : null
       if (t) map[ex.exercise_id] = t
+    }
+    return map
+  }, [initialTemplate])
+
+  // PT-prescribed rest target per exercise, from the template this workout
+  // came from (Tile 6 / D4). Resolved via `resolveRestTarget` against the
+  // global `restTarget` stepper — no per-exercise learned memory.
+  const ptRest = useMemo(() => {
+    const map: Record<number, number> = {}
+    for (const ex of initialTemplate?.routine_exercises ?? []) {
+      if (ex.rest_seconds != null) map[ex.exercise_id] = ex.rest_seconds
     }
     return map
   }, [initialTemplate])
@@ -1166,6 +1177,16 @@ export default function WorkoutLogger({
     )
   }
 
+  // Resolved rest target for the sticky RestTimer (Tile 6 / D4): the set
+  // `restForSet` belongs to determines which exercise's prescription (if any)
+  // applies; falls back to the global stepper when there's no set, exercise,
+  // or prescription.
+  const restForSetExerciseId = localSets.find((s) => s.localId === restForSet)?.exerciseId
+  const activeRestTarget = resolveRestTarget(
+    restForSetExerciseId != null ? ptRest[restForSetExerciseId] : undefined,
+    restTarget,
+  )
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
       {/* Header */}
@@ -1250,7 +1271,7 @@ export default function WorkoutLogger({
               <RestTimer
                 key={`${restForSet}:${restNonce}`}
                 initialMode={restMode}
-                initialTarget={restTarget}
+                initialTarget={activeRestTarget}
                 onDone={finishRest}
                 onSettingsChange={(m, t) => { setRestMode(m); setRestTarget(t) }}
               />
@@ -2016,7 +2037,7 @@ export default function WorkoutLogger({
           exerciseName={grouped[guidingExerciseId]?.name ?? ''}
           tempo={tempo}
           sets={guideSetsFor(guidingExerciseId)}
-          restSeconds={restTarget}
+          restSeconds={resolveRestTarget(ptRest[guidingExerciseId], restTarget)}
           onDone={handleGuideDone}
         />
       )}

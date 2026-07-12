@@ -32,6 +32,7 @@ export type TemplateExercisePayload = {
   distance: number | null
   set_details: SetDetail[] | null
   tempo: string | null
+  rest_seconds: number | null
   order: number
 }
 
@@ -404,12 +405,14 @@ export async function saveTemplateExercisesCore(
       distance: e.distance,
       set_details: e.set_details,
       tempo: e.tempo,
+      rest_seconds: e.rest_seconds,
       order: e.order,
     }))
-    // Retry, dropping optional columns that haven't been migrated yet.
+    // Retry, dropping optional columns that haven't been migrated yet (one at
+    // a time, so a fully-unmigrated DB still degrades to the base columns).
     let attempt = rows
     let lastError: string | null = null
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 4; i++) {
       const { error } = await supabase.from('routine_exercises').insert(attempt)
       if (!error) { lastError = null; break }
       lastError = error.message
@@ -417,6 +420,8 @@ export async function saveTemplateExercisesCore(
         attempt = attempt.map(({ tempo, ...rest }) => rest)
       } else if (isMissingColumnError(error, 'set_details')) {
         attempt = attempt.map(({ set_details, ...rest }) => rest)
+      } else if (isMissingColumnError(error, 'rest_seconds')) {
+        attempt = attempt.map(({ rest_seconds, ...rest }) => rest)
       } else {
         break
       }

@@ -507,6 +507,26 @@ notify pgrst, 'reload schema';
 
 ---
 
+## Phase 9 — PT-prescribed rest target per template exercise
+
+### `routine_exercises.rest_seconds` (migration)
+
+Optional rest target (seconds) the PT prescribes for an exercise on the plan.
+Null = no prescription. Resolve order (Tile 6): a per-exercise prescription on
+`routine_exercises.rest_seconds` wins; otherwise the athlete's single global
+rest-target value (localStorage `wt.restTarget`) applies to every exercise —
+there is NO per-exercise learned memory. Distinct from `sets.rest_seconds`
+(Phase 4), which is the timer's *logged elapsed* rest for a completed set, not
+a prescribed target. Named to parallel `tempo` (Phase 7); reads/writes degrade
+gracefully if missing, same pattern as `tempo`/`set_details`.
+
+```sql
+alter table routine_exercises add column rest_seconds integer;
+notify pgrst, 'reload schema';
+```
+
+---
+
 ## Future — Admin & Trainer Tables
 
 Not needed now. Documented in [../examples/admin-groups.md](../examples/admin-groups.md) for reference.

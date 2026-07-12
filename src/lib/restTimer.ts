@@ -49,6 +49,17 @@ export function canStartRestImplicitly(restForSet: string | null): boolean {
   return restForSet === null
 }
 
+// Rest target resolve order (Tile 6 / D4): a PT prescription on the plan for
+// this exercise wins; otherwise the athlete's single global stepper value
+// applies. There is deliberately NO per-exercise learned memory — this
+// mirrors how `tempo`/`ptTempo` resolves. `prescribed` is `routine_exercises
+// .rest_seconds` for the exercise in question (or undefined/null if there is
+// none / the column isn't migrated yet), never trusted over 0 vs "absent":
+// only null/undefined falls back, a prescribed 0 is honored as-is.
+export function resolveRestTarget(prescribed: number | null | undefined, globalTarget: number): number {
+  return prescribed ?? globalTarget
+}
+
 // Should the rest bar keep `sticky` positioning? Normally it drops out of
 // sticky while any field is focused so the mobile keyboard doesn't shove its
 // multi-row settings layout around (commit 91d70ae). But a running countdown

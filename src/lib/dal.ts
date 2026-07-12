@@ -133,16 +133,28 @@ export async function getExerciseDetails(id: number) {
   return data
 }
 
-const TEMPLATE_COLS = (opts: { tempo: boolean; setDetails: boolean }) =>
-  `id, name, created_at, routine_exercises(id, exercise_id, sets, reps, weight, duration_minutes, distance,${opts.setDetails ? ' set_details,' : ''}${opts.tempo ? ' tempo,' : ''} order, exercises(id, name, category))`
+const TEMPLATE_COLS = (opts: { tempo: boolean; setDetails: boolean; restSeconds: boolean }) =>
+  `id, name, created_at, routine_exercises(id, exercise_id, sets, reps, weight, duration_minutes, distance,${opts.setDetails ? ' set_details,' : ''}${opts.tempo ? ' tempo,' : ''}${opts.restSeconds ? ' rest_seconds,' : ''} order, exercises(id, name, category))`
 
 // Column combos to try, most-complete first, so unmigrated columns degrade.
 const TEMPLATE_COL_VARIANTS = [
-  { tempo: true, setDetails: true },
-  { tempo: false, setDetails: true },
-  { tempo: true, setDetails: false },
-  { tempo: false, setDetails: false },
+  { tempo: true, setDetails: true, restSeconds: true },
+  { tempo: false, setDetails: true, restSeconds: true },
+  { tempo: true, setDetails: false, restSeconds: true },
+  { tempo: false, setDetails: false, restSeconds: true },
+  { tempo: true, setDetails: true, restSeconds: false },
+  { tempo: false, setDetails: true, restSeconds: false },
+  { tempo: true, setDetails: false, restSeconds: false },
+  { tempo: false, setDetails: false, restSeconds: false },
 ]
+
+function isMissingTemplateColumnError(error: unknown): boolean {
+  return (
+    isMissingColumnError(error, 'tempo') ||
+    isMissingColumnError(error, 'set_details') ||
+    isMissingColumnError(error, 'rest_seconds')
+  )
+}
 
 export async function getUserTemplates() {
   const { supabase, user } = await getAuthContext()
@@ -155,7 +167,7 @@ export async function getUserTemplates() {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
     if (!result.error) return (result.data ?? []) as unknown as RoutineWithExercises[]
-    if (!isMissingColumnError(result.error, 'tempo') && !isMissingColumnError(result.error, 'set_details')) break
+    if (!isMissingTemplateColumnError(result.error)) break
   }
   return []
 }
@@ -172,7 +184,7 @@ export async function getTemplate(routineId: string | number) {
       .eq('user_id', user.id)
       .single()
     if (!result.error) return result.data as unknown as RoutineWithExercises | null
-    if (!isMissingColumnError(result.error, 'tempo') && !isMissingColumnError(result.error, 'set_details')) break
+    if (!isMissingTemplateColumnError(result.error)) break
   }
   return null
 }
@@ -546,6 +558,7 @@ export type RoutineExerciseRow = {
   distance: number | null
   set_details: SetDetail[] | null
   tempo: string | null // PT-prescribed DRUH tempo, "down-rest-up-hold"
+  rest_seconds: number | null // PT-prescribed rest target (seconds); null = use the global stepper
   order: number
   exercises: { id: number; name: string; category: string | null }
 }

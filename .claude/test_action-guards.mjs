@@ -17,7 +17,7 @@ const {
 
 const SOME_SETS = [{ exercise_id: 1, weight: 100, reps: 5 }]
 const SOME_EXERCISES = [
-  { exerciseId: 1, sets: 3, reps: 8, weight: 50, duration_minutes: null, distance: null, set_details: null, tempo: null, order: 0 },
+  { exerciseId: 1, sets: 3, reps: 8, weight: 50, duration_minutes: null, distance: null, set_details: null, tempo: null, rest_seconds: null, order: 0 },
 ]
 
 // ─── saveWorkoutProgress ────────────────────────────────────────────────────

@@ -27,6 +27,7 @@ type TemplateExercise = {
   distance: number | null
   setDetails: SetDetail[] | null // per-set targets (dropset/pyramid); null = uniform
   tempo: TempoConfig | null // PT-prescribed DRUH tempo; null = none
+  restSeconds: number | null // PT-prescribed rest target (seconds); null = use the athlete's global stepper
 }
 
 type ExerciseDetails = {
@@ -78,6 +79,7 @@ export default function TemplateEditor({
           distance: e.distance ?? null,
           setDetails: e.set_details ?? null,
           tempo: e.tempo ? parseTempo(e.tempo) : null,
+          restSeconds: e.rest_seconds ?? null,
         })) ?? [],
   )
 
@@ -109,6 +111,7 @@ export default function TemplateEditor({
         distance: null,
         setDetails: null,
         tempo: null,
+        restSeconds: null,
       },
     ])
     setShowPicker(false)
@@ -127,6 +130,21 @@ export default function TemplateEditor({
   function updateTempo(localId: string, phase: keyof TempoConfig, v: number) {
     setItems((prev) =>
       prev.map((i) => (i.localId === localId && i.tempo ? { ...i, tempo: { ...i.tempo, [phase]: v } } : i)),
+    )
+  }
+
+  // PT-prescribed rest target per exercise (Tile 6 / D4). Toggling on seeds a
+  // sensible default; toggling off clears it back to null so the athlete's
+  // global stepper applies again.
+  function toggleRestTarget(localId: string) {
+    setItems((prev) =>
+      prev.map((i) => (i.localId === localId ? { ...i, restSeconds: i.restSeconds != null ? null : 90 } : i)),
+    )
+  }
+
+  function updateRestTarget(localId: string, v: number) {
+    setItems((prev) =>
+      prev.map((i) => (i.localId === localId && i.restSeconds != null ? { ...i, restSeconds: Math.max(0, v) } : i)),
     )
   }
 
@@ -255,6 +273,7 @@ export default function TemplateEditor({
         distance: null,
         setDetails: null,
         tempo: null,
+        restSeconds: null,
       })),
     )
     setShowPasteConfirm(false)
@@ -272,6 +291,7 @@ export default function TemplateEditor({
       distance: item.distance,
       set_details: item.setDetails,
       tempo: item.tempo ? formatTempo(item.tempo) : null,
+      rest_seconds: item.restSeconds,
       order: i,
     }))
   }
@@ -601,6 +621,36 @@ export default function TemplateEditor({
                       <Stepper label="Up" sublabel="lift" value={item.tempo.up} min={0} max={10} onChange={(v) => updateTempo(item.localId, 'up', v)} />
                       <Stepper label="Hold" sublabel="top" value={item.tempo.hold} min={0} max={10} onChange={(v) => updateTempo(item.localId, 'hold', v)} />
                     </div>
+                  )}
+                </div>
+
+                {/* PT-prescribed rest target (Tile 6 / D4): wins over the
+                    athlete's global stepper for this exercise only; clearing
+                    it falls back to the global value. */}
+                <div className="flex flex-col gap-2 border-t border-zinc-100 dark:border-zinc-800 pt-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">
+                      Rest target{item.restSeconds != null ? ` · ${item.restSeconds}s` : ''}
+                    </span>
+                    <button
+                      onClick={() => toggleRestTarget(item.localId)}
+                      className={`text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full border transition-colors ${
+                        item.restSeconds != null
+                          ? 'border-orange-400 text-orange-500 bg-orange-50 dark:bg-orange-950/20'
+                          : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-orange-400 hover:text-orange-500'
+                      }`}
+                    >
+                      {item.restSeconds != null ? 'Remove rest target' : 'Set rest target'}
+                    </button>
+                  </div>
+                  {item.restSeconds != null && (
+                    <Stepper
+                      label="Rest (s)"
+                      value={item.restSeconds}
+                      min={0}
+                      max={600}
+                      onChange={(v) => updateRestTarget(item.localId, v)}
+                    />
                   )}
                 </div>
               </div>
