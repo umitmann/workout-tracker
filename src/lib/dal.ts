@@ -289,54 +289,49 @@ export async function getLastExercisePerformance(exerciseId: number): Promise<La
   const { supabase, user } = await getAuthContext()
   if (!user) return null
 
-  // Get recent completed workouts (desc) for this user
-  const { data: completedWorkouts } = await supabase
-    .from('workouts')
-    .select('id, date')
-    .eq('user_id', user.id)
-    .eq('status', 'completed')
-    .order('date', { ascending: false })
-    .limit(50)
+  // Find the most recent completed workout that actually contains this
+  // exercise, keyed by exercise_id via sets -> workouts — NOT a fixed window
+  // of the 50 most-recent workouts (an exercise rotated out for 50+ sessions
+  // must still resolve to its real last session, same as all-time Best,
+  // which has no such cap). `workouts!inner(...)` makes the join filtering
+  // (user_id/status) exclude non-matching sets rows rather than just nulling
+  // the embedded relation.
+  const { data: latest } = await supabase
+    .from('sets')
+    .select('workout_id, workouts!inner(date, status, user_id)')
+    .eq('exercise_id', exerciseId)
+    .eq('workouts.user_id', user.id)
+    .eq('workouts.status', 'completed')
+    .order('date', { foreignTable: 'workouts', ascending: false })
+    .limit(1)
 
-  if (!completedWorkouts?.length) return null
+  const latestRow = (latest as any)?.[0]
+  if (!latestRow) return null
 
-  const workoutIds = completedWorkouts.map((w: any) => w.id)
+  const workoutId = latestRow.workout_id as number
+  const date = latestRow.workouts.date as string
 
   // duration_minutes/distance are selected alongside weight/reps (WP-11,
   // checklist §19.8) so LastPerfModal can render cardio columns instead of
   // hardcoding weight/reps and showing em-dashes for every cardio set.
   const { data: sets } = await supabase
     .from('sets')
-    .select('workout_id, weight, reps, duration_minutes, distance')
+    .select('weight, reps, duration_minutes, distance')
     .eq('exercise_id', exerciseId)
-    .in('workout_id', workoutIds)
+    .eq('workout_id', workoutId)
     .order('id', { ascending: true })
 
   if (!sets?.length) return null
 
-  // Group sets by workout, preserving insertion order
-  const setsByWorkout = new Map<number, LastExercisePerformance['sets']>()
-  for (const s of sets as any[]) {
-    if (!setsByWorkout.has(s.workout_id)) setsByWorkout.set(s.workout_id, [])
-    setsByWorkout.get(s.workout_id)!.push({
+  return {
+    date,
+    sets: (sets as any[]).map((s) => ({
       weight: s.weight,
       reps: s.reps,
       duration_minutes: s.duration_minutes ?? null,
       distance: s.distance ?? null,
-    })
+    })),
   }
-
-  // Return all sets from the most recent completed workout that has this exercise
-  for (const w of completedWorkouts) {
-    if (setsByWorkout.has(w.id)) {
-      return {
-        date: w.date,
-        sets: setsByWorkout.get(w.id)!,
-      }
-    }
-  }
-
-  return null
 }
 
 // `today` is the caller's local calendar date (YYYY-MM-DD, from
