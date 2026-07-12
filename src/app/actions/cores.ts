@@ -15,6 +15,7 @@ export type SetData = {
   duration_minutes?: number | null
   distance?: number | null
   rest_seconds?: number | null
+  difficulty?: number | null
 }
 
 export type SetPayload = SetData & {
@@ -47,6 +48,15 @@ function cleanNonNegative(value: number | null | undefined): number | null {
   return Number.isFinite(value) && value >= 0 ? value : null
 }
 
+// Difficulty is a 1-5 subjective-effort rating (Tile 10c) — unlike the other
+// numeric fields, out-of-range or non-integer values are coerced to null
+// (unset) rather than clamped, since there is no legitimate "closest valid
+// rating" to snap a bad value to.
+function cleanDifficulty(value: number | null | undefined): number | null {
+  if (value == null) return null
+  return Number.isInteger(value) && value >= 1 && value <= 5 ? value : null
+}
+
 // Sanitizes the numeric fields of a set payload in place of validation
 // rejection: every field is independently coerced to null when non-finite
 // or negative, so one bad field never discards an otherwise-valid set.
@@ -60,6 +70,7 @@ export function validateSet<T extends SetData>(set: T): T {
     duration_minutes: cleanNonNegative(set.duration_minutes),
     distance: cleanNonNegative(set.distance),
     rest_seconds: cleanNonNegative(set.rest_seconds),
+    difficulty: cleanDifficulty(set.difficulty),
   }
 }
 
@@ -74,6 +85,7 @@ function toSetRow(raw: SetPayload, workoutId: number, userId: string) {
     duration_minutes: s.duration_minutes ?? null,
     distance: s.distance ?? null,
     rest_seconds: s.rest_seconds ?? null,
+    difficulty: s.difficulty ?? null,
   }
 }
 
@@ -87,15 +99,24 @@ async function insertSets(
   rows: ReturnType<typeof toSetRow>[],
 ): Promise<{ ids: number[]; error?: string }> {
   if (rows.length === 0) return { ids: [] }
-  const { data, error } = await supabase.from('sets').insert(rows).select('id')
-  if (!error) return { ids: (data ?? []).map((r: { id: number }) => r.id) }
-  if (isMissingColumnError(error, 'rest_seconds')) {
-    const stripped = rows.map(({ rest_seconds, ...rest }) => rest)
-    const retry = await supabase.from('sets').insert(stripped).select('id')
-    if (retry.error) return { ids: [], error: retry.error.message }
-    return { ids: (retry.data ?? []).map((r: { id: number }) => r.id) }
+  // rest_seconds and difficulty are independent optional columns that may
+  // each be migrated or not — strip whichever one the error names and retry,
+  // up to once per column, so a DB missing both still degrades to a save.
+  let attempt: Record<string, unknown>[] = rows
+  for (let i = 0; i < 3; i++) {
+    const { data, error } = await supabase.from('sets').insert(attempt).select('id')
+    if (!error) return { ids: (data ?? []).map((r: { id: number }) => r.id) }
+    if (isMissingColumnError(error, 'rest_seconds')) {
+      attempt = attempt.map(({ rest_seconds, ...rest }) => rest)
+      continue
+    }
+    if (isMissingColumnError(error, 'difficulty')) {
+      attempt = attempt.map(({ difficulty, ...rest }) => rest)
+      continue
+    }
+    return { ids: [], error: error.message }
   }
-  return { ids: [], error: error.message }
+  return { ids: [], error: 'insert failed after column-degrade retries' }
 }
 
 // ADR-0004: replaces a workout's entire set snapshot atomically. Tries the

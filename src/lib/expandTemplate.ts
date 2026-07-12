@@ -29,6 +29,7 @@ export function expandTemplate(routineExercises: RoutineExerciseRow[]): LocalSet
       duration_minutes: ex.duration_minutes ?? null,
       distance: ex.distance ?? null,
       rest_seconds: null,
+      difficulty: null,
       done: false,
     }))
   })

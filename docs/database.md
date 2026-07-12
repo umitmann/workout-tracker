@@ -472,7 +472,7 @@ begin
 
   delete from sets where workout_id = p_workout_id and user_id = p_user_id;
 
-  insert into sets (workout_id, user_id, exercise_id, weight, reps, duration_minutes, distance, rest_seconds)
+  insert into sets (workout_id, user_id, exercise_id, weight, reps, duration_minutes, distance, rest_seconds, difficulty)
   select
     p_workout_id,
     p_user_id,
@@ -481,7 +481,8 @@ begin
     (row->>'reps')::integer,
     (row->>'duration_minutes')::numeric,
     (row->>'distance')::numeric,
-    (row->>'rest_seconds')::numeric
+    (row->>'rest_seconds')::numeric,
+    (row->>'difficulty')::smallint
   from jsonb_array_elements(p_sets) as row;
 end;
 $$;
@@ -522,6 +523,24 @@ gracefully if missing, same pattern as `tempo`/`set_details`.
 
 ```sql
 alter table routine_exercises add column rest_seconds integer;
+notify pgrst, 'reload schema';
+```
+
+---
+
+## Phase 10 — Per-set difficulty rating
+
+### `sets.difficulty` (migration)
+
+Optional 1-5 subjective-effort rating (1 = easy … 5 = maximal) the athlete can
+tap onto any non-cardio set, any time — never required to add/complete a set
+or complete the workout. Nullable — old rows and sets logged without a rating
+stay `null`. Same missing-column graceful-degrade as `rest_seconds` (Phase 4):
+reads fall back, writes retry without it, so this can be added at any time.
+Storage is a plain smallint; the 1-5 label direction is a UI decision only.
+
+```sql
+alter table sets add column difficulty smallint;   -- 1-5 subjective effort, nullable
 notify pgrst, 'reload schema';
 ```
 

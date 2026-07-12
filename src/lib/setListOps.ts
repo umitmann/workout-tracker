@@ -12,11 +12,14 @@ export type LocalSet = {
   duration_minutes: number | null
   distance: number | null
   rest_seconds: number | null
+  // Tile 10c: 1-5 subjective-effort rating, non-cardio sets only. Nullable/
+  // optional everywhere — never required to add/complete a set or the workout.
+  difficulty: number | null
   done: boolean
 }
 
 export type SetEdit = Partial<
-  Pick<LocalSet, 'weight' | 'reps' | 'duration_minutes' | 'distance' | 'done'>
+  Pick<LocalSet, 'weight' | 'reps' | 'duration_minutes' | 'distance' | 'difficulty' | 'done'>
 >
 
 // §4.9/§4.10: exercises stay in insertion order — appending is enough.
@@ -66,6 +69,17 @@ export function recordRestForSet(sets: LocalSet[], localId: string, elapsedSecon
   return sets.map((s) => (s.localId === localId ? { ...s, rest_seconds: elapsedSeconds } : s))
 }
 
+// Tile 10c: sets (or clears, on re-tap of the already-selected value) the
+// difficulty chip for one set. Always optional — a null/undefined value (or
+// tapping the currently-set value again) blanks the rating rather than
+// requiring one, and never touches `done` — tappable any time, before or
+// after a set is completed.
+export function setDifficulty(sets: LocalSet[], localId: string, value: number | null): LocalSet[] {
+  return sets.map((s) =>
+    s.localId === localId ? { ...s, difficulty: s.difficulty === value ? null : value } : s,
+  )
+}
+
 // ─── Tile 9: auto-commit typed-but-uncommitted values ──────────────────────
 // The field note this kills: "if I don't hit complete, the value is removed
 // when tapping elsewhere." Both the add-set form and the inline set editor
@@ -100,6 +114,7 @@ export function commitPending(
     duration_minutes: isCardio && fields.duration_minutes ? Number(fields.duration_minutes) : null,
     distance: isCardio && fields.distance ? Number(fields.distance) : null,
     rest_seconds: null,
+    difficulty: null,
     done: false,
   }
 }

@@ -57,7 +57,7 @@ test('validateSet: null weight/reps stay null (legitimate, §4.7/§4.8) — not 
 
 test('validateSet: valid positive payload passes through unchanged', () => {
   const out = validateSet({ exercise_id: 1, weight: 82.5, reps: 8, duration_minutes: 12, distance: 3.2, rest_seconds: 90 })
-  assert.deepEqual(out, { exercise_id: 1, weight: 82.5, reps: 8, duration_minutes: 12, distance: 3.2, rest_seconds: 90 })
+  assert.deepEqual(out, { exercise_id: 1, weight: 82.5, reps: 8, duration_minutes: 12, distance: 3.2, rest_seconds: 90, difficulty: null })
 })
 
 test('validateSet: weight of exactly 0 is kept (bodyweight exercises)', () => {

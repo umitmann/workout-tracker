@@ -31,6 +31,7 @@ import {
   requestSetDelete,
   commitPending,
   resolveEditFields,
+  setDifficulty,
 } from '@/lib/setListOps'
 import IconHitTarget from './IconHitTarget'
 import { localDateStr } from '@/lib/localDate'
@@ -62,6 +63,7 @@ type Workout = {
     duration_minutes: number | null
     distance: number | null
     rest_seconds?: number | null
+    difficulty?: number | null
     exercises: { name: string; category: string | null } | null
   }[]
 }
@@ -83,6 +85,48 @@ function writeStored(key: string, value: unknown) {
   } catch {
     /* ignore quota/availability */
   }
+}
+
+// Tile 10c: always-visible 1-5 difficulty chip for a non-cardio set row —
+// blank until tapped, editable after the fact, never required. `onSelect`
+// omitted renders a read-only variant (completed view): the numbers still
+// show which one (if any) was picked, but nothing is tappable.
+function DifficultyChip({
+  value,
+  onSelect,
+}: {
+  value: number | null
+  onSelect?: (n: number) => void
+}) {
+  const readOnly = !onSelect
+  if (readOnly && value == null) return null
+  return (
+    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+      {!readOnly && (
+        <span className="text-[0.65rem] font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 mr-0.5">
+          Difficulty
+        </span>
+      )}
+      {[1, 2, 3, 4, 5]
+        .filter((n) => !readOnly || n === value)
+        .map((n) => (
+          <button
+            key={n}
+            type="button"
+            disabled={readOnly}
+            onClick={() => onSelect?.(n)}
+            title={`Difficulty ${n}${readOnly ? '' : ' of 5'}`}
+            className={`w-5 h-5 rounded-full border text-[0.65rem] font-bold flex items-center justify-center leading-none transition-colors ${
+              value === n
+                ? 'bg-orange-500 border-orange-500 text-white'
+                : 'border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-600 hover:border-orange-400 hover:text-orange-500'
+            } ${readOnly ? 'cursor-default' : ''}`}
+          >
+            {n}
+          </button>
+        ))}
+    </div>
+  )
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -429,6 +473,7 @@ export default function WorkoutLogger({
       duration_minutes: isCardio && duration ? Number(duration) : null,
       distance: isCardio && distance ? Number(distance) : null,
       rest_seconds: null,
+      difficulty: null,
       done: true,
     }
     const nextSets = addSetOp(localSets, newSet)
@@ -499,6 +544,15 @@ export default function WorkoutLogger({
     setSavedOnce(true)
     persist(nextSets)
     if (becameDone && startsRestOnComplete(category)) startRestFor(localId)
+  }
+
+  // Tile 10c: tapping a difficulty chip persists immediately (same save path
+  // as ✓/Add — a plain value change), independent of ✓/Complete/Done. Tapping
+  // the already-selected value clears it (setDifficulty toggles to null).
+  function handleSetDifficulty(localId: string, n: number) {
+    const nextSets = setDifficulty(localSets, localId, n)
+    setLocalSets(nextSets)
+    persist(nextSets)
   }
 
   // ── Guided set (DRUH) ──────────────────────────────────────────────────────
@@ -610,6 +664,7 @@ export default function WorkoutLogger({
       duration_minutes: null,
       distance: null,
       rest_seconds: null,
+      difficulty: null,
       done: true,
     }
     const nextSets = [...localSets, newSet]
@@ -686,6 +741,7 @@ export default function WorkoutLogger({
         duration_minutes: null,
         distance: null,
         rest_seconds: null,
+        difficulty: null,
         done: false,
       }
     })
@@ -845,6 +901,7 @@ export default function WorkoutLogger({
       duration_minutes: s.duration_minutes,
       distance: s.distance,
       rest_seconds: s.rest_seconds,
+      difficulty: s.difficulty,
     }
   }
 
@@ -926,6 +983,7 @@ export default function WorkoutLogger({
         duration_minutes: null,
         distance: null,
         rest_seconds: null,
+        difficulty: null,
         done: false,
       })),
     )
@@ -1224,6 +1282,11 @@ export default function WorkoutLogger({
                         </>
                       )}
                     </div>
+                    {s.exerciseCategory !== 'cardio' && (
+                      <div className="mt-1.5 pl-[2rem]">
+                        <DifficultyChip value={s.difficulty} />
+                      </div>
+                    )}
                     {formatRestRow(s.rest_seconds) && (
                       <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-1.5 pl-[2rem]">{formatRestRow(s.rest_seconds)}</p>
                     )}
@@ -1520,13 +1583,14 @@ export default function WorkoutLogger({
                 editingId === s.localId ? (
                   <div
                     key={s.localId}
-                    className="flex items-center gap-3 rounded-xl bg-white dark:bg-zinc-900 border-2 border-orange-400 px-4 py-3"
+                    className="flex flex-col gap-2 rounded-xl bg-white dark:bg-zinc-900 border-2 border-orange-400 px-4 py-3"
                     onBlur={(e) => {
                       if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                         saveEditSet(s.localId)
                       }
                     }}
                   >
+                  <div className="flex items-center gap-3">
                     <span className="text-xs font-bold text-orange-400 w-8 shrink-0">#{i + 1}</span>
                     <div className="flex-1 grid grid-cols-2 gap-2">
                       {s.exerciseCategory === 'cardio' ? (
@@ -1593,6 +1657,12 @@ export default function WorkoutLogger({
                       ✓ Complete
                     </button>
                     <button onClick={() => setEditingId(null)} className="text-zinc-300 dark:text-zinc-700 hover:text-red-500 transition-colors text-sm shrink-0">✕</button>
+                  </div>
+                  {s.exerciseCategory !== 'cardio' && (
+                    <div className="pl-11">
+                      <DifficultyChip value={s.difficulty} onSelect={(n) => handleSetDifficulty(s.localId, n)} />
+                    </div>
+                  )}
                   </div>
                 ) : (
                   <div key={s.localId} className="flex flex-col gap-1.5">
@@ -1665,6 +1735,11 @@ export default function WorkoutLogger({
                         </IconHitTarget>
                       </div>
                     </div>
+                    {s.exerciseCategory !== 'cardio' && (
+                      <div className="pl-8">
+                        <DifficultyChip value={s.difficulty} onSelect={(n) => handleSetDifficulty(s.localId, n)} />
+                      </div>
+                    )}
                     {formatRestRow(s.rest_seconds) && (
                       <p className="text-xs text-zinc-400 dark:text-zinc-600 pl-8">{formatRestRow(s.rest_seconds)}</p>
                     )}

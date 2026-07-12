@@ -9,12 +9,18 @@ import { localDateStr, dateNDaysBefore } from './localDate'
 // True only when a query failed because a column does not exist (e.g. a not-yet
 // migrated rest_seconds). Postgres undefined_column = 42703; PostgREST surfaces
 // it via code or a "does not exist" message mentioning the column.
+// A real Postgres/PostgREST "undefined_column" error always carries a message
+// naming the specific column — checked first so that when two independent
+// optional columns (e.g. rest_seconds and difficulty) can each be missing,
+// callers can tell which one actually failed and strip only that one. The
+// bare code-42703 fallback below only fires when no message is present at
+// all (defensive — keeps working against a minimal/synthetic error shape).
 export function isMissingColumnError(error: unknown, column: string): boolean {
   if (!error || typeof error !== 'object') return false
   const e = error as { code?: string; message?: string }
-  if (e.code === '42703') return true
   const msg = (e.message ?? '').toLowerCase()
-  return msg.includes(column.toLowerCase()) && msg.includes('does not exist')
+  if (msg) return msg.includes(column.toLowerCase()) && msg.includes('does not exist')
+  return e.code === '42703'
 }
 
 // True only when an RPC call failed because the function does not exist yet
@@ -58,6 +64,23 @@ export async function getRecentWorkouts(limit = 5) {
   return data ?? []
 }
 
+// Column combos to try, most-complete first, so either optional column
+// (independently) not-yet-migrated still degrades to a working select —
+// same shape as TEMPLATE_COL_VARIANTS below.
+const SET_COLS = (opts: { restSeconds: boolean; difficulty: boolean }) =>
+  `id, exercise_id, weight, reps, duration_minutes, distance,${opts.restSeconds ? ' rest_seconds,' : ''}${opts.difficulty ? ' difficulty,' : ''} exercises(name, category)`
+
+const SET_COL_VARIANTS = [
+  { restSeconds: true, difficulty: true },
+  { restSeconds: true, difficulty: false },
+  { restSeconds: false, difficulty: true },
+  { restSeconds: false, difficulty: false },
+]
+
+function isMissingSetColumnError(error: unknown): boolean {
+  return isMissingColumnError(error, 'rest_seconds') || isMissingColumnError(error, 'difficulty')
+}
+
 export async function getWorkoutWithSets(workoutId: number) {
   const { supabase, user } = await getAuthContext()
   if (!user) return null
@@ -71,24 +94,27 @@ export async function getWorkoutWithSets(workoutId: number) {
       .single(),
     supabase
       .from('sets')
-      .select('id, exercise_id, weight, reps, duration_minutes, distance, rest_seconds, exercises(name, category)')
+      .select(SET_COLS(SET_COL_VARIANTS[0]))
       .eq('workout_id', workoutId)
       .order('created_at', { ascending: true }),
   ])
 
   if (!workout) return null
 
-  // Fall back gracefully ONLY if the rest_seconds column has not been migrated
-  // yet — a genuine error must not silently blank out the sets (that could wipe
-  // real data on the next save).
+  // Fall back gracefully ONLY if a not-yet-migrated optional column
+  // (rest_seconds and/or difficulty) caused the error — a genuine error must
+  // not silently blank out the sets (that could wipe real data on the next
+  // save). Tries each combo most-complete first until one succeeds.
   let sets: any = setsResult.data
-  if (setsResult.error && isMissingColumnError(setsResult.error, 'rest_seconds')) {
-    const { data } = await supabase
+  let error = setsResult.error
+  for (let i = 1; error && isMissingSetColumnError(error) && i < SET_COL_VARIANTS.length; i++) {
+    const { data, error: nextError } = await supabase
       .from('sets')
-      .select('id, exercise_id, weight, reps, duration_minutes, distance, exercises(name, category)')
+      .select(SET_COLS(SET_COL_VARIANTS[i]))
       .eq('workout_id', workoutId)
       .order('created_at', { ascending: true })
     sets = data
+    error = nextError
   }
 
   return { ...workout, sets: sets ?? [] }

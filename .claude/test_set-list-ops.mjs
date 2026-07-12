@@ -29,6 +29,7 @@ function set(overrides = {}) {
     duration_minutes: overrides.duration_minutes ?? null,
     distance: overrides.distance ?? null,
     rest_seconds: overrides.rest_seconds ?? null,
+    difficulty: overrides.difficulty ?? null,
     done: overrides.done ?? true,
   }
 }
