@@ -32,6 +32,28 @@ set / layout when reviewing D2.
 Pinned default: while editing a completed workout the header reads **"Editing"** (today
 it says "Active"). Trivial — confirm the exact word.
 
+## Residual gaps surfaced DURING implementation (verify in real use)
+All ten dockets are green on `tsc` + the unit suite (538 tests) + `npm run build`, but
+the unit suite covers the **pure helpers**, not the React wiring. These want a real
+browser session:
+
+- **R1 — Calendar-popup copy is still lossy (D8).** Copy from the *logging screen* is
+  now lossless per-set (Tile 4). But the calendar popup's copy sources the aggregated
+  month-preview query (`fetchWorkoutPreview`), which only carries a set count — so it
+  still expands to N identical sets. Fixing it means changing that data source; out of
+  D8's scope. Flagged with a `NOTE:` in `CalendarView.tsx`.
+- **R2 — Auto-commit invocation timing (D7).** `autoCommitAddForm` is wired both to the
+  add-form's `onBlur` AND called explicitly from `handleSelectExercise`/change/back. On
+  a tap-away both can fire in one event; because it commits via a direct
+  `setLocalSets(value)` (last-write-wins) this should still yield exactly ONE not-done
+  set, not a duplicate. Confirm no duplicate row appears when you type a value then tap
+  another exercise.
+- **R3 — Playwright suites not executed.** `test:modal-a11y` / `test:touch-targets`
+  need a running dev server + auth fixture. `test_modal-a11y.mjs` WAS updated for
+  D10's new Back sheet (Leave → Delete → confirm) but has not been run.
+- **R4 — Numpad on a real device.** Touch detection uses `matchMedia('(pointer: coarse)')`;
+  OS-keyboard suppression (`readOnly` + `inputMode="none"`) is unverified on an actual phone.
+
 ## Deferred (not an open question, needs its own pass)
 - **Tile 3 — distance-unit toggle (km/m) + cardio set-row display.** The only
   un-interviewed piece. Run a dedicated cardio clarify-scenario pass, then docket it.
