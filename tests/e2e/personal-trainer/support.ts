@@ -15,6 +15,10 @@ export function ptDirectoryE2eEnabled(): boolean {
   return process.env.PT_DIRECTORY_E2E_ENABLED === 'true'
 }
 
+export function ptRelationshipE2eEnabled(): boolean {
+  return process.env.PT_RELATIONSHIP_E2E_ENABLED === 'true'
+}
+
 export function requiredEnv(name: string): string {
   const value = process.env[name]
   if (!value) throw new Error(`Missing required PT E2E environment variable: ${name}`)

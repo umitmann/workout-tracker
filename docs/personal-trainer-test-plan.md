@@ -9,8 +9,9 @@ turning every layer into a duplicate of every other layer.
 | Layer | Purpose | Command |
 |---|---|---|
 | Pure unit | Directory/application validation and action guards; relationship state machine, permission matrix, date scope, plan lifecycle, snapshot validation | `npm run test:pt:unit` |
-| Migration contract | Additive schema, fail-closed ACLs, safe DTOs, hardened RPCs, admin isolation | `npm run test:pt:migration` |
+| Migration contract | Additive schema, fail-closed ACLs, bilateral state/consent constraints, append-only audit, safe DTOs, hardened RPCs | `npm run test:pt:migration` |
 | Directory RLS integration | Real JWTs, owner-only base rows, listing visibility, privilege-escalation denial | `npm run test:pt:directory-rls` |
+| Relationship RLS integration | Real JWTs, raw-table denial, bilateral activation, trainee-only grants, unrelated-user denial, revoke/end | `npm run test:pt:relationship-rls` |
 | Supabase/RLS integration | Real JWTs, raw-table isolation, delegated-results RPC, minimal DTO | `npm run test:pt:rls` |
 | Playwright E2E | Current directory/application/admin boundary plus the gated future consent journey | `npm run test:pt:e2e` |
 | k6 load | Directory, connected-client calendar, and completed-results read paths | `npm run test:pt:load` |
@@ -46,6 +47,14 @@ cover the deployed directory slice: bounded and normalized form/search input,
 status tampering, unauthenticated short-circuiting, fail-closed administrator
 checks, exact safe RPC payloads, and non-leaking error responses.
 
+`.claude/test_trainer-relationship-actions.mjs` pins the Phase 3 action
+boundary: authentication precedes validation; only UUIDs and bounded
+permission/scope values reach the exact RPC; account IDs are never accepted;
+and duplicate, authorization, and internal database errors are translated
+without leaking schema details. `.claude/test_trainer-relationship-ui.mjs`
+prevents direct-table mutations, accidental result-reader imports, route guard
+loss, or merging the two consent categories.
+
 `.claude/test_dal-server-boundary.mjs` and
 `.claude/test_proxy-protection.mjs` prevent the adjacent regressions found in
 the architecture audit: reintroducing a service-role key into the regular DAL,
@@ -59,6 +68,13 @@ columns, hardens every definer function, and gives trainer self-service no way
 to choose its verification status. The SQL was also replayed with its admin
 bootstrap and authorization transitions against a disposable PostgreSQL 17
 database before SQL Editor handoff.
+
+`.claude/test_trainer-relationship-migration.mjs` verifies the additive Phase
+3 schema, bilateral state consistency, partial uniqueness, current-state row
+locking, trainee grant provenance, atomic end/revoke, append-only audit,
+minimal participant DTOs, and exact RPC execute grants. The Phase 2 + Phase 3
+chain and an eight-event request/accept/grant/revoke/end behavior scenario were
+also executed successfully against disposable PostgreSQL 17.
 
 ## Supabase/RLS integration contract
 
@@ -82,8 +98,30 @@ and a trainer can read only their own base listing. Run it only against a
 dedicated seeded project; the production SQL Editor verification is
 non-mutating and does not manufacture test users.
 
-The relationship/result-sharing contract below becomes runnable after those
-later migrations are installed.
+The Phase 3 relationship contract runs independently of result sharing:
+
+```bash
+PT_RELATIONSHIP_RLS_ENABLED=true \
+NEXT_PUBLIC_SUPABASE_URL=... \
+NEXT_PUBLIC_SUPABASE_ANON_KEY=... \
+PT_RELATIONSHIP_TRAINEE_ACCESS_TOKEN=... \
+PT_RELATIONSHIP_TRAINER_ACCESS_TOKEN=... \
+PT_RELATIONSHIP_OUTSIDER_ACCESS_TOKEN=... \
+PT_RELATIONSHIP_TRAINER_PROFILE_ID=... \
+PT_RELATIONSHIP_TRAINEE_WORKOUT_ID=... \
+PT_RELATIONSHIP_TRAINEE_BODYWEIGHT_ID=... \
+npm run test:pt:relationship-rls
+```
+
+Use three dedicated users with an approved/published/accepting trainer and a
+trainee-owned workout/bodyweight fixture. The test proves raw consent tables
+are inaccessible, the outsider cannot enumerate or transition the connection,
+activation alone leaves owner-only health RLS unchanged, only the trainee can
+grant, and the Phase 3 result-read RPC remains absent. Cleanup ends the
+relationship so the fixture can be rerun.
+
+The relationship/result-sharing contract below becomes runnable after the
+later result migration is installed.
 
 Enable only against a disposable or dedicated seeded Supabase project:
 
@@ -164,6 +202,13 @@ the deployment job must enable and reject skips for the phase being released
 (`PT_DIRECTORY_E2E_ENABLED` now, and `PT_E2E_ENABLED` once the full journey
 lands).
 
+The narrower Phase 3 browser journey is enabled separately with
+`PT_RELATIONSHIP_E2E_ENABLED=true`. It needs the dedicated trainee/trainer
+credentials plus `PT_E2E_TRAINER_NAME`, `PT_E2E_TRAINEE_NAME`, and a private
+`PT_E2E_COMPLETED_WORKOUT_MARKER`. It covers directory request, trainer
+acceptance, default-closed categories, from-now workout consent, trainer-visible
+consent metadata without results, revoke, audit history, and relationship end.
+
 ## Load contract
 
 Install [k6](https://grafana.com/docs/k6/latest/set-up/install-k6/) on the load
@@ -173,6 +218,7 @@ for two minutes at 10 requests/second. Later phases opt into the calendar and
 completed-result scenarios by providing their path variables:
 
 - directory: 10 requests/second;
+- trainee connections: 8 requests/second (opt in with a path);
 - client calendar: 15 requests/second; and
 - completed results: 10 requests/second.
 
@@ -183,6 +229,15 @@ PT_LOAD_BASE_URL=https://test.example \
 PT_LOAD_DIRECTORY_PATH='/trainers?q=strength' \
 PT_LOAD_TRAINEE_COOKIE='sb-...=...' \
 PT_LOAD_DIRECTORY_MARKER='Approved Trainer' \
+npm run test:pt:load
+```
+
+The Phase 3 connection read surface can be enabled independently:
+
+```bash
+PT_LOAD_CONNECTIONS_PATH='/connections' \
+PT_LOAD_CONNECTIONS_MARKER='Connections and consent' \
+PT_LOAD_CONNECTIONS_RPS=8 \
 npm run test:pt:load
 ```
 
@@ -203,6 +258,7 @@ checks, and these latency limits:
 | Surface | p95 | p99 |
 |---|---:|---:|
 | Directory | 600 ms | 1,200 ms |
+| Trainee connections | 700 ms | 1,400 ms |
 | Client calendar | 800 ms | 1,500 ms |
 | Completed results | 900 ms | 1,800 ms |
 

@@ -34,6 +34,8 @@ export async function proxy(request: NextRequest) {
     '/workout',
     '/workouts',
     '/trainers',
+    '/trainer',
+    '/connections',
     '/admin',
   ]
   const isProtected = protectedPrefixes.some(
@@ -59,6 +61,8 @@ export const config = {
     '/workout/:path*',
     '/workouts/:path*',
     '/trainers/:path*',
+    '/trainer/:path*',
+    '/connections/:path*',
     '/admin/:path*',
   ],
 }

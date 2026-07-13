@@ -3,11 +3,13 @@ import { check } from 'k6'
 
 const baseUrl = (__ENV.PT_LOAD_BASE_URL || '').replace(/\/$/, '')
 const directoryPath = __ENV.PT_LOAD_DIRECTORY_PATH || '/trainers'
+const connectionsPath = __ENV.PT_LOAD_CONNECTIONS_PATH || ''
 const calendarPath = __ENV.PT_LOAD_CLIENT_CALENDAR_PATH || ''
 const resultsPath = __ENV.PT_LOAD_CLIENT_RESULTS_PATH || ''
 const traineeCookie = __ENV.PT_LOAD_TRAINEE_COOKIE || ''
 const trainerCookie = __ENV.PT_LOAD_TRAINER_COOKIE || ''
 const directoryMarker = __ENV.PT_LOAD_DIRECTORY_MARKER || ''
+const connectionsMarker = __ENV.PT_LOAD_CONNECTIONS_MARKER || ''
 const calendarMarker = __ENV.PT_LOAD_CALENDAR_MARKER || ''
 const resultsMarker = __ENV.PT_LOAD_RESULTS_MARKER || ''
 
@@ -30,6 +32,22 @@ const thresholds = {
   'http_req_duration{scenario:trainer_directory}': ['p(95)<600', 'p(99)<1200'],
   'checks{scenario:trainer_directory}': ['rate>0.99'],
   dropped_iterations: ['count==0'],
+}
+
+if (connectionsPath) {
+  scenarios.trainee_connections = {
+    executor: 'constant-arrival-rate',
+    exec: 'traineeConnections',
+    startTime: '5s',
+    rate: Number(__ENV.PT_LOAD_CONNECTIONS_RPS || 8),
+    timeUnit: '1s',
+    duration,
+    preAllocatedVUs: Number(__ENV.PT_LOAD_CONNECTIONS_VUS || 16),
+    maxVUs: Number(__ENV.PT_LOAD_CONNECTIONS_MAX_VUS || 50),
+  }
+  thresholds['http_req_failed{scenario:trainee_connections}'] = ['rate<0.01']
+  thresholds['http_req_duration{scenario:trainee_connections}'] = ['p(95)<700', 'p(99)<1400']
+  thresholds['checks{scenario:trainee_connections}'] = ['rate>0.99']
 }
 
 // Later relationship/result phases can opt into their read scenarios without
@@ -78,9 +96,10 @@ function requireRuntimeValue(value, name) {
 }
 
 function params(cookie, scenario) {
+  const traineeSurface = scenario === 'directory' || scenario === 'connections'
   return {
     headers: {
-      Cookie: requireRuntimeValue(cookie, `${scenario === 'directory' ? 'PT_LOAD_TRAINEE' : 'PT_LOAD_TRAINER'}_COOKIE`),
+      Cookie: requireRuntimeValue(cookie, `${traineeSurface ? 'PT_LOAD_TRAINEE' : 'PT_LOAD_TRAINER'}_COOKIE`),
       Accept: 'text/html,application/xhtml+xml',
     },
     tags: { surface: scenario },
@@ -106,6 +125,14 @@ export function setup() {
 export function trainerDirectory() {
   const response = http.get(`${baseUrl}${directoryPath}`, params(traineeCookie, 'directory'))
   verify(response, directoryMarker, 'trainer directory')
+}
+
+export function traineeConnections() {
+  const response = http.get(
+    `${baseUrl}${connectionsPath}`,
+    params(traineeCookie, 'connections'),
+  )
+  verify(response, connectionsMarker, 'trainee connections')
 }
 
 export function clientCalendar() {

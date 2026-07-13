@@ -59,12 +59,20 @@ export default async function TrainersPage({
             </Link>
             <h1 className="text-lg font-semibold text-zinc-900 dark:text-white">Find a trainer</h1>
           </div>
-          <Link
-            href="/trainers/apply"
-            className="text-sm font-semibold text-orange-600 hover:text-orange-700 dark:text-orange-400"
-          >
-            Trainer profile
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/connections"
+              className="text-sm font-semibold text-orange-600 hover:text-orange-700 dark:text-orange-400"
+            >
+              Connections
+            </Link>
+            <Link
+              href="/trainers/apply"
+              className="text-sm font-semibold text-orange-600 hover:text-orange-700 dark:text-orange-400"
+            >
+              Trainer profile
+            </Link>
+          </div>
         </div>
       </header>
 

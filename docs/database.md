@@ -14,6 +14,12 @@ All SQL here runs in **Supabase → SQL Editor → New query**.
 | `routines` | ✅ | ✅ |
 | `routine_exercises` | ✅ | ✅ |
 | `scheduled_workouts` | ✅ | ✅ |
+| `profiles` | ✅ | ✅ |
+| `trainer_profiles` | ✅ | ✅ |
+| `platform_roles` | ✅ | ✅ |
+| `trainer_relationships` | ✅ | ✅ |
+| `trainer_access_grants` | ✅ | ✅ |
+| `trainer_relationship_audit_events` | ✅ | ✅ |
 
 > **Notes from setup:**
 > - `exercises.id` and `workouts.id` are `bigint` (created via Table Editor). All foreign keys referencing them must use `bigint`, not `uuid`.
@@ -672,12 +678,78 @@ The initial platform administrator was then bootstrapped successfully through
 the separate operator script; the account email is intentionally not recorded
 in migration history.
 
-Application activation does not require another database migration. The
-matching Next.js slice uses only the scoped Phase 13 functions for trainer
-self-service, approved directory reads, and administrator review. The next SQL
-change is Phase 3 of the personal-trainer plan (bilateral relationships and
-consent); it must not be applied until the directory slice has been deployed
-and its real-JWT/browser gates have passed in a dedicated test environment.
+The matching Next.js slice uses only the scoped Phase 13 functions for trainer
+self-service, approved directory reads, and administrator review. It was
+deployed and smoke-tested successfully on 2026-07-13 before the relationship
+work began.
+
+---
+
+## Phase 14 — Bilateral trainer relationships and trainee consent
+
+Applied to the live Supabase project through the SQL Editor on 2026-07-13 from
+[`20260713000400_trainer_relationships_consent.sql`](../supabase/migrations/20260713000400_trainer_relationships_consent.sql)
+after a successful disposable PostgreSQL replay.
+
+This additive migration creates:
+
+- `trainer_relationships`, with one-sided requests, bilateral activation,
+  terminal decline/end states, and a partial unique index preventing two
+  pending/active rows for the same trainer/trainee pair;
+- `trainer_access_grants`, with independent `workout_results.read` and
+  `bodyweight.read` categories, all-history/from-now scope, soft revocation,
+  and trainee-only grant authority;
+- `trainer_relationship_audit_events`, protected by an append-only mutation
+  trigger; and
+- authenticated request, accept, decline, end, grant, revoke, participant-list,
+  and consent-history RPCs.
+
+Authenticated users receive no direct table privileges on any of the three
+tables. Every public RPC derives the actor from `auth.uid()`, re-checks current
+state, uses `security definer` with an empty search path, and is denied to
+`PUBLIC`, `anon`, and `service_role`. Ending a relationship locks its current
+state and revokes all active category grants in the same transaction.
+
+The migration intentionally does **not** alter or add policies to `workouts`,
+`sets`, `body_weights`, routines, or notes, and it does not create a trainer
+result-reading function. Therefore, an active relationship or even a stored
+grant cannot expose health data in this phase.
+
+### SQL Editor procedure
+
+1. Open the linked migration and copy the entire file, from `begin;` through
+   the final verification `select`.
+2. In Supabase, open **SQL Editor → New query**, paste it, and press **Run**
+   once. Do not select only part of the file.
+3. The final result must show `true` for:
+   `three_consent_tables_created`,
+   `anonymous_consent_table_access_denied`,
+   `authenticated_base_table_access_denied`,
+   `all_consent_rpcs_are_hardened`,
+   `consent_rpc_permissions_are_scoped`,
+   `one_current_relationship_is_enforced`, and
+   `audit_append_only_trigger_installed`.
+4. Before first use, both `current_relationship_count` and
+   `active_access_grant_count` should normally be `0`. The workout, set, and
+   bodyweight counts must match their pre-migration values.
+5. Paste the single verification result row back into the development thread
+   before the application code is deployed.
+
+The SQL was parsed and executed on PostgreSQL 17 after the Phase 13 migration.
+A role-level behavior replay proved pending/bilateral transitions, duplicate
+request rejection, unrelated-user denial, trainee-only independent grants,
+scope changes, revocation, atomic end/revoke, minimal participant DTOs, and the
+append-only audit trigger. Static contracts live in
+`.claude/test_trainer-relationship-migration.mjs`; action contracts in
+`.claude/test_trainer-relationship-actions.mjs`; and the dedicated real-JWT
+contract in `.claude/test_trainer-relationship-rls.mjs`.
+
+Live verification returned `true` for table creation, anonymous denial,
+authenticated base-table denial, hardened RPCs, scoped execution permissions,
+one-current-relationship uniqueness, and the append-only audit trigger. The
+new tables were empty as expected (`0` relationships and `0` active grants),
+and existing owner data was preserved at 44 workouts, 379 sets, and 0
+bodyweight rows.
 
 ---
 

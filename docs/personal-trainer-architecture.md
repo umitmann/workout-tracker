@@ -445,6 +445,13 @@ retrieved by another authenticated user or by `anon`.
 
 ### Phase 3 — relationships, consent, and audit
 
+**Implementation status (2026-07-13):** the live SQL Editor migration passed
+all verification gates with existing owner data preserved. Narrow RPCs, Server
+Actions, participant DTOs, connection screens, consent controls, and
+consent-history UI are implemented and replay-tested. The deployed browser
+smoke and dedicated multi-actor JWT run remain release evidence. Result-reading
+APIs are deliberately absent in this phase.
+
 1. Add `trainer_relationships`, `trainer_access_grants`, indexes, constraints,
    and append-only audit events.
 2. Implement request, accept, decline, end, grant, and revoke functions.

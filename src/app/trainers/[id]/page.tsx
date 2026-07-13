@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { getServerAuthContext } from '@/lib/serverAuth'
-import { getDirectoryTrainer } from '@/lib/trainerDal'
+import { getDirectoryTrainer, getOwnTrainerProfile } from '@/lib/trainerDal'
+import { getMyRelationshipForTrainerProfile } from '@/lib/trainerRelationshipDal'
 import { isUuid } from '@/lib/trainerValidation'
+import RequestTrainingButton from './RequestTrainingButton'
 
 function specialtyLabel(specialty: string) {
   return specialty.replace(/[-_]+/g, ' ')
@@ -18,7 +20,11 @@ export default async function TrainerProfilePage({
 
   const { id } = await params
   if (!isUuid(id)) notFound()
-  const trainer = await getDirectoryTrainer(id)
+  const [trainer, ownProfile, relationship] = await Promise.all([
+    getDirectoryTrainer(id),
+    getOwnTrainerProfile(),
+    getMyRelationshipForTrainerProfile(id),
+  ])
   if (!trainer) notFound()
 
   return (
@@ -78,6 +84,21 @@ export default async function TrainerProfilePage({
             <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-zinc-700 dark:text-zinc-300">
               {trainer.bio || 'This trainer has not added a bio yet.'}
             </p>
+          </section>
+
+          <section className="mt-8 border-t border-zinc-200 pt-6 dark:border-zinc-800" aria-labelledby="training-request-heading">
+            <h3 id="training-request-heading" className="text-sm font-semibold text-zinc-900 dark:text-white">
+              Training connection
+            </h3>
+            <p className="mb-4 mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+              Both people must agree. Connecting does not share workouts or bodyweight automatically.
+            </p>
+            <RequestTrainingButton
+              trainerProfileId={trainer.id}
+              acceptingClients={trainer.accepting_clients}
+              isOwnProfile={ownProfile?.id === trainer.id}
+              relationship={relationship}
+            />
           </section>
         </article>
       </main>

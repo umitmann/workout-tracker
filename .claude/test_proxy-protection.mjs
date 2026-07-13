@@ -4,7 +4,16 @@ import { readFile } from 'node:fs/promises'
 
 const source = await readFile(new URL('../src/proxy.ts', import.meta.url), 'utf8')
 
-for (const route of ['dashboard', 'routines', 'workout', 'workouts', 'trainers', 'admin']) {
+for (const route of [
+  'dashboard',
+  'routines',
+  'workout',
+  'workouts',
+  'trainers',
+  'trainer',
+  'connections',
+  'admin',
+]) {
   test(`proxy matcher includes /${route}`, () => {
     assert.match(source, new RegExp(`['\"]/${route}/:path\\*['\"]`))
   })

@@ -73,6 +73,18 @@ export default async function Dashboard({
           >
             Trainers
           </Link>
+          <Link
+            href="/connections"
+            className="rounded-full border border-zinc-200 dark:border-zinc-700 px-6 py-3 text-sm font-bold uppercase tracking-wide text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+          >
+            My PT
+          </Link>
+          <Link
+            href="/trainer/connections"
+            className="rounded-full border border-zinc-200 dark:border-zinc-700 px-6 py-3 text-sm font-bold uppercase tracking-wide text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+          >
+            PT Requests
+          </Link>
           {isPlatformAdmin && (
             <Link
               href="/admin/trainers"
