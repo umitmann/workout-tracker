@@ -237,12 +237,15 @@ export default function TemplateEditor({
 
   function handleCopy() {
     copyToClipboard({
+      // Tile 4: lossless per-set copy — per-set targets (dropset/pyramid)
+      // copy set-for-set; a uniform item expands to `sets` identical rows
+      // (its own weight/reps are the same for every set anyway).
       entries: items.map((item) => ({
         exerciseId: item.exerciseId,
         exerciseName: item.exerciseName,
-        setCount: item.sets,
-        reps: item.reps,
-        weight: item.weight,
+        sets:
+          item.setDetails ??
+          Array.from({ length: item.sets }, () => ({ weight: item.weight, reps: item.reps })),
       })),
       sourceDate: today,
     })
@@ -261,20 +264,28 @@ export default function TemplateEditor({
   function applyPaste() {
     if (!clipboard) return
     setItems(
-      clipboard.entries.map((entry) => ({
-        localId: crypto.randomUUID(),
-        exerciseId: entry.exerciseId,
-        exerciseName: entry.exerciseName,
-        exerciseCategory: null,
-        sets: entry.setCount,
-        reps: entry.reps ?? null,
-        weight: entry.weight,
-        duration_minutes: null,
-        distance: null,
-        setDetails: null,
-        tempo: null,
-        restSeconds: null,
-      })),
+      clipboard.entries.map((entry) => {
+        // A single uniform "N identical sets" round-trips back to the plain
+        // sets/reps/weight fields; anything with per-set variation keeps its
+        // full setDetails list rather than collapsing to set #1.
+        const isUniform =
+          entry.sets.length > 0 &&
+          entry.sets.every((s) => s.weight === entry.sets[0].weight && s.reps === entry.sets[0].reps)
+        return {
+          localId: crypto.randomUUID(),
+          exerciseId: entry.exerciseId,
+          exerciseName: entry.exerciseName,
+          exerciseCategory: null,
+          sets: entry.sets.length,
+          reps: entry.sets[0]?.reps ?? null,
+          weight: entry.sets[0]?.weight ?? null,
+          duration_minutes: null,
+          distance: null,
+          setDetails: isUniform ? null : entry.sets,
+          tempo: null,
+          restSeconds: null,
+        }
+      }),
     )
     setShowPasteConfirm(false)
   }

@@ -32,7 +32,10 @@ import {
   commitPending,
   resolveEditFields,
   setDifficulty,
+  mergeIncomingSets,
+  MergeMode,
 } from '@/lib/setListOps'
+import { buildClipboardEntries, clipboardEntriesToLocalSets } from '@/lib/clipboardOps'
 import IconHitTarget from './IconHitTarget'
 import { localDateStr } from '@/lib/localDate'
 import { DistanceUnit, formatDistance, convertKmTo, readDistanceUnitPref, writeDistanceUnitPref } from '@/lib/distanceUnit'
@@ -143,7 +146,12 @@ export default function WorkoutLogger({
   const [isPending, startTransition] = useTransition()
   const { clipboard, copy: copyToClipboard } = useWorkoutClipboard()
   const [copied, setCopied] = useState(false)
-  const [showPasteConfirm, setShowPasteConfirm] = useState(false)
+  // Tile 4/13: paste and import share one non-empty-workout prompt
+  // (Overwrite / Append / cancel) instead of each silently wiping or
+  // maintaining its own copy of the same modal.
+  const [pendingApply, setPendingApply] = useState<
+    { source: 'paste' } | { source: 'import'; template: RoutineWithExercises } | null
+  >(null)
   const [isEditing, setIsEditing] = useState(false)
   // ADR-0007: wake lock is owned at the session level for the whole active
   // logging session (docked rest + plain set entry included), not just
@@ -855,13 +863,17 @@ export default function WorkoutLogger({
     }
   }
 
+  // Tile 13a: mirrors handlePasteRequest — an empty workout imports
+  // straight away (nothing to lose); a non-empty one goes through the same
+  // Overwrite/Append/cancel prompt as Paste instead of silently replacing.
   function handleImportTemplate(template: RoutineWithExercises) {
-    setLocalSets(expandTemplate(template.routine_exercises))
-    // The whole list was just replaced — an armed delete-confirm would now
-    // point at a localId that no longer exists.
-    setPendingDeleteId(null)
-    markDirty()
+    if (localSets.length === 0) {
+      applyIncomingSets(expandTemplate(template.routine_exercises), 'overwrite')
+      setShowImportPicker(false)
+      return
+    }
     setShowImportPicker(false)
+    setPendingApply({ source: 'import', template })
   }
 
   function handleBack() {
@@ -962,45 +974,47 @@ export default function WorkoutLogger({
     })
   }
 
+  // Tile 4/13: the one place that actually mutates localSets for paste/
+  // import — Overwrite replaces, Append adds after what's already there.
+  // Either way an armed delete-confirm's localId no longer resolves, so it's
+  // cleared alongside.
+  function applyIncomingSets(incoming: LocalSet[], mode: MergeMode) {
+    setLocalSets((prev) => mergeIncomingSets(prev, incoming, mode))
+    setPendingDeleteId(null)
+    markDirty()
+  }
+
   function handlePasteRequest() {
+    if (!clipboard) return
     if (localSets.length > 0) {
-      setShowPasteConfirm(true)
+      setPendingApply({ source: 'paste' })
     } else {
-      applyPaste()
+      applyIncomingSets(clipboardEntriesToLocalSets(clipboard.entries), 'overwrite')
     }
   }
 
-  function applyPaste() {
-    if (!clipboard) return
-    const newSets: LocalSet[] = clipboard.entries.flatMap((entry) =>
-      Array.from({ length: entry.setCount }, () => ({
-        localId: crypto.randomUUID(),
-        exerciseId: entry.exerciseId,
-        exerciseName: entry.exerciseName,
-        exerciseCategory: null,
-        weight: entry.weight,
-        reps: entry.reps,
-        duration_minutes: null,
-        distance: null,
-        rest_seconds: null,
-        difficulty: null,
-        done: false,
-      })),
-    )
-    setLocalSets(newSets)
-    setPendingDeleteId(null)
-    markDirty()
-    setShowPasteConfirm(false)
+  // Resolves whichever action (paste or import) is currently prompting the
+  // user, for the chosen mode. Overwrite/Append both funnel through
+  // applyIncomingSets so the merge rule is identical for either source.
+  function resolvePendingApply(mode: MergeMode) {
+    if (!pendingApply) return
+    if (pendingApply.source === 'paste') {
+      if (!clipboard) {
+        setPendingApply(null)
+        return
+      }
+      applyIncomingSets(clipboardEntriesToLocalSets(clipboard.entries), mode)
+    } else {
+      applyIncomingSets(expandTemplate(pendingApply.template.routine_exercises), mode)
+    }
+    setPendingApply(null)
   }
 
+  // Tile 4: lossless, state-independent copy — every exercise, every set's
+  // own weight/reps, in order. No flattening to "set #1 x count" (that's
+  // what made 60x10/60x8/50x6 copy as "3 x 60x10").
   function handleCopy() {
-    const entries = exerciseOrder.map((exerciseId) => ({
-      exerciseId,
-      exerciseName: grouped[exerciseId].name,
-      setCount: grouped[exerciseId].sets.length,
-      reps: grouped[exerciseId].sets[0]?.reps ?? null,
-      weight: grouped[exerciseId].sets[0]?.weight ?? null,
-    }))
+    const entries = buildClipboardEntries(exerciseOrder, grouped)
     copyToClipboard({ entries, sourceDate: workout.date })
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -1931,35 +1945,46 @@ export default function WorkoutLogger({
         </Modal>
       )}
 
-      {/* Paste overwrite confirmation */}
-      {showPasteConfirm && (
+      {/* Tile 4/13: shared Overwrite/Append/cancel prompt for both Paste and
+          Import into a non-empty workout — wiping is never the silent default. */}
+      {pendingApply && (
         <Modal
-          title="Replace current sets?"
-          onClose={() => setShowPasteConfirm(false)}
+          title="Add to current sets?"
+          onClose={() => setPendingApply(null)}
           destructive
           backdropClassName="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] px-4"
           panelClassName="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl outline-none"
         >
           <>
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-1">Overwrite?</p>
-              <h3 className="text-base font-bold text-zinc-900 dark:text-white">Replace current sets?</h3>
+              <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-1">
+                {pendingApply.source === 'paste' ? 'Paste' : 'Load template'}
+              </p>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">Add to current sets?</h3>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                Your current sets will be replaced with the clipboard content.
+                This workout already has sets. Append keeps them and adds the{' '}
+                {pendingApply.source === 'paste' ? 'copied' : 'template'} sets after; Overwrite replaces
+                everything.
               </p>
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => setShowPasteConfirm(false)}
+                onClick={() => setPendingApply(null)}
                 className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-2.5 text-sm font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={applyPaste}
+                onClick={() => resolvePendingApply('append')}
+                className="flex-1 rounded-xl border border-orange-400 text-orange-500 py-2.5 text-sm font-bold hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-colors"
+              >
+                Append
+              </button>
+              <button
+                onClick={() => resolvePendingApply('overwrite')}
                 className="flex-1 rounded-xl bg-orange-500 hover:bg-orange-600 py-2.5 text-sm font-bold text-white transition-colors"
               >
-                Replace
+                Overwrite
               </button>
             </div>
           </>

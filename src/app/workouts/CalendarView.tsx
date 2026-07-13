@@ -222,12 +222,17 @@ export default function CalendarView({
     const preview = workoutPreviews.get(workout.id)
     if (!preview) return
     copyToClipboard({
+      // NOTE: the calendar month-view preview (`fetchWorkoutPreview`) only
+      // carries set #1 + a count per exercise (Tile 7's cap, not Tile 4's) —
+      // out of scope here. This mirrors that aggregate as `setCount`
+      // identical rows rather than claiming per-set fidelity it doesn't have.
       entries: preview.map((ex) => ({
         exerciseId: ex.exerciseId,
         exerciseName: ex.exerciseName,
-        setCount: ex.setCount,
-        reps: ex.firstSetReps,
-        weight: ex.firstSetWeight,
+        sets: Array.from({ length: ex.setCount }, () => ({
+          reps: ex.firstSetReps,
+          weight: ex.firstSetWeight,
+        })),
       })),
       sourceDate: workout.date,
     })

@@ -25,14 +25,18 @@ export default function PasteTemplateButton() {
       await saveTemplateExercises(
         result.id,
         `Workout ${dateLabel}`,
+        // Tile 4: the clipboard now carries the exact per-set list, so the
+        // template is built losslessly via `set_details` (one row per
+        // copied set) instead of collapsing to a single `sets x reps x
+        // weight` count from set #1.
         clipboard.entries.map((e, i) => ({
           exerciseId: e.exerciseId,
-          sets: e.setCount,
-          reps: e.reps ?? null,
-          weight: e.weight,
+          sets: e.sets.length,
+          reps: e.sets[0]?.reps ?? null,
+          weight: e.sets[0]?.weight ?? null,
           duration_minutes: null,
           distance: null,
-          set_details: null,
+          set_details: e.sets.map((s) => ({ weight: s.weight, reps: s.reps })),
           tempo: null,
           rest_seconds: null,
           order: i,

@@ -139,6 +139,21 @@ export function resolveEditFields(
   }
 }
 
+// ─── Tile 4/13: paste + import share one merge rule ────────────────────────
+// Empty workout -> callers apply `incoming` directly without ever calling
+// this (there's nothing to prompt about). Non-empty -> Overwrite replaces
+// everything; Append keeps the existing sets and adds `incoming` after them,
+// preserving each list's own internal order. Never mutates in place.
+export type MergeMode = 'overwrite' | 'append'
+
+export function mergeIncomingSets(
+  existing: LocalSet[],
+  incoming: LocalSet[],
+  mode: MergeMode,
+): LocalSet[] {
+  return mode === 'append' ? [...existing, ...incoming] : incoming
+}
+
 export type SetDeleteRequest = { pendingId: string | null; confirmed: boolean }
 
 // ADR-0008 (WP-09): two-tap confirm transition for the set-delete ✕, mirroring
