@@ -29,6 +29,8 @@ function fixture() {
     activeGrantRelationshipId: required('PT_RLS_ACTIVE_GRANT_RELATIONSHIP_ID'),
     noGrantRelationshipId: required('PT_RLS_NO_GRANT_RELATIONSHIP_ID'),
     endedRelationshipId: required('PT_RLS_ENDED_RELATIONSHIP_ID'),
+    bodyweightDate: required('PT_RLS_BODYWEIGHT_DATE'),
+    bodyweightValue: Number(required('PT_RLS_BODYWEIGHT_VALUE')),
     from: required('PT_RLS_RANGE_FROM'),
     to: required('PT_RLS_RANGE_TO'),
   }
@@ -43,6 +45,21 @@ function asUser(url, anonKey, accessToken) {
 
 async function delegatedResults(client, relationshipId, from, to) {
   return client.rpc('trainer_get_completed_workouts', {
+    p_relationship_id: relationshipId,
+    p_from: from,
+    p_to: to,
+  })
+}
+
+async function delegatedSets(client, relationshipId, workoutId) {
+  return client.rpc('trainer_get_completed_workout_sets', {
+    p_relationship_id: relationshipId,
+    p_workout_id: workoutId,
+  })
+}
+
+async function delegatedBodyweights(client, relationshipId, from, to) {
+  return client.rpc('trainer_get_bodyweights', {
     p_relationship_id: relationshipId,
     p_from: from,
     p_to: to,
@@ -86,6 +103,48 @@ test('active result grant returns completed workouts only and a minimal DTO', { 
     assert.equal(Object.hasOwn(row, 'email'), false, 'account email is not part of the trainer DTO')
     assert.equal(Object.hasOwn(row, 'bodyweight'), false, 'workout grant does not bundle bodyweight')
   }
+})
+
+test('completed-workout detail returns result sets without account identity', { skip: !enabled }, async () => {
+  const f = fixture()
+  const trainer = asUser(f.url, f.anonKey, f.trainerToken)
+  const result = await delegatedSets(
+    trainer,
+    f.activeGrantRelationshipId,
+    f.completedWorkoutId,
+  )
+  assert.equal(result.error, null)
+  assert.ok((result.data ?? []).length > 0)
+  for (const row of result.data ?? []) {
+    assert.equal(Number(row.workout_id), f.completedWorkoutId)
+    assert.equal(Object.hasOwn(row, 'user_id'), false)
+    assert.equal(Object.hasOwn(row, 'email'), false)
+  }
+
+  const hidden = await delegatedSets(
+    trainer,
+    f.activeGrantRelationshipId,
+    f.inProgressWorkoutId,
+  )
+  assert.equal(hidden.error, null)
+  assert.deepEqual(hidden.data, [])
+})
+
+test('independently granted bodyweight is bounded and excludes account identity', { skip: !enabled }, async () => {
+  const f = fixture()
+  const trainer = asUser(f.url, f.anonKey, f.trainerToken)
+  const result = await delegatedBodyweights(
+    trainer,
+    f.activeGrantRelationshipId,
+    f.from,
+    f.to,
+  )
+  assert.equal(result.error, null)
+  const measurement = (result.data ?? []).find((row) => row.date === f.bodyweightDate)
+  assert.ok(measurement, 'expected consent-covered bodyweight fixture')
+  assert.equal(Number(measurement.weight), f.bodyweightValue)
+  assert.equal(Object.hasOwn(measurement, 'user_id'), false)
+  assert.equal(Object.hasOwn(measurement, 'email'), false)
 })
 
 test('unrelated trainer cannot use another trainer relationship id', { skip: !enabled }, async () => {

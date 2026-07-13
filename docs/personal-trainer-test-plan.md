@@ -12,6 +12,7 @@ turning every layer into a duplicate of every other layer.
 | Migration contract | Additive schema, fail-closed ACLs, bilateral state/consent constraints, append-only audit, safe DTOs, hardened RPCs | `npm run test:pt:migration` |
 | Directory RLS integration | Real JWTs, owner-only base rows, listing visibility, privilege-escalation denial | `npm run test:pt:directory-rls` |
 | Relationship RLS integration | Real JWTs, raw-table denial, bilateral activation, trainee-only grants, unrelated-user denial, revoke/end | `npm run test:pt:relationship-rls` |
+| Planning RLS integration | Real JWTs, plan base-table denial, snapshot assignment, outsider denial, concurrent one-start invariant | `npm run test:pt:planning-rls` |
 | Supabase/RLS integration | Real JWTs, raw-table isolation, delegated-results RPC, minimal DTO | `npm run test:pt:rls` |
 | Playwright E2E | Current directory/application/admin boundary plus the gated future consent journey | `npm run test:pt:e2e` |
 | k6 load | Directory, connected-client calendar, and completed-results read paths | `npm run test:pt:load` |
@@ -76,6 +77,16 @@ minimal participant DTOs, and exact RPC execute grants. The Phase 2 + Phase 3
 chain and an eight-event request/accept/grant/revoke/end behavior scenario were
 also executed successfully against disposable PostgreSQL 17.
 
+`.claude/test_trainer-planning-migrations.mjs` pins the prepared Phase 4–6
+chain: private immutable plan tables, composite owner/date linkage, exact
+plan lifecycle RPC grants, active-relationship assignment, category-specific
+completed-result/bodyweight reads, payload-free read audit, idempotent legacy
+mapping, and the temporary legacy-write bridge. A full PostgreSQL 17 replay
+also covered source-routine mutation after assignment, outsider denial,
+in-progress result exclusion, relationship-end revocation, account deletion,
+legacy anomaly/reconciliation paths, and two concurrent starts of one plan;
+exactly one start committed.
+
 ## Supabase/RLS integration contract
 
 The trainer-directory slice has its own real-JWT contract:
@@ -120,6 +131,28 @@ activation alone leaves owner-only health RLS unchanged, only the trainee can
 grant, and the Phase 3 result-read RPC remains absent. Cleanup ends the
 relationship so the fixture can be rerun.
 
+The Phase 4 planning contract is deliberately stateful and must run only on a
+disposable seeded project. It assigns and starts one future plan, then races
+two real Data API calls and requires exactly one to succeed:
+
+```bash
+PT_PLANNING_RLS_ENABLED=true \
+NEXT_PUBLIC_SUPABASE_URL=... \
+NEXT_PUBLIC_SUPABASE_ANON_KEY=... \
+PT_PLANNING_TRAINEE_ACCESS_TOKEN=... \
+PT_PLANNING_TRAINER_ACCESS_TOKEN=... \
+PT_PLANNING_OUTSIDER_ACCESS_TOKEN=... \
+PT_PLANNING_ACTIVE_RELATIONSHIP_ID=... \
+PT_PLANNING_TRAINER_ROUTINE_ID=... \
+PT_PLANNING_SCHEDULED_DATE=2026-07-20 \
+npm run test:pt:planning-rls
+```
+
+Use a unique future date or reset the disposable fixture between runs. The
+test also proves that no authenticated actor can read raw plan tables, an
+outsider receives no plan DTO, and only the trainee receives the linked
+`in_progress` workout.
+
 The relationship/result-sharing contract below becomes runnable after the
 later result migration is installed.
 
@@ -137,6 +170,8 @@ PT_RLS_IN_PROGRESS_WORKOUT_ID=... \
 PT_RLS_ACTIVE_GRANT_RELATIONSHIP_ID=... \
 PT_RLS_NO_GRANT_RELATIONSHIP_ID=... \
 PT_RLS_ENDED_RELATIONSHIP_ID=... \
+PT_RLS_BODYWEIGHT_DATE=2026-07-12 \
+PT_RLS_BODYWEIGHT_VALUE=82.1 \
 PT_RLS_RANGE_FROM=2026-07-01 \
 PT_RLS_RANGE_TO=2026-07-31 \
 npm run test:pt:rls
@@ -146,7 +181,11 @@ The seeded fixture must represent three distinct users: trainee, connected
 trainer, and unrelated trainer. The contract deliberately calls Supabase
 directly, proving that hiding controls in the browser is not the authorization
 boundary. Raw `workouts` remains owner-only; delegated completed results are
-available only through `trainer_get_completed_workouts`.
+available only through `trainer_get_completed_workouts` and
+`trainer_get_completed_workout_sets`; bodyweight is available only through its
+separate function and grant. The active-grant fixture therefore needs both
+categories enabled, while the Phase 3 relationship contract independently
+proves that granting/revoking one category cannot mutate the other.
 
 Add fixture automation alongside the executable PT migrations. Do not put a
 service-role key in the browser suite or run destructive setup against the

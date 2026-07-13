@@ -753,6 +753,148 @@ bodyweight rows.
 
 ---
 
+## Phase 15 — PT Phase 4 immutable workout planning
+
+**Prepared but not yet applied** on 2026-07-13 in
+[`20260713000500_workout_plan_snapshots.sql`](../supabase/migrations/20260713000500_workout_plan_snapshots.sql).
+
+This additive migration creates private `workout_plans` and
+`workout_plan_exercises` tables, adds the nullable one-to-one
+`workouts.plan_id` link, and exposes only authenticated, bounded RPCs for:
+
+- trainer assignment from a trainer-owned routine;
+- trainee self-scheduling from an owned or preset routine;
+- participant plan reads through minimal DTOs;
+- cancellation of an unstarted plan; and
+- an atomic, trainee-only plan start.
+
+The routine is copied into an ordered immutable snapshot at assignment time.
+Editing or deleting the source routine cannot rewrite the accepted plan.
+Trainer assignment requires an approved trainer and an active matching
+relationship, but does not grant result access. Starting a plan locks it and a
+unique index permits exactly one performed workout. Workout ownership and date
+are also enforced by a composite foreign key and lifecycle trigger.
+
+Plan base tables have no authenticated privileges or policies. Public plan
+functions derive the actor from `auth.uid()`, use an empty search path, deny
+anonymous and service-role execution, and append relationship audit events for
+trainer-assigned lifecycle changes. Existing legacy `planned` workouts remain
+valid until Phase 17.
+
+The verification row must show `true` for:
+
+- `two_plan_tables_created`;
+- `workout_plan_link_created`;
+- `authenticated_plan_base_access_denied`;
+- `all_plan_rpcs_are_hardened`;
+- `plan_rpc_permissions_are_scoped`; and
+- `one_workout_per_plan_is_enforced`.
+
+Record the returned plan, workout, and set counts before continuing.
+
+---
+
+## Phase 16 — PT Phase 5 consent-gated result sharing
+
+**Prepared but not yet applied** on 2026-07-13 in
+[`20260713000600_trainer_result_sharing.sql`](../supabase/migrations/20260713000600_trainer_result_sharing.sql).
+
+This migration deliberately adds no trainer policy to `workouts`, `sets`, or
+`body_weights`. Their raw-table RLS remains owner-only. It adds three narrow
+authenticated RPCs:
+
+- `trainer_get_completed_workouts` for bounded completed-workout summaries;
+- `trainer_get_completed_workout_sets` for the actual sets of one permitted
+  completed workout; and
+- `trainer_get_bodyweights` for the independently granted bodyweight category.
+
+Every call takes shared locks that serialize with relationship end and grant
+revocation, requires the current caller to be the approved trainer on an
+active relationship, checks the exact non-revoked category grant, applies its
+inclusive date range, and appends a payload-free read-audit event. In-progress
+and planned workouts are never returned. DTOs contain no auth UUID, email, or
+cross-category data.
+
+The verification row must show `true` for:
+
+- `authenticated_sensitive_base_tables_remain_closed`;
+- `all_result_rpcs_are_hardened`;
+- `result_rpc_permissions_are_scoped`; and
+- `result_reads_are_auditable`.
+
+Workout, set, and bodyweight counts must match the Phase 15 result.
+
+---
+
+## Phase 17 — PT Phase 6 non-destructive legacy plan backfill
+
+**Prepared but not yet applied** on 2026-07-13 in
+[`20260713000700_legacy_workout_plan_backfill.sql`](../supabase/migrations/20260713000700_legacy_workout_plan_backfill.sql).
+
+This migration backfills both legacy sources:
+
+- `workouts.status = 'planned'`; and
+- every row in the superseded `scheduled_workouts` table.
+
+It creates a private idempotency/provenance ledger, copies only routines whose
+ownership can be trusted, and records anomalies such as missing templates,
+untrusted routine owners, planned workouts that already contain sets, legacy
+assigners without a current verified relationship, or mismatched linked
+workouts. It never guesses cross-user authorization.
+
+No legacy workout, set, or scheduled row is deleted. While the deployed app
+still writes legacy planned workouts, compatibility triggers immediately
+mirror each new write and attach its plan atomically when it transitions to
+`in_progress`. This prevents drift between applying the database migrations
+and the later application cutover.
+
+The verification row must show `true` for:
+
+- `legacy_planned_workout_coverage`;
+- `legacy_scheduled_workout_coverage`;
+- `legacy_mapping_is_private`; and
+- `legacy_write_bridge_installed`.
+
+Save `legacy_mapping_anomaly_count` for review. The retained legacy counts are
+expected to remain unchanged. Dropping `scheduled_workouts`, removing the
+`planned` workout status, and deleting compatibility triggers are explicitly
+excluded; those destructive actions require a later stable-release
+reconciliation and their own migration.
+
+### SQL Editor procedure for PT Phases 4–6
+
+1. Run the read-only
+   [`verify_pt_phase456_preflight.sql`](../supabase/manual/verify_pt_phase456_preflight.sql)
+   and save its single result row. Stop if any of
+   `phase3_tables_ready`, `phase3_rpcs_ready`, or
+   `live_identifier_types_match` is false. `phase4_not_already_applied` must be
+   true on the first run. Review both active-grant counts: Phase 16 makes every
+   existing valid grant enforceable through its direct RPC immediately, even
+   before a trainer dashboard is deployed. Stop if either count is unexpected.
+2. Open Phase 15 in a new SQL Editor query, paste the entire file from its
+   opening comment through the final verification `select`, and run it once.
+   Do not select only part of the script.
+3. Only after all Phase 15 booleans are true, run Phase 16 the same way and
+   compare its stored data counts with Phase 15.
+4. Only after Phase 16 passes, run Phase 17. Both coverage booleans and both
+   privacy/bridge booleans must be true. Existing workout and set counts must
+   not decrease.
+5. Paste all four result rows—the preflight plus Phases 15, 16, and 17—back
+   into the development thread before any application code begins using the
+   new RPCs.
+
+The complete chain through Phase 17 was parsed and replayed on PostgreSQL 17
+from an inventory-compatible baseline. The replay exercised immutable
+snapshots, direct base-table denial, outsider denial, independent grants,
+completed-only result reads, read audit, relationship-end revocation, legacy
+reconciliation, compatibility mirroring, account-deletion paths, and two
+concurrent attempts to start one plan. Exactly one concurrent start succeeded.
+Static release contracts live in
+`.claude/test_trainer-planning-migrations.mjs` and run under
+`npm run test:pt:migration`.
+
+---
+
 ## Superseded — original Admin & Trainer Tables sketch
 
 The original two-table sketch in

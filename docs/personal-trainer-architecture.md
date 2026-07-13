@@ -1,6 +1,6 @@
 # Personal trainer layer: architecture and migration plan
 
-**Status:** Proposed
+**Status:** Phases 2–3 live; Phase 4–6 database migrations prepared, pending live application
 **Date:** 2026-07-13
 **Scope:** Trainer discovery, explicit trainer/trainee relationships, workout
 assignment, and trainee-controlled result sharing.
@@ -312,13 +312,12 @@ recorded in [`database.md`](database.md).
 ### P0 — before PT feature work
 
 1. **Partially resolved — the migration history was not machine-replayable.**
-   `docs/database.md` is the project's migration history. The repository has
-   no executable `supabase/migrations` directory, however, and the same
-   document says live IDs are `bigint` while some original create statements
-   use `uuid`. Before adding PT tables, reconcile the documented history with
-   the deployed schema and turn it into a reproducible baseline so a fresh
-   environment receives the same constraints, grants, policies, and
-   functions.
+   `docs/database.md` remains the human-readable history and executable
+   migrations now cover the hardened live schema plus PT additions. A complete
+   pre-hardening baseline and generated database types are still missing, so a
+   brand-new Supabase project cannot yet be rebuilt solely from the committed
+   chain. Keep the PostgreSQL inventory replay as a release gate and finish the
+   full baseline before claiming zero-drift environment recreation.
 
 2. **Resolved — template replacement could erase a template.**
    `saveTemplateExercisesCore` updates the name, deletes all
@@ -346,14 +345,14 @@ recorded in [`database.md`](database.md).
 
 ### P1 — hardening in the same foundation phase
 
-5. **Deferred to Phase 4 — planning and performance are conflated.** The active app stores planned,
+5. **Addressed by the prepared Phase 4/6 migrations; live cutover pending — planning and performance are conflated.** The active app stores planned,
    in-progress, and completed states in `workouts`; the documented
    `scheduled_workouts` table is unused/superseded. The current workout row
    references a mutable template and has no assignment snapshot or trainer
    provenance. `scheduled_workouts.assigned_by` therefore cannot simply be
    switched on for the PT feature.
 
-6. **Open before Phase 4 — lifecycle and input invariants are mostly UI conventions.** Scheduling
+6. **Addressed by the prepared Phase 4 migration; live application pending — lifecycle and input invariants were mostly UI conventions.** Scheduling
    actions do not verify future-versus-past dates or template ownership, and
    transitions such as `startPlannedWorkout`, `reopenWorkout`, save, and
    complete generally check ownership but not the current status. A direct
@@ -464,6 +463,12 @@ impossible; revoke/end takes effect on the next request.
 
 ### Phase 4 — snapshot-based workout planning
 
+**Migration status (2026-07-13):** the additive snapshot schema, plan RPCs,
+workout lifecycle enforcement, and one-start concurrency guard are prepared in
+`20260713000500_workout_plan_snapshots.sql` and have passed PostgreSQL 17
+replay. They are not yet applied to the live Supabase project and the
+application does not call them yet.
+
 1. Add `workout_plans` and `workout_plan_exercises`.
 2. Implement atomic `assign_workout_from_routine`: verify trainer identity,
    approved status, active relationship, routine ownership, payload bounds,
@@ -479,6 +484,11 @@ workout per plan under concurrent requests.
 
 ### Phase 5 — result sharing and trainer dashboard
 
+**Migration status (2026-07-13):** the three consent-gated, audited result RPCs
+are prepared in `20260713000600_trainer_result_sharing.sql` and have passed the
+multi-actor PostgreSQL replay. They are not live and no result UI should be
+enabled until the migration verification row is recorded.
+
 1. Add the trainee-facing permission UI with clear scope and revoke copy.
 2. Add narrow completed-results/bodyweight read functions. The first workout
    contract is `trainer_get_completed_workouts`; re-check active relationship
@@ -491,6 +501,13 @@ bodyweight; in-progress workouts are never returned; revocation and
 relationship end deny all new trainer reads immediately.
 
 ### Phase 6 — migrate legacy planned workouts
+
+**Migration status (2026-07-13):** a non-destructive, idempotent backfill plus
+temporary compatibility bridge is prepared in
+`20260713000700_legacy_workout_plan_backfill.sql`. It retains all legacy rows
+and deliberately excludes destructive cleanup. The live application cutover
+and a stable reconciliation window remain required before removing the old
+model.
 
 1. Add an idempotent mapping/backfill for existing
    `workouts.status = 'planned'` rows into self-owned `workout_plans`.
