@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useEffect, useMemo, useRef } from 'react'
-import { saveWorkoutProgress, completeWorkout, SetPayload } from '@/app/actions/workouts'
+import { saveWorkoutProgress, completeWorkout, deleteWorkout, SetPayload } from '@/app/actions/workouts'
 import { createSaveQueue, SaveState } from '@/lib/saveQueue'
 import { fetchExerciseDetails, fetchLastExercisePerformance, fetchBestExercisePerformance, fetchBestExercisePerformance60Days } from '@/app/actions/exercises'
 import { fetchUserTemplates } from '@/app/actions/templates'
@@ -35,6 +35,7 @@ import {
   mergeIncomingSets,
   mergeGuideResults,
   MergeMode,
+  restoreSnapshot,
 } from '@/lib/setListOps'
 import { buildClipboardEntries, clipboardEntriesToLocalSets } from '@/lib/clipboardOps'
 import IconHitTarget from './IconHitTarget'
@@ -154,6 +155,11 @@ export default function WorkoutLogger({
     { source: 'paste' } | { source: 'import'; template: RoutineWithExercises } | null
   >(null)
   const [isEditing, setIsEditing] = useState(false)
+  // Tile 15: captured the moment Edit is entered on a completed workout —
+  // Back → Discard restores localSets to exactly this (and persists that
+  // restoration), reverting every edit made since, including ones that
+  // already autosaved. Null while not editing a completed workout.
+  const [editSnapshot, setEditSnapshot] = useState<LocalSet[] | null>(null)
   // ADR-0007: wake lock is owned at the session level for the whole active
   // logging session (docked rest + plain set entry included), not just
   // inside the full-screen guided timers — single owner, no per-timer
@@ -310,7 +316,11 @@ export default function WorkoutLogger({
   // Sheets & modals
   const [showPicker, setShowPicker] = useState(false)
   const [showImportPicker, setShowImportPicker] = useState(false)
-  const [showAbandonPrompt, setShowAbandonPrompt] = useState(false)
+  // Tile 1: Back on an active workout with ≥1 set opens a sheet with exactly
+  // Save & leave / Delete workout — leaving never implies lost data. Delete
+  // is a second, separate confirm step (showDeleteConfirm).
+  const [showLeaveSheet, setShowLeaveSheet] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDiscardEditsPrompt, setShowDiscardEditsPrompt] = useState(false)
   const [showSaveWarning, setShowSaveWarning] = useState(false)
   const [savedOnce, setSavedOnce] = useState(false)
@@ -417,8 +427,8 @@ export default function WorkoutLogger({
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
   function handleSelectExercise(ex: SlimExercise) {
-    // Tile 9: switching exercises abandons whatever is typed in the current
-    // add form — flush it as a not-done set first (no-op if empty/unselected).
+    // Tile 9: switching exercises leaves behind whatever is typed in the
+    // current add form — flush it as a not-done set first (no-op if empty/unselected).
     autoCommitAddForm()
     const previous = [...localSets].reverse().find((s) => s.exerciseId === ex.id)
     // Tile 8: no set logged for this exercise yet THIS workout — fall back to
@@ -444,7 +454,7 @@ export default function WorkoutLogger({
 
   // Tile 9: flushes whatever is currently typed in the add-set form into a
   // NOT-DONE set (never done, never starts rest) — called whenever the form
-  // is about to be abandoned (exercise switch, tap-away blur). A fully-empty
+  // is about to be left behind (exercise switch, tap-away blur). A fully-empty
   // form is a no-op — never commits a phantom empty set. Persists immediately
   // via the same save queue as a real Add (D6), so it survives a reload.
   function autoCommitAddForm() {
@@ -948,11 +958,59 @@ export default function WorkoutLogger({
       window.location.href = '/dashboard'
       return
     }
+    // Tile 1: an active workout is NEVER lost by navigating away — the sheet
+    // just offers to save-then-leave or explicitly delete. Nothing here
+    // implies leaving alone loses data.
     if (localSets.length > 0) {
-      setShowAbandonPrompt(true)
+      setShowLeaveSheet(true)
     } else {
       window.location.href = '/dashboard'
     }
+  }
+
+  // Tile 1: flush the latest snapshot through the save queue (this also
+  // waits out any already-in-flight/retrying save via the queue's per-key
+  // coalescing) before navigating away. The workout stays in_progress and
+  // is fully resumable either way. If the flush can't land clean (still
+  // dirty or errored after the attempt), stay on the page and surface the
+  // save-state banner instead of navigating away from an unsaved edit.
+  async function handleSaveAndLeave() {
+    setShowLeaveSheet(false)
+    const key = String(workout.id)
+    await saveQueueRef.current.enqueue(key, localSets)
+    const state = saveQueueRef.current.getState(key)
+    setSaveState(state)
+    if (state.dirty || state.error) return
+    window.location.href = '/dashboard'
+  }
+
+  function handleRequestDeleteWorkout() {
+    setShowLeaveSheet(false)
+    setShowDeleteConfirm(true)
+  }
+
+  // Tile 1: the only path that actually destroys data — a second explicit
+  // "Are you sure?" step, then the real delete action (already redirects to
+  // the dashboard on success).
+  function handleConfirmDeleteWorkout() {
+    startTransition(async () => {
+      await deleteWorkout(workout.id)
+    })
+  }
+
+  // Tile 15: Back → Discard on an edited completed workout restores the
+  // pre-edit snapshot (reverting every change made since, including ones
+  // that already autosaved) and persists that restoration, instead of just
+  // flipping isEditing off and leaving already-saved changes in place.
+  function handleDiscardEdits() {
+    setShowDiscardEditsPrompt(false)
+    if (editSnapshot) {
+      const restored = restoreSnapshot(editSnapshot)
+      setLocalSets(restored)
+      persist(restored)
+    }
+    setEditSnapshot(null)
+    setIsEditing(false)
   }
 
   function fmtLastPerf(p: LastExercisePerformance | null | undefined): string | null {
@@ -1260,7 +1318,7 @@ export default function WorkoutLogger({
               {copied ? 'Copied!' : 'Copy'}
             </button>
             <button
-              onClick={() => setIsEditing(true)}
+              onClick={() => { setEditSnapshot(restoreSnapshot(localSets)); setIsEditing(true) }}
               className="rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
             >
               Edit
@@ -1424,7 +1482,9 @@ export default function WorkoutLogger({
           ← Back
         </button>
         <div className="text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-orange-500">Active</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-orange-500">
+            {workout.status === 'completed' && isEditing ? 'Editing' : 'Active'}
+          </p>
           <h1 className="text-sm font-bold text-zinc-900 dark:text-white">{dateLabel}</h1>
         </div>
         <div className="flex items-center gap-2">
@@ -2067,7 +2127,8 @@ export default function WorkoutLogger({
               <p className="text-xs font-bold uppercase tracking-widest text-red-500 mb-1">Warning</p>
               <h3 className="text-base font-bold text-zinc-900 dark:text-white">Discard changes?</h3>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                Your edits will not be saved.
+                This restores the workout to how it looked before you started editing —
+                any changes made since, including ones already saved, are reverted.
               </p>
             </div>
             <div className="flex gap-2">
@@ -2078,7 +2139,7 @@ export default function WorkoutLogger({
                 Keep editing
               </button>
               <button
-                onClick={() => { setShowDiscardEditsPrompt(false); setIsEditing(false) }}
+                onClick={handleDiscardEdits}
                 className="flex-1 rounded-xl bg-red-500 hover:bg-red-600 py-2.5 text-sm font-bold text-white transition-colors"
               >
                 Discard
@@ -2088,35 +2149,78 @@ export default function WorkoutLogger({
         </Modal>
       )}
 
-      {/* Abandon workout prompt */}
-      {showAbandonPrompt && (
+      {/* Tile 1: Back on an active workout — Save & leave / Delete workout.
+          Leaving always saves; nothing here implies data is lost by
+          navigating away. Delete is a distinct, separate confirm step. */}
+      {showLeaveSheet && (
         <Modal
-          title="Abandon workout?"
-          onClose={() => setShowAbandonPrompt(false)}
+          title="Leave workout?"
+          onClose={() => setShowLeaveSheet(false)}
+          backdropClassName="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] px-4"
+          panelClassName="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl outline-none"
+        >
+          <>
+            <div>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">Leave workout?</h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                Your progress stays saved and in progress unless you delete it.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleSaveAndLeave}
+                className="w-full rounded-xl bg-orange-500 hover:bg-orange-600 py-2.5 text-sm font-bold text-white transition-colors"
+              >
+                Save &amp; leave
+              </button>
+              <button
+                onClick={handleRequestDeleteWorkout}
+                className="w-full rounded-xl border border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 py-2.5 text-sm font-bold transition-colors"
+              >
+                Delete workout
+              </button>
+              <button
+                onClick={() => setShowLeaveSheet(false)}
+                className="w-full py-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        </Modal>
+      )}
+
+      {/* Tile 1: second, explicit confirm — the only path that actually
+          destroys the workout. */}
+      {showDeleteConfirm && (
+        <Modal
+          title="Delete this workout?"
+          onClose={() => setShowDeleteConfirm(false)}
           destructive
           backdropClassName="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] px-4"
           panelClassName="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl outline-none"
         >
           <>
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-red-500 mb-1">Warning</p>
-              <h3 className="text-base font-bold text-zinc-900 dark:text-white">Abandon workout?</h3>
+              <p className="text-xs font-bold uppercase tracking-widest text-red-500 mb-1">Are you sure?</p>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">Delete this workout?</h3>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                Your sets will not be saved.
+                This permanently removes the workout and every logged set. This cannot be undone.
               </p>
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => setShowAbandonPrompt(false)}
+                onClick={() => setShowDeleteConfirm(false)}
                 className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-2.5 text-sm font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
               >
-                Keep going
+                Cancel
               </button>
               <button
-                onClick={() => { window.location.href = '/dashboard' }}
-                className="flex-1 rounded-xl bg-red-500 hover:bg-red-600 py-2.5 text-sm font-bold text-white transition-colors"
+                onClick={handleConfirmDeleteWorkout}
+                disabled={isPending}
+                className="flex-1 rounded-xl bg-red-500 hover:bg-red-600 py-2.5 text-sm font-bold text-white disabled:opacity-40 transition-colors"
               >
-                Abandon
+                {isPending ? '…' : 'Delete'}
               </button>
             </div>
           </>

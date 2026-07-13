@@ -174,6 +174,17 @@ export function mergeGuideResults(
   return sets.map((s) => (byId.has(s.localId) ? { ...s, reps: byId.get(s.localId)!, done: true } : s))
 }
 
+// ─── Tile 15: edit-completed-workout snapshot/discard ──────────────────────
+// Entering Edit on a completed workout captures a pre-edit snapshot of
+// localSets. Back → Discard must revert ALL edits made since — including
+// ones that already autosaved — back to exactly that snapshot, then persist
+// the reverted state so the already-saved changes don't silently stick.
+// Pure deep copy so the restored value is a fresh array/objects, never a
+// stale reference shared with whatever state the caller is about to replace.
+export function restoreSnapshot(snapshot: LocalSet[]): LocalSet[] {
+  return snapshot.map((s) => ({ ...s }))
+}
+
 export type SetDeleteRequest = { pendingId: string | null; confirmed: boolean }
 
 // ADR-0008 (WP-09): two-tap confirm transition for the set-delete ✕, mirroring

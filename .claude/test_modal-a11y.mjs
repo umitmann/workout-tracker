@@ -128,30 +128,34 @@ try {
   await page.keyboard.press('Escape'); // close the picker itself
   await page.waitForTimeout(300);
 
-  // ── Destructive confirm: Abandon workout ──────────────────────────────────
-  console.log('\n── Destructive confirm (Abandon) does not close on backdrop click ──');
+  // ── Destructive confirm: Delete workout (D10 — Back -> Leave sheet -> Delete) ──
+  console.log('\n── Destructive confirm (Delete workout) does not close on backdrop click ──');
   await page.locator('button', { hasText: /^← Back$/ }).click().catch(() => {});
-  const abandonVisible = await page.locator('text=Abandon workout?').isVisible({ timeout: 2_000 }).catch(() => false);
-  if (abandonVisible) {
-    await shot('a11y-03-abandon-confirm');
-    const abandonDialog = page.locator('[role="dialog"]').filter({ hasText: 'Abandon workout?' });
-    await assertDialogSemantics('abandon', abandonDialog);
+  const leaveSheetVisible = await page.locator('text=Leave workout?').isVisible({ timeout: 2_000 }).catch(() => false);
+  if (leaveSheetVisible) {
+    await page.locator('button', { hasText: /Delete workout/ }).click().catch(() => {});
+  }
+  const deleteVisible = await page.locator('text=Delete this workout?').isVisible({ timeout: 2_000 }).catch(() => false);
+  if (deleteVisible) {
+    await shot('a11y-03-delete-confirm');
+    const deleteDialog = page.locator('[role="dialog"]').filter({ hasText: 'Delete this workout?' });
+    await assertDialogSemantics('delete', deleteDialog);
 
     // Backdrop click must NOT close a destructive confirm — explicit button only.
     await page.mouse.click(5, 5);
     await page.waitForTimeout(300);
-    const stillOpenAfterBackdrop = await page.locator('text=Abandon workout?').isVisible().catch(() => false);
-    if (stillOpenAfterBackdrop) pass('abandon-backdrop-noop', 'backdrop click did not dismiss the destructive confirm');
-    else fail('abandon-backdrop-noop', 'destructive confirm closed on backdrop click — regression vs ADR-0008');
+    const stillOpenAfterBackdrop = await page.locator('text=Delete this workout?').isVisible().catch(() => false);
+    if (stillOpenAfterBackdrop) pass('delete-backdrop-noop', 'backdrop click did not dismiss the destructive confirm');
+    else fail('delete-backdrop-noop', 'destructive confirm closed on backdrop click — regression vs ADR-0008');
 
     // Escape still works (ADR-0008 only exempts backdrop click, not Escape/button).
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
-    const closedByEscape = !(await page.locator('text=Abandon workout?').isVisible().catch(() => false));
-    if (closedByEscape) pass('abandon-escape-closes', 'Escape still dismisses the destructive confirm');
-    else fail('abandon-escape-closes', 'Escape did not dismiss the destructive confirm');
+    const closedByEscape = !(await page.locator('text=Delete this workout?').isVisible().catch(() => false));
+    if (closedByEscape) pass('delete-escape-closes', 'Escape still dismisses the destructive confirm');
+    else fail('delete-escape-closes', 'Escape did not dismiss the destructive confirm');
   } else {
-    fail('abandon-confirm-shown', 'could not trigger the Abandon confirmation from Back');
+    fail('delete-confirm-shown', 'could not trigger the Delete confirmation from Back -> Leave sheet -> Delete workout');
   }
   {
     // §13 (review fix): dismissing a modal opened from a scrolled picker row
