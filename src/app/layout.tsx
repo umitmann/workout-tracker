@@ -22,8 +22,8 @@ export const metadata: Metadata = {
 // node_modules/next/dist/docs/01-app/03-api-reference/04-functions/generate-viewport.md).
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fafafa" }, // zinc-50, matches app bg
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+    { media: "(prefers-color-scheme: light)", color: "#f7f6f2" },
+    { media: "(prefers-color-scheme: dark)", color: "#0d100e" },
   ],
 };
 
@@ -39,7 +39,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>
-        <span className="fixed bottom-1 right-2 text-[10px] text-zinc-400 dark:text-zinc-600 font-mono select-none pointer-events-none z-50">
+        <span aria-hidden="true" className="fixed bottom-1 right-2 text-[10px] text-zinc-600 dark:text-zinc-400 font-mono select-none pointer-events-none z-50">
           {process.env.COMMIT_SHA}
         </span>
       </body>

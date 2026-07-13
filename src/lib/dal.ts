@@ -55,7 +55,7 @@ export async function getWorkoutWithSets(workoutId: number) {
   const [workoutResult, setsResult] = await Promise.all([
     supabase
       .from('workouts')
-      .select('id, date, status, template_id')
+      .select('id, date, status, template_id, plan_id')
       .eq('id', workoutId)
       .eq('user_id', user.id)
       .single(),

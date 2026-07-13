@@ -1,7 +1,7 @@
 # Personal trainer layer: architecture and migration plan
 
-**Status:** Phases 2–3 live; Phase 4–6 database migrations prepared, pending live application
-**Date:** 2026-07-13
+**Status:** Phases 2–6 live; application cut over to snapshot planning and consent-gated result DTOs
+**Date:** 2026-07-14
 **Scope:** Trainer discovery, explicit trainer/trainee relationships, workout
 assignment, and trainee-controlled result sharing.
 
@@ -345,19 +345,17 @@ recorded in [`database.md`](database.md).
 
 ### P1 — hardening in the same foundation phase
 
-5. **Addressed by the prepared Phase 4/6 migrations; live cutover pending — planning and performance are conflated.** The active app stores planned,
-   in-progress, and completed states in `workouts`; the documented
-   `scheduled_workouts` table is unused/superseded. The current workout row
-   references a mutable template and has no assignment snapshot or trainer
-   provenance. `scheduled_workouts.assigned_by` therefore cannot simply be
-   switched on for the PT feature.
+5. **Resolved for new planning — planning and performance were conflated.**
+   Trainer assignments now live in immutable `workout_plans` snapshots and
+   create a trainee-owned `workouts` row only through the atomic start RPC.
+   The Phase 6 bridge safely covers legacy writes; live reconciliation found
+   no legacy planned or scheduled rows to migrate.
 
-6. **Addressed by the prepared Phase 4 migration; live application pending — lifecycle and input invariants were mostly UI conventions.** Scheduling
-   actions do not verify future-versus-past dates or template ownership, and
-   transitions such as `startPlannedWorkout`, `reopenWorkout`, save, and
-   complete generally check ownership but not the current status. A direct
-   Server Action call can bypass the intended UI lifecycle. Enforce transition
-   preconditions and database constraints.
+6. **Resolved for the PT lifecycle — lifecycle and input invariants were mostly
+   UI conventions.** Bounded assignment, cancellation, and one-time start are
+   enforced again by hardened database functions. Server Actions authenticate
+   before validation and expose only safe errors; direct calls cannot bypass
+   relationship, routine-ownership, date, or transition checks.
 
 7. **Resolved — the server data boundary was inconsistent.** `src/lib/dal.ts` held a
    service-role client but had no `server-only` import. `getAllExercises`
@@ -463,11 +461,11 @@ impossible; revoke/end takes effect on the next request.
 
 ### Phase 4 — snapshot-based workout planning
 
-**Migration status (2026-07-13):** the additive snapshot schema, plan RPCs,
-workout lifecycle enforcement, and one-start concurrency guard are prepared in
-`20260713000500_workout_plan_snapshots.sql` and have passed PostgreSQL 17
-replay. They are not yet applied to the live Supabase project and the
-application does not call them yet.
+**Implementation status (2026-07-14):** the additive snapshot schema, plan
+RPCs, lifecycle enforcement, and one-start concurrency guard are live. The
+application assigns through the RPC, presents attributed snapshot plans on
+the trainee dashboard, and hydrates the existing logger from the snapshot
+after atomic start. Live verification preserved 44 workouts and 379 sets.
 
 1. Add `workout_plans` and `workout_plan_exercises`.
 2. Implement atomic `assign_workout_from_routine`: verify trainer identity,
@@ -484,10 +482,11 @@ workout per plan under concurrent requests.
 
 ### Phase 5 — result sharing and trainer dashboard
 
-**Migration status (2026-07-13):** the three consent-gated, audited result RPCs
-are prepared in `20260713000600_trainer_result_sharing.sql` and have passed the
-multi-actor PostgreSQL replay. They are not live and no result UI should be
-enabled until the migration verification row is recorded.
+**Implementation status (2026-07-14):** the three consent-gated, audited result
+RPCs are live. The client workspace reads completed results and bodyweight
+only through their narrow DTOs, distinguishes private from empty states, and
+keeps both permissions independently revocable. Raw owner tables remain
+closed to trainers.
 
 1. Add the trainee-facing permission UI with clear scope and revoke copy.
 2. Add narrow completed-results/bodyweight read functions. The first workout
@@ -502,12 +501,12 @@ relationship end deny all new trainer reads immediately.
 
 ### Phase 6 — migrate legacy planned workouts
 
-**Migration status (2026-07-13):** a non-destructive, idempotent backfill plus
-temporary compatibility bridge is prepared in
-`20260713000700_legacy_workout_plan_backfill.sql`. It retains all legacy rows
-and deliberately excludes destructive cleanup. The live application cutover
-and a stable reconciliation window remain required before removing the old
-model.
+**Implementation status (2026-07-14):** the non-destructive, idempotent
+backfill and compatibility bridge are live, and the application uses the new
+plan read/write path. Verification found zero legacy planned workouts, zero
+legacy scheduled rows, zero mappings, and zero anomalies. Keep the bridge and
+legacy structures through a stable reconciliation window; their removal is a
+separate future migration.
 
 1. Add an idempotent mapping/backfill for existing
    `workouts.status = 'planned'` rows into self-owned `workout_plans`.

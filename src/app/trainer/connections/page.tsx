@@ -1,63 +1,68 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import AppShell from '@/components/AppShell'
 import ConnectionCard from '@/app/connections/ConnectionCard'
+import { buildAppNavigation } from '@/lib/appNavigation'
 import { getServerAuthContext } from '@/lib/serverAuth'
-import { getOwnTrainerProfile } from '@/lib/trainerDal'
 import { listMyTrainerRelationships } from '@/lib/trainerRelationshipDal'
+import { countTrainerRelationshipNotifications } from '@/lib/trainerRelationshipNotifications'
 
 export default async function TrainerConnectionsPage() {
   const { user } = await getServerAuthContext()
   if (!user) redirect('/')
 
-  const [profile, allRelationships] = await Promise.all([
-    getOwnTrainerProfile(),
-    listMyTrainerRelationships(),
-  ])
-  const relationships = allRelationships.filter(
-    (relationship) => relationship.my_role === 'trainer',
-  )
+  const allRelationships = await listMyTrainerRelationships()
+  const relationships = allRelationships.filter((relationship) => relationship.my_role === 'trainer')
+  const notifications = countTrainerRelationshipNotifications(allRelationships)
+  const pending = relationships.filter((relationship) => relationship.status === 'pending')
+  const active = relationships.filter((relationship) => relationship.status === 'active')
+  const past = relationships.filter((relationship) => !pending.includes(relationship) && !active.includes(relationship))
+  const userName = user.user_metadata?.full_name ?? user.user_metadata?.display_name ?? user.email ?? 'Account'
+  const avatarUrl = typeof user.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : null
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black">
-      <header className="border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white">
-              ← Dashboard
-            </Link>
-            <h1 className="text-lg font-semibold text-zinc-900 dark:text-white">Trainer connections</h1>
-          </div>
-          <Link href="/trainers/apply" className="text-sm font-semibold text-orange-600 dark:text-orange-400">
-            Trainer profile
-          </Link>
-        </div>
-      </header>
+    <AppShell
+      title="Connection requests"
+      eyebrow="Trainer workspace"
+      currentPath="/trainer/clients"
+      userName={userName}
+      avatarUrl={avatarUrl}
+      navigation={buildAppNavigation({ traineeNotifications: notifications.trainee, trainerNotifications: notifications.trainer, showTrainerTools: true })}
+      actions={<Link href="/trainer/clients" className="inline-flex min-h-11 items-center rounded-xl bg-orange-600 px-4 text-sm font-bold text-white hover:bg-orange-700">Clients</Link>}
+      maxWidth="max-w-4xl"
+    >
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600 dark:text-orange-400">Mutual consent</p>
+        <h2 className="mt-2 text-3xl font-black tracking-[-0.04em] text-zinc-950 dark:text-white">Trainer connections</h2>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">Accepting creates a planning connection only. Results remain private until the trainee grants a specific category.</p>
+      </div>
 
-      <main className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-8">
-        <div>
-          <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Requests and trainees</h2>
-          <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
-            Accepting a request establishes the connection only. It does not grant access to workout or bodyweight data.
-          </p>
-        </div>
+      {pending.length > 0 && (
+        <section aria-labelledby="pending-requests-title" className="mt-7">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 id="pending-requests-title" className="text-base font-black text-zinc-950 dark:text-white">Needs your response</h3>
+            <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-800 dark:bg-orange-950 dark:text-orange-200">{pending.length}</span>
+          </div>
+          <div className="flex flex-col gap-4">{pending.map((relationship) => <ConnectionCard key={relationship.relationship_id} relationship={relationship} />)}</div>
+        </section>
+      )}
 
-        {!profile || profile.verification_status !== 'approved' ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-            An approved trainer profile is required to accept new trainee requests.
-            <Link href="/trainers/apply" className="ml-1 font-semibold underline">View trainer profile</Link>
-          </div>
-        ) : relationships.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-8 text-center dark:border-zinc-700 dark:bg-zinc-900">
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">No trainee requests or connections yet.</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {relationships.map((relationship) => (
-              <ConnectionCard key={relationship.relationship_id} relationship={relationship} />
-            ))}
-          </div>
-        )}
-      </main>
-    </div>
+      {active.length > 0 && (
+        <section aria-labelledby="active-connections-title" className="mt-8">
+          <h3 id="active-connections-title" className="mb-4 text-base font-black text-zinc-950 dark:text-white">Active connections</h3>
+          <div className="flex flex-col gap-4">{active.map((relationship) => <ConnectionCard key={relationship.relationship_id} relationship={relationship} />)}</div>
+        </section>
+      )}
+
+      {pending.length === 0 && active.length === 0 && (
+        <section className="mt-7 rounded-[1.5rem] border border-dashed border-zinc-300 bg-white/60 p-8 text-center dark:border-zinc-700 dark:bg-zinc-900/60">
+          <p className="text-base font-bold text-zinc-900 dark:text-white">No trainee requests or connections yet.</p>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-zinc-500 dark:text-zinc-400">Publish your approved profile and enable new clients when you are ready.</p>
+          <Link href="/trainers/apply" className="mt-5 inline-flex min-h-12 items-center rounded-xl bg-orange-600 px-5 text-sm font-bold text-white hover:bg-orange-700">Manage trainer profile</Link>
+        </section>
+      )}
+
+      {past.length > 0 && <p className="mt-8 text-xs text-zinc-500 dark:text-zinc-400">{past.length} past connection{past.length === 1 ? '' : 's'} remain available through their consent history.</p>}
+    </AppShell>
   )
 }

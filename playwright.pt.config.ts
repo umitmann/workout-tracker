@@ -24,7 +24,9 @@ export default defineConfig({
   projects: [
     {
       name: 'mobile-chromium',
-      use: { ...devices['iPhone 13'] },
+      // Device presets include a default engine. Pin Chromium explicitly so
+      // the executed browser matches the project name and CI installation.
+      use: { ...devices['iPhone 13'], browserName: 'chromium' },
     },
   ],
 })

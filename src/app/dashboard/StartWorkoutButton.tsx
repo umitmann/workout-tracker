@@ -23,9 +23,9 @@ export default function StartWorkoutButton() {
       type="button"
       onClick={handleClick}
       disabled={isPending}
-      className="rounded-full bg-orange-500 hover:bg-orange-600 px-6 py-3 text-sm font-bold uppercase tracking-wide text-white transition-colors shadow-md shadow-orange-200 dark:shadow-none disabled:opacity-60"
+      className="inline-flex min-h-14 min-w-44 items-center justify-center rounded-2xl bg-orange-500 px-7 py-3 text-sm font-black text-white shadow-lg shadow-orange-950/25 transition hover:-translate-y-0.5 hover:bg-orange-400 disabled:translate-y-0 disabled:opacity-60"
     >
-      {isPending ? '…' : 'Start workout'}
+      {isPending ? 'Starting…' : 'Start workout'}
     </button>
   )
 }

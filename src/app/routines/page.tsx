@@ -1,5 +1,11 @@
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import AppShell from '@/components/AppShell'
+import { buildAppNavigation } from '@/lib/appNavigation'
 import { getAllExercises } from '@/lib/dal'
+import { getServerAuthContext } from '@/lib/serverAuth'
+import { listMyTrainerRelationships } from '@/lib/trainerRelationshipDal'
+import { countTrainerRelationshipNotifications } from '@/lib/trainerRelationshipNotifications'
 import ExerciseSearch from './ExerciseSearch'
 
 export default async function RoutinesPage({
@@ -7,57 +13,52 @@ export default async function RoutinesPage({
 }: {
   searchParams: Promise<{ q?: string; category?: string }>
 }) {
+  const { user } = await getServerAuthContext()
+  if (!user) redirect('/')
   const { q, category } = await searchParams
-  const exercises = await getAllExercises()
-
-  const filtered = exercises.filter((e) => {
-    const matchesQuery = !q || e.name.toLowerCase().includes(q.toLowerCase())
-    const matchesCategory = !category || e.category === category
+  const [exercises, relationships] = await Promise.all([
+    getAllExercises(),
+    listMyTrainerRelationships(),
+  ])
+  const filtered = exercises.filter((exercise) => {
+    const matchesQuery = !q || exercise.name.toLowerCase().includes(q.toLowerCase())
+    const matchesCategory = !category || exercise.category === category
     return matchesQuery && matchesCategory
   })
-
-  const categories = [
-    ...new Set(exercises.map((e) => e.category).filter(Boolean)),
-  ] as string[]
+  const categories = [...new Set(exercises.map((exercise) => exercise.category).filter(Boolean))] as string[]
+  const notifications = countTrainerRelationshipNotifications(relationships)
+  const userName = user.user_metadata?.full_name ?? user.user_metadata?.display_name ?? user.email ?? 'Account'
+  const avatarUrl = typeof user.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : null
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black">
-      <header className="flex items-center gap-4 px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
-        <Link
-          href="/dashboard"
-          className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors text-sm"
-        >
-          ← Back
-        </Link>
-        <h1 className="text-lg font-semibold text-zinc-900 dark:text-white">Exercises</h1>
-      </header>
+    <AppShell
+      title="Exercises"
+      eyebrow="Movement library"
+      currentPath="/routines"
+      userName={userName}
+      avatarUrl={avatarUrl}
+      navigation={buildAppNavigation({ traineeNotifications: notifications.trainee, trainerNotifications: notifications.trainer, showTrainerTools: relationships.some((relationship) => relationship.my_role === 'trainer') })}
+      maxWidth="max-w-4xl"
+    >
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600 dark:text-orange-400">Explore & learn</p>
+        <h2 className="mt-2 text-3xl font-black tracking-[-0.04em] text-zinc-950 dark:text-white">Exercise library</h2>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">Search movements, review technique, and understand which equipment and muscle groups each exercise uses.</p>
+      </div>
 
-      <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-4">
-        <ExerciseSearch categories={categories} />
+      <div className="mt-6 rounded-[1.4rem] border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"><ExerciseSearch categories={categories} /></div>
+      <p className="mt-5 text-sm font-medium text-zinc-500 dark:text-zinc-400">{filtered.length} exercise{filtered.length === 1 ? '' : 's'}</p>
 
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">{filtered.length} exercises</p>
-
-        <ul className="flex flex-col gap-2">
-          {filtered.map((e) => (
-            <li key={e.id}>
-              <Link
-                href={`/routines/${e.id}`}
-                className="flex items-center justify-between rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-4 py-3 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
-              >
-                <div>
-                  <p className="text-sm font-medium text-zinc-900 dark:text-white">{e.name}</p>
-                  {e.category && (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{e.category}</p>
-                  )}
-                </div>
-                {e.equipment && (
-                  <span className="text-xs text-zinc-400 dark:text-zinc-600">{e.equipment}</span>
-                )}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </main>
-    </div>
+      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+        {filtered.map((exercise) => (
+          <li key={exercise.id}>
+            <Link href={`/routines/${exercise.id}`} className="flex min-h-20 h-full items-center justify-between gap-4 rounded-[1.3rem] border border-zinc-200 bg-white px-5 py-4 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-orange-900">
+              <div className="min-w-0"><p className="truncate text-sm font-black text-zinc-950 dark:text-white">{exercise.name}</p>{exercise.category && <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{exercise.category}</p>}</div>
+              {exercise.equipment && <span className="shrink-0 rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{exercise.equipment}</span>}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </AppShell>
   )
 }

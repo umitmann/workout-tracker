@@ -23,6 +23,13 @@ export function dateNDaysBefore(today: string, days: number): string {
   return localDateStr(d)
 }
 
+/** Local-calendar-day addition for future schedules, preserving DST-safe day semantics. */
+export function dateNDaysAfter(today: string, days: number): string {
+  const d = new Date(`${today}T00:00:00`)
+  d.setDate(d.getDate() + days)
+  return localDateStr(d)
+}
+
 export type CalendarDayClass = {
   isToday: boolean
   isPast: boolean

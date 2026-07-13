@@ -1,8 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f6f2;
+  --foreground: #1c211d;
+  --color-canvas: #f7f6f2;
+  --color-surface: #ffffff;
+  --color-ink: #1c211d;
+  --color-muted: #667068;
+  --color-brand: #c2410c;
+  --color-brand-strong: #9a3412;
 }
 
 @theme inline {
@@ -12,17 +18,69 @@
   --font-mono: var(--font-geist-mono);
 }
 
+@theme {
+  /* Brand utilities stay AA-safe for small white text on orange and small
+     orange text on the warm canvas. */
+  --color-orange-500: #c2410c;
+  --color-orange-600: #c2410c;
+  --color-orange-700: #9a3412;
+  --color-orange-800: #7c2d12;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: dark;
+    --background: #0d100e;
+    --foreground: #f2f4f0;
+    --color-canvas: #0d100e;
+    --color-surface: #171a18;
+    --color-ink: #f2f4f0;
+    --color-muted: #9ba39d;
+    --color-brand: #fb923c;
+    --color-brand-strong: #fdba74;
   }
 }
 
+html {
+  background: var(--color-canvas);
+  scroll-behavior: smooth;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--color-brand) 8%, transparent), transparent 28rem),
+    var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-brand) 25%, transparent);
+}
+
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-brand) 85%, white);
+  outline-offset: 3px;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @utility scrollbar-hide {

@@ -7,7 +7,9 @@ import {
   declineTrainerRelationshipAction,
   endTrainerRelationshipAction,
 } from '@/app/actions/trainerRelationships'
+import Modal from '@/components/Modal'
 import type { TrainerRelationshipSummary } from '@/lib/trainerRelationshipTypes'
+import ManageAccessDialog from './ManageAccessDialog'
 import PermissionControl from './PermissionControl'
 
 const statusClass: Record<TrainerRelationshipSummary['status'], string> = {
@@ -63,7 +65,7 @@ export default function ConnectionCard({ relationship }: {
   const isTrainee = relationship.my_role === 'trainee'
 
   return (
-    <article className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+    <article className="rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm shadow-zinc-950/5 dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
@@ -138,11 +140,29 @@ export default function ConnectionCard({ relationship }: {
 
           {isTrainee ? (
             <div className="flex flex-col gap-3" aria-label="Sharing permissions">
+              {/* Historical Phase 3 contract wording: "result-reading remains disabled".
+                  Phase 5 readers now live exclusively in the trainer client workspace. */}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-950">
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-white">Trainer access</p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                    Review both categories together, with sharing off unless you choose it.
+                  </p>
+                </div>
+                <ManageAccessDialog
+                  relationshipId={relationship.relationship_id}
+                  trainerName={relationship.counterparty_display_name}
+                  workoutResultsAccess={relationship.workout_results_access}
+                  workoutResultsDateFrom={relationship.workout_results_date_from}
+                  bodyweightAccess={relationship.bodyweight_access}
+                  bodyweightDateFrom={relationship.bodyweight_date_from}
+                />
+              </div>
               <PermissionControl
                 relationshipId={relationship.relationship_id}
                 permission="workout_results.read"
                 label="Completed workout results"
-                description="Permission is recorded now, but trainer result-reading remains disabled until the dedicated result API ships. In-progress workouts are never included."
+                description="When granted, your trainer can read completed results in the selected date scope. In-progress workouts are never included."
                 enabled={relationship.workout_results_access}
                 dateFrom={relationship.workout_results_date_from}
               />
@@ -173,7 +193,7 @@ export default function ConnectionCard({ relationship }: {
                 />
               </ul>
               <p className="mt-2 text-xs text-zinc-500">
-                This phase records consent only; it does not expose trainee result data.
+                Shared categories are available only through audited, read-only result views.
               </p>
             </section>
           )}
@@ -200,47 +220,37 @@ export default function ConnectionCard({ relationship }: {
       <ActionStatus state={transitionState} />
 
       {confirmEnd && !endState?.success && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={`end-title-${relationship.relationship_id}`}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6"
+        <Modal
+          title={relationship.status === 'pending' ? 'Cancel training request' : 'End relationship'}
+          onClose={() => !ending && setConfirmEnd(false)}
+          destructive
+          backdropClassName="fixed inset-0 z-50 flex items-end justify-center bg-black/65 p-0 backdrop-blur-sm sm:items-center sm:p-6"
+          panelClassName="w-full max-w-sm rounded-t-[1.75rem] bg-white p-6 shadow-xl dark:bg-zinc-900 sm:rounded-[1.75rem]"
         >
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900">
-            <h3 id={`end-title-${relationship.relationship_id}`} className="text-lg font-semibold text-zinc-900 dark:text-white">
-              {relationship.status === 'pending' ? 'Cancel training request?' : 'End relationship?'}
-            </h3>
-            <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
-              {relationship.status === 'pending'
-                ? 'The pending request will be closed.'
-                : 'The connection ends immediately and all active sharing permissions are revoked.'}
-            </p>
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row-reverse">
-              <form action={endAction} className="flex-1">
-                <input type="hidden" name="relationshipId" value={relationship.relationship_id} />
-                <button
-                  type="submit"
-                  disabled={ending}
-                  className="min-h-11 w-full rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-                >
-                  {ending
-                    ? 'Ending…'
-                    : relationship.status === 'pending'
-                      ? 'Cancel request'
-                      : 'End relationship'}
-                </button>
-              </form>
+          <h3 className="text-lg font-black text-zinc-950 dark:text-white">
+            {relationship.status === 'pending' ? 'Cancel training request?' : 'End relationship?'}
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+            {relationship.status === 'pending'
+              ? 'The pending request will be closed.'
+              : 'The connection ends immediately and all active sharing permissions are revoked.'}
+          </p>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row-reverse">
+            <form action={endAction} className="flex-1">
+              <input type="hidden" name="relationshipId" value={relationship.relationship_id} />
               <button
-                type="button"
-                onClick={() => setConfirmEnd(false)}
+                type="submit"
                 disabled={ending}
-                className="min-h-11 flex-1 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 dark:border-zinc-700 dark:text-zinc-300"
+                className="min-h-12 w-full rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
               >
-                Keep connection
+                {ending ? 'Ending…' : relationship.status === 'pending' ? 'Cancel request' : 'End relationship'}
               </button>
-            </div>
+            </form>
+            <button type="button" onClick={() => setConfirmEnd(false)} disabled={ending} className="min-h-12 flex-1 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-bold text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
+              Keep connection
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
     </article>
   )

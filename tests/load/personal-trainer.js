@@ -50,8 +50,8 @@ if (connectionsPath) {
   thresholds['checks{scenario:trainee_connections}'] = ['rate>0.99']
 }
 
-// Later relationship/result phases can opt into their read scenarios without
-// making the already-shipped directory load contract depend on future routes.
+// Consent-scoped surfaces are opt-in so each run can target a deliberately
+// seeded relationship without making the public directory baseline stateful.
 if (calendarPath) {
   scenarios.client_calendar = {
       executor: 'constant-arrival-rate',

@@ -755,7 +755,7 @@ bodyweight rows.
 
 ## Phase 15 — PT Phase 4 immutable workout planning
 
-**Prepared but not yet applied** on 2026-07-13 in
+**Applied and live-verified** on 2026-07-14 from
 [`20260713000500_workout_plan_snapshots.sql`](../supabase/migrations/20260713000500_workout_plan_snapshots.sql).
 
 This additive migration creates private `workout_plans` and
@@ -781,7 +781,7 @@ anonymous and service-role execution, and append relationship audit events for
 trainer-assigned lifecycle changes. Existing legacy `planned` workouts remain
 valid until Phase 17.
 
-The verification row must show `true` for:
+Live SQL Editor verification returned `true` for:
 
 - `two_plan_tables_created`;
 - `workout_plan_link_created`;
@@ -790,13 +790,15 @@ The verification row must show `true` for:
 - `plan_rpc_permissions_are_scoped`; and
 - `one_workout_per_plan_is_enforced`.
 
-Record the returned plan, workout, and set counts before continuing.
+It returned 0 workout plans, 0 plan exercises, 44 stored workouts, and 379
+stored sets. The zero plan count was expected because the existing data had no
+legacy planned/scheduled rows.
 
 ---
 
 ## Phase 16 — PT Phase 5 consent-gated result sharing
 
-**Prepared but not yet applied** on 2026-07-13 in
+**Applied and live-verified** on 2026-07-14 from
 [`20260713000600_trainer_result_sharing.sql`](../supabase/migrations/20260713000600_trainer_result_sharing.sql).
 
 This migration deliberately adds no trainer policy to `workouts`, `sets`, or
@@ -815,20 +817,21 @@ inclusive date range, and appends a payload-free read-audit event. In-progress
 and planned workouts are never returned. DTOs contain no auth UUID, email, or
 cross-category data.
 
-The verification row must show `true` for:
+Live SQL Editor verification returned `true` for:
 
 - `authenticated_sensitive_base_tables_remain_closed`;
 - `all_result_rpcs_are_hardened`;
 - `result_rpc_permissions_are_scoped`; and
 - `result_reads_are_auditable`.
 
-Workout, set, and bodyweight counts must match the Phase 15 result.
+It retained 44 workouts, 379 sets, and 0 bodyweight rows, matching the Phase 15
+inventory.
 
 ---
 
 ## Phase 17 — PT Phase 6 non-destructive legacy plan backfill
 
-**Prepared but not yet applied** on 2026-07-13 in
+**Applied and live-verified** on 2026-07-14 from
 [`20260713000700_legacy_workout_plan_backfill.sql`](../supabase/migrations/20260713000700_legacy_workout_plan_backfill.sql).
 
 This migration backfills both legacy sources:
@@ -848,15 +851,16 @@ mirror each new write and attach its plan atomically when it transitions to
 `in_progress`. This prevents drift between applying the database migrations
 and the later application cutover.
 
-The verification row must show `true` for:
+Live SQL Editor verification returned `true` for:
 
 - `legacy_planned_workout_coverage`;
 - `legacy_scheduled_workout_coverage`;
 - `legacy_mapping_is_private`; and
 - `legacy_write_bridge_installed`.
 
-Save `legacy_mapping_anomaly_count` for review. The retained legacy counts are
-expected to remain unchanged. Dropping `scheduled_workouts`, removing the
+The live row also reported 0 mappings, 0 anomalies, 0 retained legacy planned
+workouts, and 0 retained legacy scheduled rows; stored data remained at 44
+workouts and 379 sets. Dropping `scheduled_workouts`, removing the
 `planned` workout status, and deleting compatibility triggers are explicitly
 excluded; those destructive actions require a later stable-release
 reconciliation and their own migration.

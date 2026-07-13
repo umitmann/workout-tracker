@@ -14,7 +14,7 @@ turning every layer into a duplicate of every other layer.
 | Relationship RLS integration | Real JWTs, raw-table denial, bilateral activation, trainee-only grants, unrelated-user denial, revoke/end | `npm run test:pt:relationship-rls` |
 | Planning RLS integration | Real JWTs, plan base-table denial, snapshot assignment, outsider denial, concurrent one-start invariant | `npm run test:pt:planning-rls` |
 | Supabase/RLS integration | Real JWTs, raw-table isolation, delegated-results RPC, minimal DTO | `npm run test:pt:rls` |
-| Playwright E2E | Current directory/application/admin boundary plus the gated future consent journey | `npm run test:pt:e2e` |
+| Playwright E2E | Directory/admin boundaries, full consent journey, and responsive WCAG/keyboard shell checks | `npm run test:pt:e2e` |
 | k6 load | Directory, connected-client calendar, and completed-results read paths | `npm run test:pt:load` |
 
 The default unit suite includes the PT unit tests. The other layers require
@@ -77,8 +77,8 @@ minimal participant DTOs, and exact RPC execute grants. The Phase 2 + Phase 3
 chain and an eight-event request/accept/grant/revoke/end behavior scenario were
 also executed successfully against disposable PostgreSQL 17.
 
-`.claude/test_trainer-planning-migrations.mjs` pins the prepared Phase 4–6
-chain: private immutable plan tables, composite owner/date linkage, exact
+`.claude/test_trainer-planning-migrations.mjs` pins the live Phase 4–6 chain:
+private immutable plan tables, composite owner/date linkage, exact
 plan lifecycle RPC grants, active-relationship assignment, category-specific
 completed-result/bodyweight reads, payload-free read audit, idempotent legacy
 mapping, and the temporary legacy-write bridge. A full PostgreSQL 17 replay
@@ -86,6 +86,14 @@ also covered source-routine mutation after assignment, outsider denial,
 in-progress result exclusion, relationship-end revocation, account deletion,
 legacy anomaly/reconciliation paths, and two concurrent starts of one plan;
 exactly one start committed.
+
+`.claude/test_trainer-planning-actions.mjs` pins authentication-before-
+validation, bounded assignment input, exact RPC payloads, one-plan start and
+cancel calls, and non-leaking action errors. `.claude/test_trainer-workspace-ui.mjs`
+pins server-only narrow planning/result DALs, protected client workspaces,
+accessible shared dialogs, independent consent controls, immutable-plan
+logger hydration, and role-aware navigation. These contracts were added
+without modifying the established Playwright consent journey.
 
 ## Supabase/RLS integration contract
 
@@ -153,8 +161,8 @@ test also proves that no authenticated actor can read raw plan tables, an
 outsider receives no plan DTO, and only the trainee receives the linked
 `in_progress` workout.
 
-The relationship/result-sharing contract below becomes runnable after the
-later result migration is installed.
+The relationship/result-sharing contract below is runnable against a dedicated
+seeded project now that the result migration is live.
 
 Enable only against a disposable or dedicated seeded Supabase project:
 
@@ -210,8 +218,8 @@ Use dedicated non-production accounts. The admin account must hold
 `platform_admin`; the applicant account must not be used as the approved
 trainer fixture because this test intentionally leaves its listing as a draft.
 
-The later connect/assign/grant/revoke/end journey remains separately gated by
-`PT_E2E_ENABLED` until its migrations and routes land.
+The connect/assign/grant/revoke/end journey is separately gated by
+`PT_E2E_ENABLED` because it mutates dedicated multi-actor fixtures.
 
 Required environment:
 
@@ -235,11 +243,35 @@ Playwright uses accessible roles/names, retains traces/screenshots/video only
 on failure, retries only in CI, and uses one worker until per-worker account
 fixtures exist.
 
+`ux-accessibility.spec.ts` adds a non-mutating public check that runs without
+fixture credentials: 390px and 1280px overflow, 44px product touch targets,
+keyboard-operable auth tabs, reduced-motion/dark-mode coverage, and automated
+serious/critical WCAG A/AA checks.
+Its authenticated role-navigation, skip-link, and dashboard Axe audit runs
+under the existing `PT_E2E_ENABLED` fixture gate. The Playwright project pins
+Chromium explicitly so its engine matches the `mobile-chromium` project name.
+
+The separate immutable start journey uses a resettable active relationship so
+it does not compete with the established connect/consent fixture. It assigns a
+uniquely titled snapshot, verifies trainer attribution and the prescribed
+exercise, starts exactly one linked workout in the real logger, and deletes
+that workout afterward. The immutable plan/audit row is intentionally cleaned
+only by resetting the dedicated test project.
+
+```text
+PT_PLAN_START_E2E_ENABLED=true
+PT_PLAN_E2E_TRAINEE_EMAIL / PT_PLAN_E2E_TRAINEE_PASSWORD
+PT_PLAN_E2E_TRAINER_EMAIL / PT_PLAN_E2E_TRAINER_PASSWORD / PT_PLAN_E2E_TRAINER_NAME
+PT_PLAN_E2E_RELATIONSHIP_ID
+PT_PLAN_E2E_TEMPLATE_NAME
+PT_PLAN_E2E_TEMPLATE_EXERCISE_MARKER
+```
+
 The suite is run against a production build or a deployed test environment,
 not mocked Server Components. A passing skipped suite is not release evidence;
-the deployment job must enable and reject skips for the phase being released
-(`PT_DIRECTORY_E2E_ENABLED` now, and `PT_E2E_ENABLED` once the full journey
-lands).
+the deployment job must enable and reject skips for each released slice:
+`PT_DIRECTORY_E2E_ENABLED`, `PT_RELATIONSHIP_E2E_ENABLED`, `PT_E2E_ENABLED`,
+and `PT_PLAN_START_E2E_ENABLED` with their isolated resettable fixtures.
 
 The narrower Phase 3 browser journey is enabled separately with
 `PT_RELATIONSHIP_E2E_ENABLED=true`. It needs the dedicated trainee/trainer
@@ -252,14 +284,19 @@ consent metadata without results, revoke, audit history, and relationship end.
 
 Install [k6](https://grafana.com/docs/k6/latest/set-up/install-k6/) on the load
 runner and use a non-production environment with production-like data volume.
-The default, currently runnable profile exercises the authenticated directory
-for two minutes at 10 requests/second. Later phases opt into the calendar and
-completed-result scenarios by providing their path variables:
+The default profile exercises the authenticated directory for two minutes at
+10 requests/second. Dedicated consent-scoped fixtures opt into the calendar
+and completed-result scenarios by providing their path variables:
 
 - directory: 10 requests/second;
 - trainee connections: 8 requests/second (opt in with a path);
 - client calendar: 15 requests/second; and
 - completed results: 10 requests/second.
+
+`.claude/test_trainer-load-contract.mjs` keeps this profile read-only and pins
+its arrival-rate executors, authentication-cookie separation, redirect denial,
+fixture-marker checks, dropped-iteration gate, and every p95/p99/error/check
+threshold even on machines where the k6 binary is unavailable.
 
 Required variables:
 
@@ -280,7 +317,7 @@ PT_LOAD_CONNECTIONS_RPS=8 \
 npm run test:pt:load
 ```
 
-After the relationship/result routes land, add:
+For the live relationship/result routes, add:
 
 ```bash
 PT_LOAD_CLIENT_CALENDAR_PATH='/trainer/clients/<fixture-id>?view=calendar' \
