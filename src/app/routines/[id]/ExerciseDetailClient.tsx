@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { fetchExerciseHistory } from '@/app/actions/exercises'
 import { ExerciseHistoryPoint } from '@/lib/dal'
 import { ExerciseHistoryChart } from '@/components/ExerciseHistoryChart'
+import { localDateStr } from '@/lib/localDate'
 
 type Tab = 'info' | 'history'
 
@@ -27,7 +28,7 @@ export default function ExerciseDetailClient({ exercise }: { exercise: Exercise 
     setTab(t)
     if (t === 'history' && history === null) {
       setLoadingHistory(true)
-      fetchExerciseHistory(exercise.id).then((data) => {
+      fetchExerciseHistory(exercise.id, localDateStr()).then((data) => {
         setHistory(data ?? [])
         setLoadingHistory(false)
       })

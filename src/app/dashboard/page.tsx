@@ -2,9 +2,10 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { signOut } from '@/app/actions/auth'
-import { startWorkout } from '@/app/actions/workouts'
-import { getMonthWorkoutsWithPreviews, getUserTemplates } from '@/lib/dal'
+import { getMonthWorkoutsWithPreviews, getUserTemplates, getRecentBodyWeights } from '@/lib/dal'
 import CalendarView from '@/app/workouts/CalendarView'
+import BodyweightCard from './BodyweightCard'
+import StartWorkoutButton from './StartWorkoutButton'
 
 export default async function Dashboard({
   searchParams,
@@ -20,9 +21,10 @@ export default async function Dashboard({
   const year = y ? Number(y) : now.getFullYear()
   const month = m ? Number(m) : now.getMonth() + 1
 
-  const [{ entries: workouts, previews: initialPreviews }, templates] = await Promise.all([
+  const [{ entries: workouts, previews: initialPreviews }, templates, bodyWeights] = await Promise.all([
     getMonthWorkoutsWithPreviews(year, month),
     getUserTemplates(),
+    getRecentBodyWeights(),
   ])
 
   const name = user.user_metadata?.full_name ?? user.email
@@ -50,14 +52,7 @@ export default async function Dashboard({
 
       <main className="max-w-lg mx-auto px-6 py-8 flex flex-col gap-6">
         <div className="flex flex-wrap gap-3">
-          <form action={startWorkout}>
-            <button
-              type="submit"
-              className="rounded-full bg-orange-500 hover:bg-orange-600 px-6 py-3 text-sm font-bold uppercase tracking-wide text-white transition-colors shadow-md shadow-orange-200 dark:shadow-none"
-            >
-              Start workout
-            </button>
-          </form>
+          <StartWorkoutButton />
           <Link
             href="/workouts"
             className="rounded-full border border-zinc-200 dark:border-zinc-700 px-6 py-3 text-sm font-bold uppercase tracking-wide text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
@@ -71,6 +66,8 @@ export default async function Dashboard({
             Exercises
           </Link>
         </div>
+
+        <BodyweightCard initial={bodyWeights} />
 
         <CalendarView year={year} month={month} workouts={workouts} initialPreviews={initialPreviews} basePath="/dashboard" initialTemplates={templates} />
       </main>

@@ -2,12 +2,19 @@
 
 import { createContext, useContext, useState, ReactNode } from 'react'
 
+// Tile 4: the clipboard carries the EXACT per-set list — every set's own
+// weight/reps, in order — not a flattened `{ setCount, reps, weight }` (which
+// could only represent "N identical sets" and silently averaged/collapsed
+// anything else, e.g. 60x10 / 60x8 / 50x6 copying as "3 x 60x10").
+export type ClipboardSet = {
+  weight: number | null
+  reps: number | null
+}
+
 export type ClipboardEntry = {
   exerciseId: number
   exerciseName: string
-  setCount: number
-  reps: number | null
-  weight: number | null
+  sets: ClipboardSet[]
 }
 
 export type WorkoutClipboardData = {

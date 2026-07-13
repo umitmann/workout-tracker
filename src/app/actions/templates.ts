@@ -4,16 +4,9 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getUserTemplates, RoutineWithExercises } from '@/lib/dal'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { saveTemplateExercisesCore, TemplateExercisePayload } from './cores'
 
-export type TemplateExercisePayload = {
-  exerciseId: number
-  sets: number
-  reps: number | null
-  weight: number | null
-  duration_minutes: number | null
-  distance: number | null
-  order: number
-}
+export type { TemplateExercisePayload } from './cores'
 
 export async function createTemplate(name: string) {
   const supabase = await createServerSupabaseClient()
@@ -36,43 +29,7 @@ export async function saveTemplateExercises(
   name: string,
   exercises: TemplateExercisePayload[],
 ) {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
-
-  const { data: routine } = await supabase
-    .from('routines')
-    .select('id')
-    .eq('id', routineId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!routine) return { error: 'Not found' }
-
-  // Update name
-  await supabase.from('routines').update({ name }).eq('id', routineId)
-
-  // Replace exercises
-  await supabase.from('routine_exercises').delete().eq('routine_id', routineId)
-
-  if (exercises.length > 0) {
-    const { error } = await supabase.from('routine_exercises').insert(
-      exercises.map((e) => ({
-        routine_id: routineId,
-        exercise_id: e.exerciseId,
-        sets: e.sets,
-        reps: e.reps,
-        weight: e.weight,
-        duration_minutes: e.duration_minutes,
-        distance: e.distance,
-        order: e.order,
-      })),
-    )
-    if (error) return { error: error.message }
-  }
-
-  revalidatePath('/workouts')
-  return { success: true }
+  return saveTemplateExercisesCore(await createServerSupabaseClient(), routineId, name, exercises)
 }
 
 export async function deleteTemplate(routineId: number) {

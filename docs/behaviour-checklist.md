@@ -9,6 +9,7 @@ Run through this list manually after any change to routing, workout actions, dat
 | # | Action | Expected result |
 |---|--------|----------------|
 | 1.1 | Tap "Start workout" on dashboard | Creates `in_progress` workout for today → navigates to `/workout/[id]` — logger shows empty set list |
+| 1.1b | Double-tap "Start workout" (or otherwise trigger it twice before the redirect lands) | Only **one** `in_progress` workout is created for the day — the second tap redirects to the same workout instead of inserting a duplicate. The button is also disabled (`isPending`) after the first tap, so this is a defence-in-depth guard, not the only protection |
 | 1.2 | Tap "Start now" on a template | Creates `in_progress` workout, **no sets written to DB yet** → navigates to `/workout/[id]` — logger pre-loads template exercises into local state only |
 | 1.3 | Tap "Save" in workout logger (first time) | Warning modal appears: "Progress won't be tracked" |
 | 1.4 | Confirm "Save anyway" | Sets written to DB, status stays `in_progress`, stays on logger |
@@ -48,7 +49,7 @@ Run through this list manually after any change to routing, workout actions, dat
 | 3.1 | Open dashboard | Current month calendar shown, today highlighted with orange ring |
 | 3.2 | Tap prev/next month arrow | Calendar navigates, URL updates to `?y=...&m=...` |
 | 3.3 | Tap empty **past or today** cell | Sheet opens immediately with template list already populated (no loading spinner) — shows "Log a workout", template picker, "Start workout" button |
-| 3.4 | Select **no template** and tap "Start workout" | Creates `in_progress` blank workout for that date, navigates to logger |
+| 3.4 | Select **no template** and tap "Start workout" | Creates `in_progress` blank workout for that date, navigates to logger. Double-tapping (or re-opening the sheet and repeating before the redirect lands) reuses the same empty `in_progress` workout for that date rather than creating a second one — same guard as 1.1b |
 | 3.5 | Select **a template** and tap "Start workout" | Navigates to template editor `/workouts/[id]?date=...` — **does not create workout yet** |
 | 3.6 | Tap empty **future** cell | Sheet: "Schedule a workout", template picker, "Schedule" button |
 | 3.7 | Select **no template** and tap "Schedule" | Creates `planned` blank workout, calendar refreshes, dot appears |
@@ -76,11 +77,16 @@ Run through this list manually after any change to routing, workout actions, dat
 
 | # | Scenario | Expected result |
 |---|----------|----------------|
-| 4.1 | View a set row (active workout) | Full-width row: set number, **Weight** label + value, **Reps** label + value, ✕ button |
+| 4.1 | View a set row (active workout) | Full-width row: set number, **Weight** label + value, **Reps** label + value, ✕ button (44×44 min hit area, ADR-0008) |
+| 4.1a | Tap the row's delete ✕ once | Confirm/Cancel buttons replace the row's action area in place (two-tap pattern, mirrors §3.15–3.17); set is **not yet** removed |
+| 4.1b | Tap Confirm after the delete ✕ | Set removed from local state (§15.7: not autosaved — persists on next Save/Done); marks the queue dirty |
+| 4.1c | Tap Cancel after the delete ✕ | Prompt dismissed, set unchanged |
 | 4.2 | Tap a set row (active workout) | Row expands into edit mode: two labeled inputs (Weight kg / Reps) |
+| 4.2a | Type a partial decimal into the weight stepper (e.g. "2.", then "5") | Value is preserved as typed (draft string in local component state); does not snap to 0 or drop the decimal point mid-keystroke — commits to a clamped number only on blur/Enter/▲▼ bump |
+| 4.2b | Weight/distance inputs vs. reps/duration inputs on mobile | Weight and distance steppers/inputs use `inputMode="decimal"`; reps and duration use `inputMode="numeric"` |
 | 4.3 | Edit a set and tap elsewhere | Edit auto-saves to **local state** (not DB), row returns to display mode |
 | 4.4 | Edit a set and press Enter | Same as tapping elsewhere — saves to local state |
-| 4.5 | Tap ✕ while editing | Cancels edit, row reverts to previous values |
+| 4.5 | Tap ✕ while editing | Cancels edit, row reverts to previous values (this is the edit-mode cancel ✕, distinct from the delete ✕ in 4.1a — no confirm step, nothing destructive happens) |
 | 4.6 | View a set row (completed workout) | Same labeled row layout but no ✕ button and not tappable |
 | 4.7 | Set with null weight | Displays `—` for weight |
 | 4.8 | Set with null reps | Displays `—` for reps |
@@ -108,6 +114,9 @@ Run through this list manually after any change to routing, workout actions, dat
 | 5.9 | Complete a workout with exercise X | X's history updates on next chart open |
 | 5.10 | Save (not complete) a workout | History does **not** change |
 | 5.11 | History tab on `/routines/[id]` exercise page | Same chart rendered, lazy-loaded when tab is selected |
+| 5.12 | Chart data labels / axis text at mobile width (WP-16) | Value labels and axis dates render at >= 11 SVG-user-unit font size (legible, not the old 8-9px) |
+| 5.13 | Reps line/labels in dark mode (WP-16) | Renders in zinc-400 (not zinc-500) — zinc-500 fails WCAG AA against the dark panel background |
+| 5.14 | Screen reader on the chart `<svg>` (WP-16) | `role="img"` with a `<title>`/`<desc>` (referenced via `aria-labelledby`) summarizing the date range and first/last weight/reps values |
 
 ---
 
@@ -274,12 +283,15 @@ The four icon buttons (i, clock, trophy, bolt) must be reachable while the user 
 |---|----------|----------------|
 | 15.1 | Add a set (weight and/or reps filled, tap "Add") | Set appears in list; sets are persisted to DB automatically |
 | 15.2 | Reload page immediately after tapping "Add" | The added set is present — it was saved |
-| 15.3 | Add multiple sets back-to-back quickly | All sets persist; no set is lost between rapid adds |
+| 15.3 | Add multiple sets back-to-back quickly | All sets persist, in order; saves are serialized per workout so no rapid-add races a partial snapshot in (ADR-0004) |
 | 15.4 | Tap manual "Save" button after auto-save already ran | Save runs without showing the first-time warning (already satisfied) |
 | 15.5 | Tap "Done" | Workout marked completed; all sets saved; redirects to /dashboard |
-| 15.6 | Inline edit a set value then tap elsewhere | Edit lives in local state only — not auto-saved; still requires manual Save or Done |
-| 15.7 | Delete a set | Deletion lives in local state only — not auto-saved; still requires manual Save or Done |
+| 15.6 | Inline edit a set value then tap elsewhere | Edit lives in local state only — not auto-saved; "Unsaved changes" indicator appears; cleared by the next successful Save/Done or autosaved add (ADR-0004 dirty tracking) |
+| 15.7 | Delete a set | Deletion lives in local state only — not auto-saved; "Unsaved changes" indicator appears; same clearing rule as 15.6 |
 | 15.8 | Open a completed workout | No "Add" button; auto-save never runs |
+| 15.9 | A save fails (network blip, RLS hiccup, etc.) | A visible, `aria-live` "Not saved — …" banner with Retry appears; `beforeunload` stays armed even if `localSets` is otherwise unremarkable (ADR-0004) |
+| 15.10 | Tap "Done" while the most recent save has failed | Stays on the logger with the error shown; does **not** redirect to /dashboard (ADR-0004) |
+| 15.11 | The set-persistence RPC (`save_workout_sets`) is not yet migrated | Client falls back to insert-new-before-delete-old; a failed fallback insert never triggers the delete, so an existing snapshot is never wiped (ADR-0004, `docs/database.md` Phase 8) |
 
 ---
 
@@ -315,6 +327,7 @@ The four icon buttons (i, clock, trophy, bolt) must be reachable while the user 
 | 17.9 | Exercise history | Rest durations visible per session entry |
 | 17.10 | Completed (read-only) workout | No rest timer appears |
 | 17.11 | First set of the session (nothing to rest from) | No timer starts until the first set has been added |
+| 17.12 | Rest timer running — focus the weight/reps field for the next set, then scroll | Countdown stays visible (stays `sticky`); only the settings-only view (no rest running) drops out of sticky while a field is focused, to dodge the mobile keyboard shoving its layout around |
 
 ---
 
@@ -347,14 +360,54 @@ The four icon buttons (i, clock, trophy, bolt) must be reachable while the user 
 | 19.1 | Select a cardio exercise (e.g. "Running") via the picker | Picker closes; add-set form shows duration (minutes) and distance fields — **no** weight or reps inputs |
 | 19.2 | Select a strength exercise (e.g. "Bench Press") in the same workout | Add-set form shows weight (kg) and reps — no duration or distance fields |
 | 19.3 | Log a cardio set with duration only (leave distance blank) | Set row shows duration only; distance omitted |
-| 19.4 | Log a cardio set with duration and distance | Set row shows "X min · Y km" (or Y m depending on user preference) |
+| 19.4 | Log a cardio set with duration and distance | Set row shows "X min · Y km" (or Y m, per the current distance-unit preference — WP-12) |
 | 19.5 | Workout contains both cardio and strength exercises | Each exercise group shows the correct field layout independently; no cross-contamination |
 | 19.6 | Complete a workout with a cardio set | Completed-workout summary row shows duration/distance, not weight/reps |
 | 19.7 | Reload a completed workout that has cardio sets | duration_minutes and distance values are present — not overwritten with null |
 | 19.8 | Cardio set in performance-history modal (clock/trophy/bolt) | Modal shows duration column, not weight column |
 | 19.9 | Exercise history chart for a cardio exercise | Chart plots duration (not weight) on the primary axis |
-| 19.10 | User preference: km selected | All distance values in set rows and history display in km |
-| 19.11 | User preference: m selected | All distance values display in metres |
+| 19.10 | User preference: km selected (default, matches pre-WP-12 behaviour) | All distance values in set rows (active + completed) and the PT report display in km. Preference persists across reload via `localStorage` (`wt.distanceUnit`, `src/lib/distanceUnit.ts`) |
+| 19.11 | User preference: m selected — toggle pill next to Copy in the workout header, only shown once the workout has a cardio set | All distance values in set rows (active + completed) and the PT report display in metres, converted from the DB's always-km storage (ADR-0003) at render time; add-set/edit-set entry fields remain labelled "km" (entry unit is unchanged — only display converts) |
+
+---
+
+## 20. Modal dialog contract (WP-08, ADR-0008)
+
+Every overlay in the app (LastPerfModal, ExerciseInfoModal, ExercisePickerSheet, and
+the eight inline WorkoutLogger dialogs — template import, save-progress warning,
+paste-overwrite confirm, discard-edits confirm, abandon confirm, guided-set setup,
+per-exercise note editor, whole-exercise guide setup) renders through the shared
+`Modal` primitive (`src/components/Modal.tsx`). This section documents the contract
+those overlays share; §7.11/§11.3/§12.4/§13/§18.12 rows above still hold — the
+dismissal *methods* they refer to now include Escape.
+
+| # | Scenario | Expected result |
+|---|----------|----------------|
+| 20.1 | Any dialog opens | `role="dialog"`, `aria-modal="true"`, and an accessible name (`aria-label`) are present |
+| 20.2 | Any dialog opens | Focus moves inside the dialog (its first focusable control, unless the dialog designates another, e.g. the picker's search input or the note editor's textarea) |
+| 20.3 | Press Tab repeatedly while a dialog is open | Focus cycles only among controls inside the dialog; it never reaches the page behind it |
+| 20.4 | Press Escape while a non-destructive dialog is open | Dialog closes |
+| 20.5 | Dialog closes (any method) | Focus returns to the control that opened it |
+| 20.6 | Click the backdrop of a non-destructive dialog | Dialog closes (unchanged from today's tap-outside behaviour) |
+| 20.7 | Click the backdrop of a **destructive-confirm** dialog (save-progress warning, paste-overwrite, discard-edits, abandon) | Dialog stays open — only its own Cancel/Confirm buttons or Escape dismiss it |
+| 20.8 | Press Escape while a destructive-confirm dialog is open | Dialog closes (Escape is not exempted — only backdrop click is) |
+| 20.9 | One dialog opens another on top of it (e.g. exercise info opened from within the picker sheet) | Both are present in the DOM (`role="dialog"` count = 2); Escape closes only the topmost one, leaving the one underneath open |
+| 20.10 | The picker sheet's search input, muscle/category filter dropdowns, and internal scroll | Unchanged — Modal wraps the sheet's existing markup without altering its internal state or scroll behaviour |
+
+---
+
+## 21. Error boundaries (WP-13, finding M6)
+
+A render or data-loading crash never shows a blank page. Two boundaries, both
+Client Components per the Next 16 file convention:
+
+| # | Scenario | Expected result |
+|---|----------|----------------|
+| 21.1 | A render/data error is thrown while on `/workout/[id]` | `src/app/workout/[id]/error.tsx` renders in place of the crashed segment — a "Something went wrong" message, a "Try again" button, and a link back to `/dashboard`; the rest of the app shell (route outside the segment) is unaffected |
+| 21.2 | Tap "Try again" on the workout error boundary | Calls `reset()`; if the underlying fault has cleared, the workout UI re-renders in place — no full navigation |
+| 21.3 | Tap the "Back to dashboard" link on the workout error boundary | Navigates to `/dashboard` |
+| 21.4 | An error escapes the root layout itself (no matching nested `error.tsx` can catch it) | Root `src/app/global-error.tsx` renders — it defines its own `<html>`/`<body>` and imports its own fonts/styles (Next replaces the root layout entirely while this is active), with the same "Try again" + dashboard-link shape |
+| 21.5 | Either boundary is showing | The user-facing message is a stable, friendly sentence (`src/lib/errorBoundaryMessage.ts`) — never the raw `error.message`, since Server Component errors intentionally arrive generic and Client Component errors may contain implementation details not meant for display |
 
 ---
 
@@ -374,3 +427,10 @@ The four icon buttons (i, clock, trophy, bolt) must be reachable while the user 
 - ↑/↓ reorder buttons are always visible when 2+ exercises exist — there is no separate "reorder mode" toggle.
 - `TemplateEditor` receives optional `date` and `workoutId` search params. `date > today` → "Schedule" mode (planned workout). `workoutId` → transition existing planned workout.
 - When routing to the template editor from the calendar, the workout is **not created** until the user taps "Start now" / "Schedule" in the editor.
+- The duplicate-workout guard (`findReusableInProgressWorkout` in `cores.ts`, WP-14/Finding L1) only reuses an existing `in_progress` workout for (user, date) if it has **zero sets**. A workout with any sets is real progress and is never reused, deleted, or silently redirected into — a new workout is inserted alongside it instead. The guard covers `startWorkout` and `logWorkoutForDate` only; `scheduleWorkout` (status `planned`) is intentionally unguarded — a user may legitimately want more than one planned workout on the same future date.
+- New overlays must render through `src/components/Modal.tsx`, not a bare `fixed inset-0` div — it is the only place dialog semantics/focus-trap/Escape/backdrop rules are decided (ADR-0008). Pass `destructive` for confirms that discard user data; everything else defaults to backdrop-closes. `Modal` only supplies the `role="dialog"` wrapper and focus behaviour — callers keep their own backdrop/panel classNames so visual layout is unaffected. The Escape/Tab decisions live in the pure, unit-tested `src/lib/modalFocus.ts`; stacking order (which dialog is topmost when one opens another) lives in `src/lib/modalStack.ts`.
+- `src/app/global-error.tsx` replaces the root layout entirely while active — it cannot rely on anything `layout.tsx` provides (fonts, `Providers`, `globals.css`). It imports `./globals.css` and its own font loader directly. It is not an overlay (no "page behind" to dim), so it does not use `src/components/Modal.tsx`; nested route boundaries (`error.tsx`) also render as full-page fallback content, not a Modal overlay, for the same reason.
+- Error boundaries never show the raw `error.message` to the user (`src/lib/errorBoundaryMessage.ts` is the one seam that decides the display string) — Next 16 intentionally gives Server Component errors a generic message, and showing Client Component messages raw would be inconsistent and could leak implementation detail. `console.error(error)` in the boundary is still the place to log the real error/digest for developers.
+- `Stepper.tsx` (weight/reps/tempo-seconds inputs) keeps a raw draft string in local state (`src/lib/numericInput.ts`: `isDraftableNumericInput`/`commitNumericDraft`) and only calls the parent's `onChange` with a clamped number on blur, Enter, or a ▲/▼ bump — never on every keystroke. Do not "simplify" this back to `onChange={(e) => onChange(Number(e.target.value) || 0)}`; that's the exact WP-18/L3 regression (typing "2." snaps to 0 mid-keystroke because `Number("2.")` truncates and `Number("2") || 0` fires on every character before the second digit lands). Pass `decimal` on weight/distance steppers for `inputMode="decimal"`; leave it off (default) for reps/tempo/duration for `inputMode="numeric"`.
+- The rest bar's `sticky` positioning is decided by `shouldStickRestBar(fieldFocused, isResting)` in `src/lib/restTimer.ts`, not by `fieldFocused` alone — an active countdown always stays sticky even while a field is focused (WP-18/L2); only the no-rest settings-only view drops out of sticky to dodge the mobile keyboard (commit 91d70ae). Keep both invariants when touching the rest bar's positioning.
+- `src/app/layout.tsx` exports `viewport` (themeColor) separately from `metadata` (title/description) — Next 16 moved `themeColor` out of the `Metadata` type into a dedicated `Viewport` export; do not add it back into `metadata`, it's silently ignored there.

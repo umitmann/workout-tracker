@@ -2,8 +2,13 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getWorkoutWithSets, getMonthWorkouts, getMonthWorkoutsWithPreviews, WorkoutCalendarEntry, WorkoutPreviewExercise, MonthWorkoutsWithPreviews } from '@/lib/dal'
+import { saveWorkoutProgressCore, completeWorkoutCore, startWorkoutCore, startWorkoutFromTemplateCore, logWorkoutForDateCore, SetPayload } from './cores'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+
+// ADR-0005: the server never decides "today" — the client always passes its
+// own local calendar date (via localDateStr()). date is required precisely
+// so no call site can silently reintroduce a server-clock fallback.
 
 // Type lives in dal.ts — re-exported here so existing imports keep working
 export type { WorkoutPreviewExercise, MonthWorkoutsWithPreviews } from '@/lib/dal'
@@ -30,65 +35,19 @@ export async function fetchWorkoutPreview(workoutId: number): Promise<WorkoutPre
   return Array.from(grouped.values())
 }
 
-export type SetPayload = {
-  exercise_id: number
-  weight: number | null
-  reps: number | null
-  duration_minutes?: number | null
-  distance?: number | null
+export type { SetPayload } from './cores'
+
+export async function startWorkout(date: string) {
+  return startWorkoutCore(await createServerSupabaseClient(), date)
 }
 
-export async function startWorkout() {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/')
-
-  const today = new Date().toISOString().split('T')[0]
-
-  const { data, error } = await supabase
-    .from('workouts')
-    .insert({ user_id: user.id, date: today, status: 'in_progress' })
-    .select('id')
-    .single()
-
-  if (error || !data) redirect('/dashboard')
-
-  redirect(`/workout/${data.id}`)
-}
-
-export async function startWorkoutFromTemplate(templateId: string | number, date?: string) {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/')
-
-  const workoutDate = date ?? new Date().toISOString().split('T')[0]
-
-  const { data: workout, error: workoutError } = await supabase
-    .from('workouts')
-    .insert({ user_id: user.id, date: workoutDate, status: 'in_progress', template_id: templateId })
-    .select('id')
-    .single()
-
-  if (workoutError || !workout) redirect('/dashboard')
-
-  redirect(`/workout/${workout.id}`)
+export async function startWorkoutFromTemplate(templateId: string | number, date: string) {
+  return startWorkoutFromTemplateCore(await createServerSupabaseClient(), templateId, date)
 }
 
 // Creates an in_progress workout for any date (for logging in hindsight or today)
 export async function logWorkoutForDate(date: string, templateId?: string) {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/')
-
-  const { data: workout } = await supabase
-    .from('workouts')
-    .insert({ user_id: user.id, date, status: 'in_progress', template_id: templateId ?? null })
-    .select('id')
-    .single()
-
-  if (!workout) redirect('/workouts')
-
-  redirect(`/workout/${workout.id}`)
+  return logWorkoutForDateCore(await createServerSupabaseClient(), date, templateId)
 }
 
 // Creates a planned workout for a future date
@@ -129,73 +88,12 @@ export async function startPlannedWorkout(workoutId: number) {
 
 // Saves sets without completing — stays in_progress, no redirect
 export async function saveWorkoutProgress(workoutId: number, sets: SetPayload[]) {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
-
-  const { data: workout } = await supabase
-    .from('workouts')
-    .select('id')
-    .eq('id', workoutId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!workout) return { error: 'Not found' }
-
-  await supabase.from('sets').delete().eq('workout_id', workoutId)
-
-  if (sets.length > 0) {
-    await supabase.from('sets').insert(
-      sets.map((s) => ({
-        workout_id: workoutId,
-        user_id: user.id,
-        exercise_id: s.exercise_id,
-        weight: s.weight,
-        reps: s.reps,
-        duration_minutes: s.duration_minutes ?? null,
-        distance: s.distance ?? null,
-      })),
-    )
-  }
-
-  return { success: true }
+  return saveWorkoutProgressCore(await createServerSupabaseClient(), workoutId, sets)
 }
 
 // Saves sets and marks workout as completed — updates exercise history, redirects to calendar
 export async function completeWorkout(workoutId: number, sets: SetPayload[]) {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/')
-
-  const { data: workout } = await supabase
-    .from('workouts')
-    .select('id')
-    .eq('id', workoutId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!workout) redirect('/workouts')
-
-  await supabase.from('sets').delete().eq('workout_id', workoutId)
-
-  if (sets.length > 0) {
-    await supabase.from('sets').insert(
-      sets.map((s) => ({
-        workout_id: workoutId,
-        user_id: user.id,
-        exercise_id: s.exercise_id,
-        weight: s.weight,
-        reps: s.reps,
-        duration_minutes: s.duration_minutes ?? null,
-        distance: s.distance ?? null,
-      })),
-    )
-  }
-
-  await supabase.from('workouts').update({ status: 'completed' }).eq('id', workout.id)
-  revalidatePath('/dashboard')
-  revalidatePath('/workouts')
-  redirect('/dashboard')
+  return completeWorkoutCore(await createServerSupabaseClient(), workoutId, sets)
 }
 
 export async function deleteWorkout(workoutId: number) {

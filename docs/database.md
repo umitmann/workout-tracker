@@ -303,6 +303,249 @@ create policy "scheduled_workouts: users delete their own"
 
 ---
 
+## Phase 4 — Rest timer + bodyweight
+
+### `sets.rest_seconds` (migration)
+
+Records the **actual** elapsed rest taken after a set (seconds). Nullable — old
+rows and sets logged without a rest timer stay `null`. The app degrades
+gracefully if this column is missing (reads fall back, writes retry without it),
+so it can be added at any time.
+
+```sql
+alter table sets add column rest_seconds numeric;
+notify pgrst, 'reload schema';
+```
+
+### `body_weights` (new table)
+
+One bodyweight entry per user per day (kg). Upserted on `(user_id, date)`.
+
+```sql
+create table if not exists body_weights (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users on delete cascade,
+  date       date not null,
+  weight     numeric not null,
+  created_at timestamptz default now(),
+  unique (user_id, date)
+);
+
+alter table body_weights enable row level security;
+
+create policy "body_weights: users select their own"
+  on body_weights for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "body_weights: users insert their own"
+  on body_weights for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "body_weights: users update their own"
+  on body_weights for update
+  to authenticated
+  using  (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "body_weights: users delete their own"
+  on body_weights for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+notify pgrst, 'reload schema';
+```
+
+> The dashboard bodyweight widget and the PT export tolerate this table not
+> existing yet (reads return empty), but logging a weight will error until it is
+> created.
+
+---
+
+## Phase 5 — Per-set targets (dropsets / pyramids)
+
+### `routine_exercises.set_details` (migration)
+
+Optional per-set target scheme. When present it's a JSON array with one entry
+per planned set — `[{ "reps": 8, "weight": 60 }, { "reps": 8, "weight": 50 }, …]`
+— which lets a template schedule dropsets or pyramids instead of a single
+uniform `sets × reps @ weight`. Null = uniform (use the existing `sets`/`reps`/
+`weight` columns). Reads and writes degrade gracefully if the column is missing.
+
+```sql
+alter table routine_exercises add column set_details jsonb;
+notify pgrst, 'reload schema';
+```
+
+---
+
+## Phase 7 — PT-set tempo per template exercise
+
+### `routine_exercises.tempo` (migration)
+
+Optional DRUH tempo the PT prescribes for an exercise, stored as `"down-rest-up-hold"`
+seconds (e.g. `"3-1-2-1"`). Null = no prescribed tempo (the athlete's own tempo
+is used). When a workout is started from the template, the guided-set timer for
+that exercise pre-fills this tempo. Reads/writes degrade gracefully if missing.
+
+```sql
+alter table routine_exercises add column tempo text;
+notify pgrst, 'reload schema';
+```
+
+---
+
+## Phase 6 — Per-exercise personal notes
+
+### `exercise_notes` (migration)
+
+One free-text note per user per exercise (e.g. "seat height 4, narrow grip").
+Shown on the exercise while logging. Reads degrade gracefully if the table is
+missing.
+
+```sql
+create table if not exists exercise_notes (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users on delete cascade,
+  exercise_id bigint not null references exercises on delete cascade,
+  note        text,
+  updated_at  timestamptz default now(),
+  unique (user_id, exercise_id)
+);
+
+alter table exercise_notes enable row level security;
+
+create policy "exercise_notes: select own" on exercise_notes for select
+  to authenticated using (auth.uid() = user_id);
+create policy "exercise_notes: insert own" on exercise_notes for insert
+  to authenticated with check (auth.uid() = user_id);
+create policy "exercise_notes: update own" on exercise_notes for update
+  to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "exercise_notes: delete own" on exercise_notes for delete
+  to authenticated using (auth.uid() = user_id);
+
+notify pgrst, 'reload schema';
+```
+
+---
+
+## Phase 8 — Atomic set-snapshot save (ADR-0004)
+
+### `save_workout_sets` (RPC function)
+
+Replaces the client's unconditional `delete().eq('workout_id', …)` +
+`insert()` pair (finding C1) with a single Postgres function executed in one
+transaction — a delete followed by an insert that fails partway can no
+longer leave the workout's sets empty. `p_sets` is the full snapshot to
+persist for the workout, as a JSON array of rows shaped like the `sets`
+table (minus `id`); ownership is re-checked inside the function (`p_user_id`
+must own `p_workout_id`) so this can't be used to write into another user's
+workout even though `security definer` bypasses RLS for the body.
+
+```sql
+create or replace function save_workout_sets(
+  p_workout_id bigint,
+  p_user_id uuid,
+  p_sets jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- security definer bypasses RLS, and PostgREST exposes this RPC to any
+  -- authenticated user — so p_user_id must be pinned to the actual caller,
+  -- not trusted as an argument. Without this line, any logged-in user could
+  -- pass another user's uuid + workout id and replace their sets.
+  if p_user_id is distinct from auth.uid() then
+    raise exception 'p_user_id does not match the authenticated caller';
+  end if;
+
+  if not exists (
+    select 1 from workouts
+    where id = p_workout_id and user_id = p_user_id
+  ) then
+    raise exception 'workout % not found for user %', p_workout_id, p_user_id;
+  end if;
+
+  delete from sets where workout_id = p_workout_id and user_id = p_user_id;
+
+  insert into sets (workout_id, user_id, exercise_id, weight, reps, duration_minutes, distance, rest_seconds, difficulty)
+  select
+    p_workout_id,
+    p_user_id,
+    (row->>'exercise_id')::bigint,
+    (row->>'weight')::numeric,
+    (row->>'reps')::integer,
+    (row->>'duration_minutes')::numeric,
+    (row->>'distance')::numeric,
+    (row->>'rest_seconds')::numeric,
+    (row->>'difficulty')::smallint
+  from jsonb_array_elements(p_sets) as row;
+end;
+$$;
+
+grant execute on function save_workout_sets(bigint, uuid, jsonb) to authenticated;
+
+notify pgrst, 'reload schema';
+```
+
+> **Client fallback:** until this migration is applied, `save_workout_sets`
+> does not exist and Supabase returns a missing-function error (PostgREST
+> `PGRST202` / Postgres `undefined_function` `42883`). The client detects
+> exactly that error (`isMissingFunctionError` in `src/lib/dal.ts`) and falls
+> back to **insert-new-before-delete-old**: it inserts the new snapshot
+> first, then deletes only the old rows (excluding the ids it just
+> inserted). If the insert fails, no delete fires — the previous snapshot is
+> left untouched. This is a deliberate trade-off versus this RPC: it can
+> leave duplicate rows behind if the cleanup delete itself fails, but it can
+> never leave the workout emptier than before the save. Apply this migration
+> to close that residual-duplicate window entirely. See
+> [ADR-0004](decisions/0004-atomic-workout-persistence.md) and
+> `src/app/actions/cores.ts` (`saveSetSnapshot`).
+
+---
+
+## Phase 9 — PT-prescribed rest target per template exercise
+
+### `routine_exercises.rest_seconds` (migration)
+
+Optional rest target (seconds) the PT prescribes for an exercise on the plan.
+Null = no prescription. Resolve order (Tile 6): a per-exercise prescription on
+`routine_exercises.rest_seconds` wins; otherwise the athlete's single global
+rest-target value (localStorage `wt.restTarget`) applies to every exercise —
+there is NO per-exercise learned memory. Distinct from `sets.rest_seconds`
+(Phase 4), which is the timer's *logged elapsed* rest for a completed set, not
+a prescribed target. Named to parallel `tempo` (Phase 7); reads/writes degrade
+gracefully if missing, same pattern as `tempo`/`set_details`.
+
+```sql
+alter table routine_exercises add column rest_seconds integer;
+notify pgrst, 'reload schema';
+```
+
+---
+
+## Phase 10 — Per-set difficulty rating
+
+### `sets.difficulty` (migration)
+
+Optional 1-5 subjective-effort rating (1 = easy … 5 = maximal) the athlete can
+tap onto any non-cardio set, any time — never required to add/complete a set
+or complete the workout. Nullable — old rows and sets logged without a rating
+stay `null`. Same missing-column graceful-degrade as `rest_seconds` (Phase 4):
+reads fall back, writes retry without it, so this can be added at any time.
+Storage is a plain smallint; the 1-5 label direction is a UI decision only.
+
+```sql
+alter table sets add column difficulty smallint;   -- 1-5 subjective effort, nullable
+notify pgrst, 'reload schema';
+```
+
+---
+
 ## Future — Admin & Trainer Tables
 
 Not needed now. Documented in [../examples/admin-groups.md](../examples/admin-groups.md) for reference.

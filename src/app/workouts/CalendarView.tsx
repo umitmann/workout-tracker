@@ -7,6 +7,7 @@ import { fetchUserTemplates } from '@/app/actions/templates'
 import { scheduleWorkout, logWorkoutForDate, startPlannedWorkout, deleteWorkoutSoft, fetchWorkoutPreview, fetchMonthWorkoutsWithPreviews, WorkoutPreviewExercise } from '@/app/actions/workouts'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 import { useSwipe } from '@/lib/useSwipe'
+import { localDateStr, classifyCalendarDay } from '@/lib/localDate'
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -83,7 +84,7 @@ export default function CalendarView({
   const startOffset = (firstDow + 6) % 7
   const daysInMonth = new Date(viewYear, viewMonth, 0).getDate()
   const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7
-  const today = new Date().toISOString().split('T')[0]
+  const today = localDateStr()
 
   const workoutsByDate = new Map<string, WorkoutCalendarEntry[]>()
   for (const w of viewWorkouts) {
@@ -162,8 +163,7 @@ export default function CalendarView({
     const d = String(dayNum).padStart(2, '0')
     const dateStr = `${viewYear}-${String(viewMonth).padStart(2, '0')}-${d}`
     const dayWorkouts = workoutsByDate.get(dateStr) ?? []
-    const isFuture = dateStr > today
-    const isPast = dateStr < today
+    const { isPast, isFuture } = classifyCalendarDay(dateStr, today)
 
     setSelectedTemplateId(undefined)
     setWorkoutPreviews(new Map())
@@ -222,12 +222,17 @@ export default function CalendarView({
     const preview = workoutPreviews.get(workout.id)
     if (!preview) return
     copyToClipboard({
+      // NOTE: the calendar month-view preview (`fetchWorkoutPreview`) only
+      // carries set #1 + a count per exercise (Tile 7's cap, not Tile 4's) —
+      // out of scope here. This mirrors that aggregate as `setCount`
+      // identical rows rather than claiming per-set fidelity it doesn't have.
       entries: preview.map((ex) => ({
         exerciseId: ex.exerciseId,
         exerciseName: ex.exerciseName,
-        setCount: ex.setCount,
-        reps: ex.firstSetReps,
-        weight: ex.firstSetWeight,
+        sets: Array.from({ length: ex.setCount }, () => ({
+          reps: ex.firstSetReps,
+          weight: ex.firstSetWeight,
+        })),
       })),
       sourceDate: workout.date,
     })
@@ -339,7 +344,7 @@ export default function CalendarView({
             const d = String(dayNum).padStart(2, '0')
             const dateStr = `${viewYear}-${String(viewMonth).padStart(2, '0')}-${d}`
             const dayWorkouts = workoutsByDate.get(dateStr) ?? []
-            const isToday = dateStr === today
+            const { isToday } = classifyCalendarDay(dateStr, today)
 
             return (
               <button

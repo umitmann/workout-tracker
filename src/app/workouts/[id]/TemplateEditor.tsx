@@ -3,13 +3,17 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createTemplate, saveTemplateExercises, deleteTemplate, TemplateExercisePayload } from '@/app/actions/templates'
+import { readDistanceUnitPref } from '@/lib/distanceUnit'
 import { startWorkoutFromTemplate, startPlannedWorkout, scheduleWorkout } from '@/app/actions/workouts'
 import { fetchExerciseDetails, fetchLastExercisePerformance, fetchBestExercisePerformance, fetchBestExercisePerformance60Days } from '@/app/actions/exercises'
-import { LastExercisePerformance, RoutineWithExercises } from '@/lib/dal'
+import { LastExercisePerformance, RoutineWithExercises, SetDetail } from '@/lib/dal'
 import ExercisePickerSheet, { SlimExercise } from '@/app/workout/[id]/ExercisePickerSheet'
 import ExerciseInfoModal from '@/app/workout/[id]/ExerciseInfoModal'
 import LastPerfModal from '@/app/workout/[id]/LastPerfModal'
+import Stepper from '@/app/workout/[id]/Stepper'
+import { TempoConfig, parseTempo, formatTempo } from '@/lib/tempo'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
+import { localDateStr } from '@/lib/localDate'
 
 type TemplateExercise = {
   localId: string
@@ -21,6 +25,9 @@ type TemplateExercise = {
   weight: number | null
   duration_minutes: number | null
   distance: number | null
+  setDetails: SetDetail[] | null // per-set targets (dropset/pyramid); null = uniform
+  tempo: TempoConfig | null // PT-prescribed DRUH tempo; null = none
+  restSeconds: number | null // PT-prescribed rest target (seconds); null = use the athlete's global stepper
 }
 
 type ExerciseDetails = {
@@ -51,7 +58,7 @@ export default function TemplateEditor({
   const [copied, setCopied] = useState(false)
   const [showPasteConfirm, setShowPasteConfirm] = useState(false)
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = localDateStr()
   const isScheduling = !!date && date > today
 
   const [name, setName] = useState(template?.name ?? '')
@@ -70,6 +77,9 @@ export default function TemplateEditor({
           weight: e.weight,
           duration_minutes: e.duration_minutes ?? null,
           distance: e.distance ?? null,
+          setDetails: e.set_details ?? null,
+          tempo: e.tempo ? parseTempo(e.tempo) : null,
+          restSeconds: e.rest_seconds ?? null,
         })) ?? [],
   )
 
@@ -80,7 +90,7 @@ export default function TemplateEditor({
   const [infoLoading, setInfoLoading] = useState(false)
   type PerfMode = 'last' | 'best' | 'best60'
   const PERF_TITLE: Record<PerfMode, string> = { last: 'Last session', best: 'Best session', best60: 'Best · 60 days' }
-  const [perfModal, setPerfModal] = useState<{ id: number; name: string; mode: PerfMode } | null>(null)
+  const [perfModal, setPerfModal] = useState<{ id: number; name: string; mode: PerfMode; category: string | null } | null>(null)
   const [perfData, setPerfData] = useState<LastExercisePerformance | null>(null)
   const [perfLoading, setPerfLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -99,9 +109,92 @@ export default function TemplateEditor({
         weight: null,
         duration_minutes: isCardio ? 30 : null,
         distance: null,
+        setDetails: null,
+        tempo: null,
+        restSeconds: null,
       },
     ])
     setShowPicker(false)
+  }
+
+  function toggleTempo(localId: string) {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.localId === localId
+          ? { ...i, tempo: i.tempo ? null : { down: 3, rest: 1, up: 2, hold: 1 } }
+          : i,
+      ),
+    )
+  }
+
+  function updateTempo(localId: string, phase: keyof TempoConfig, v: number) {
+    setItems((prev) =>
+      prev.map((i) => (i.localId === localId && i.tempo ? { ...i, tempo: { ...i.tempo, [phase]: v } } : i)),
+    )
+  }
+
+  // PT-prescribed rest target per exercise (Tile 6 / D4). Toggling on seeds a
+  // sensible default; toggling off clears it back to null so the athlete's
+  // global stepper applies again.
+  function toggleRestTarget(localId: string) {
+    setItems((prev) =>
+      prev.map((i) => (i.localId === localId ? { ...i, restSeconds: i.restSeconds != null ? null : 90 } : i)),
+    )
+  }
+
+  function updateRestTarget(localId: string, v: number) {
+    setItems((prev) =>
+      prev.map((i) => (i.localId === localId && i.restSeconds != null ? { ...i, restSeconds: Math.max(0, v) } : i)),
+    )
+  }
+
+  // ── Per-set / dropset editing ──────────────────────────────────────────────
+
+  function toggleDropset(localId: string) {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.localId !== localId) return i
+        if (i.setDetails) return { ...i, setDetails: null } // back to uniform
+        // Seed per-set rows from the current uniform target
+        const rows: SetDetail[] = Array.from({ length: Math.max(1, i.sets) }, () => ({
+          reps: i.reps,
+          weight: i.weight,
+        }))
+        return { ...i, setDetails: rows }
+      }),
+    )
+  }
+
+  function updateSetDetail(localId: string, idx: number, patch: Partial<SetDetail>) {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.localId !== localId || !i.setDetails) return i
+        const next = i.setDetails.map((d, j) => (j === idx ? { ...d, ...patch } : d))
+        return { ...i, setDetails: next, sets: next.length }
+      }),
+    )
+  }
+
+  function addSetDetail(localId: string) {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.localId !== localId || !i.setDetails) return i
+        const last = i.setDetails[i.setDetails.length - 1] ?? { reps: i.reps, weight: i.weight }
+        const next = [...i.setDetails, { ...last }]
+        return { ...i, setDetails: next, sets: next.length }
+      }),
+    )
+  }
+
+  function removeSetDetail(localId: string, idx: number) {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.localId !== localId || !i.setDetails) return i
+        const next = i.setDetails.filter((_, j) => j !== idx)
+        if (next.length === 0) return { ...i, setDetails: null } // no rows → uniform
+        return { ...i, setDetails: next, sets: next.length }
+      }),
+    )
   }
 
   function handleRemove(localId: string) {
@@ -130,26 +223,29 @@ export default function TemplateEditor({
     if (details) setInfoExercise(details as ExerciseDetails)
   }
 
-  async function handlePerfClick(exerciseId: number, exerciseName: string, mode: PerfMode) {
-    setPerfModal({ id: exerciseId, name: exerciseName, mode })
+  async function handlePerfClick(exerciseId: number, exerciseName: string, mode: PerfMode, category: string | null = null) {
+    setPerfModal({ id: exerciseId, name: exerciseName, mode, category })
     setPerfData(null)
     setPerfLoading(true)
     let data: LastExercisePerformance | null = null
     if (mode === 'last') data = await fetchLastExercisePerformance(exerciseId)
     else if (mode === 'best') data = await fetchBestExercisePerformance(exerciseId)
-    else data = await fetchBestExercisePerformance60Days(exerciseId)
+    else data = await fetchBestExercisePerformance60Days(exerciseId, today)
     setPerfData(data)
     setPerfLoading(false)
   }
 
   function handleCopy() {
     copyToClipboard({
+      // Tile 4: lossless per-set copy — per-set targets (dropset/pyramid)
+      // copy set-for-set; a uniform item expands to `sets` identical rows
+      // (its own weight/reps are the same for every set anyway).
       entries: items.map((item) => ({
         exerciseId: item.exerciseId,
         exerciseName: item.exerciseName,
-        setCount: item.sets,
-        reps: item.reps,
-        weight: item.weight,
+        sets:
+          item.setDetails ??
+          Array.from({ length: item.sets }, () => ({ weight: item.weight, reps: item.reps })),
       })),
       sourceDate: today,
     })
@@ -168,34 +264,54 @@ export default function TemplateEditor({
   function applyPaste() {
     if (!clipboard) return
     setItems(
-      clipboard.entries.map((entry) => ({
-        localId: crypto.randomUUID(),
-        exerciseId: entry.exerciseId,
-        exerciseName: entry.exerciseName,
-        exerciseCategory: null,
-        sets: entry.setCount,
-        reps: entry.reps ?? null,
-        weight: entry.weight,
-        duration_minutes: null,
-        distance: null,
-      })),
+      clipboard.entries.map((entry) => {
+        // A single uniform "N identical sets" round-trips back to the plain
+        // sets/reps/weight fields; anything with per-set variation keeps its
+        // full setDetails list rather than collapsing to set #1.
+        const isUniform =
+          entry.sets.length > 0 &&
+          entry.sets.every((s) => s.weight === entry.sets[0].weight && s.reps === entry.sets[0].reps)
+        return {
+          localId: crypto.randomUUID(),
+          exerciseId: entry.exerciseId,
+          exerciseName: entry.exerciseName,
+          exerciseCategory: null,
+          sets: entry.sets.length,
+          reps: entry.sets[0]?.reps ?? null,
+          weight: entry.sets[0]?.weight ?? null,
+          duration_minutes: null,
+          distance: null,
+          setDetails: isUniform ? null : entry.sets,
+          tempo: null,
+          restSeconds: null,
+        }
+      }),
     )
     setShowPasteConfirm(false)
+  }
+
+  function buildPayload(): TemplateExercisePayload[] {
+    return items.map((item, i) => ({
+      exerciseId: item.exerciseId,
+      // When per-set targets exist, keep sets/reps/weight in sync with the first
+      // row so non-migrated readers still get a sensible uniform fallback.
+      sets: item.setDetails ? item.setDetails.length : item.sets,
+      reps: item.setDetails ? item.setDetails[0]?.reps ?? null : item.reps,
+      weight: item.setDetails ? item.setDetails[0]?.weight ?? null : item.weight,
+      duration_minutes: item.duration_minutes,
+      distance: item.distance,
+      set_details: item.setDetails,
+      tempo: item.tempo ? formatTempo(item.tempo) : null,
+      rest_seconds: item.restSeconds,
+      order: i,
+    }))
   }
 
   function handleSave() {
     if (!name.trim()) { setError('Give your workout a name'); return }
     setError(null)
 
-    const payload: TemplateExercisePayload[] = items.map((item, i) => ({
-      exerciseId: item.exerciseId,
-      sets: item.sets,
-      reps: item.reps,
-      weight: item.weight,
-      duration_minutes: item.duration_minutes,
-      distance: item.distance,
-      order: i,
-    }))
+    const payload = buildPayload()
 
     startTransition(async () => {
       if (template) {
@@ -214,15 +330,7 @@ export default function TemplateEditor({
     if (!name.trim()) { setError('Give your workout a name'); return }
     setError(null)
 
-    const payload: TemplateExercisePayload[] = items.map((item, i) => ({
-      exerciseId: item.exerciseId,
-      sets: item.sets,
-      reps: item.reps,
-      weight: item.weight,
-      duration_minutes: item.duration_minutes,
-      distance: item.distance,
-      order: i,
-    }))
+    const payload = buildPayload()
 
     startTransition(async () => {
       let routineId: string | number
@@ -243,7 +351,11 @@ export default function TemplateEditor({
         if ('error' in result) { setError(result.error ?? 'Schedule failed'); return }
         router.push('/workouts')
       } else {
-        await startWorkoutFromTemplate(routineId, date)
+        // date is undefined when editing/creating a template outside the
+        // "start for a specific calendar day" flow (e.g. /workouts/new) —
+        // ADR-0005: the client always supplies its own local day explicitly,
+        // never relying on a server-side "today".
+        await startWorkoutFromTemplate(routineId, date ?? today)
       }
     })
   }
@@ -335,7 +447,7 @@ export default function TemplateEditor({
                   i
                 </button>
                 <button
-                  onClick={() => handlePerfClick(item.exerciseId, item.exerciseName, 'last')}
+                  onClick={() => handlePerfClick(item.exerciseId, item.exerciseName, 'last', item.exerciseCategory)}
                   title="Last session"
                   className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none"
                 >
@@ -345,7 +457,7 @@ export default function TemplateEditor({
                   </svg>
                 </button>
                 <button
-                  onClick={() => handlePerfClick(item.exerciseId, item.exerciseName, 'best')}
+                  onClick={() => handlePerfClick(item.exerciseId, item.exerciseName, 'best', item.exerciseCategory)}
                   title="Best session"
                   className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
                 >
@@ -358,7 +470,7 @@ export default function TemplateEditor({
                   </svg>
                 </button>
                 <button
-                  onClick={() => handlePerfClick(item.exerciseId, item.exerciseName, 'best60')}
+                  onClick={() => handlePerfClick(item.exerciseId, item.exerciseName, 'best60', item.exerciseCategory)}
                   title="Best · 60 days"
                   className="shrink-0 w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none"
                 >
@@ -395,70 +507,165 @@ export default function TemplateEditor({
               </div>
             </div>
 
-            {/* Sets + cardio-aware target inputs */}
-            <div className="grid grid-cols-3 gap-2">
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Sets</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={item.sets}
-                  onChange={(e) => updateItem(item.localId, { sets: Number(e.target.value) || 1 })}
-                  className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
-                />
-              </label>
-              {item.exerciseCategory === 'cardio' ? (
-                <>
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Duration (min)</span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={item.duration_minutes ?? ''}
-                      placeholder="—"
-                      onChange={(e) => updateItem(item.localId, { duration_minutes: e.target.value ? Number(e.target.value) : null })}
-                      className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Distance (km)</span>
-                    <input
-                      type="number"
+            {item.exerciseCategory === 'cardio' ? (
+              /* Cardio: uniform sets + duration/distance (no dropset) */
+              <div className="grid grid-cols-3 gap-3 items-end">
+                <Stepper label="Sets" value={item.sets} min={1} max={10} onChange={(v) => updateItem(item.localId, { sets: Math.max(1, v) })} />
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Duration (min)</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={item.duration_minutes ?? ''}
+                    placeholder="—"
+                    onChange={(e) => updateItem(item.localId, { duration_minutes: e.target.value ? Number(e.target.value) : null })}
+                    className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Distance (km)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={item.distance ?? ''}
+                    placeholder="—"
+                    onChange={(e) => updateItem(item.localId, { distance: e.target.value ? Number(e.target.value) : null })}
+                    className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
+                  />
+                </label>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">
+                    {item.setDetails ? 'Per-set targets' : 'Targets'}
+                  </span>
+                  <button
+                    onClick={() => toggleDropset(item.localId)}
+                    className={`text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full border transition-colors ${
+                      item.setDetails
+                        ? 'border-orange-400 text-orange-500 bg-orange-50 dark:bg-orange-950/20'
+                        : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-orange-400 hover:text-orange-500'
+                    }`}
+                  >
+                    {item.setDetails ? 'Uniform sets' : 'Dropset / per-set'}
+                  </button>
+                </div>
+
+                {item.setDetails ? (
+                  <div className="flex flex-col gap-2">
+                    {item.setDetails.map((d, idx) => (
+                      <div key={idx} className="flex items-end gap-2">
+                        <span className="text-xs font-bold text-zinc-400 w-8 pb-2">#{idx + 1}</span>
+                        <Stepper
+                          label="Reps"
+                          value={d.reps ?? 0}
+                          min={0}
+                          max={30}
+                          onChange={(v) => updateSetDetail(item.localId, idx, { reps: v > 0 ? v : null })}
+                        />
+                        <label className="flex-1 flex flex-col gap-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400 text-center">kg</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={d.weight ?? ''}
+                            placeholder="—"
+                            onChange={(e) => updateSetDetail(item.localId, idx, { weight: e.target.value ? Number(e.target.value) : null })}
+                            className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-2 py-2 text-sm text-center outline-none focus:border-orange-400"
+                          />
+                        </label>
+                        <button
+                          onClick={() => removeSetDetail(item.localId, idx)}
+                          className="text-zinc-300 hover:text-red-500 dark:text-zinc-700 pb-2 text-lg leading-none"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => addSetDetail(item.localId)}
+                      className="self-start rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+                    >
+                      + Add set
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-3 items-end">
+                    <Stepper label="Sets" value={item.sets} min={1} max={10} onChange={(v) => updateItem(item.localId, { sets: Math.max(1, v) })} />
+                    <Stepper label="Reps" value={item.reps ?? 0} min={0} max={30} onChange={(v) => updateItem(item.localId, { reps: v > 0 ? v : null })} />
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Weight (kg)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={item.weight ?? ''}
+                        placeholder="—"
+                        onChange={(e) => updateItem(item.localId, { weight: e.target.value ? Number(e.target.value) : null })}
+                        className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
+                      />
+                    </label>
+                  </div>
+                )}
+
+                {/* PT-prescribed DRUH tempo */}
+                <div className="flex flex-col gap-2 border-t border-zinc-100 dark:border-zinc-800 pt-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">
+                      Tempo (DRUH){item.tempo ? ` · ${formatTempo(item.tempo)}` : ''}
+                    </span>
+                    <button
+                      onClick={() => toggleTempo(item.localId)}
+                      className={`text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full border transition-colors ${
+                        item.tempo
+                          ? 'border-orange-400 text-orange-500 bg-orange-50 dark:bg-orange-950/20'
+                          : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-orange-400 hover:text-orange-500'
+                      }`}
+                    >
+                      {item.tempo ? 'Remove tempo' : 'Set tempo'}
+                    </button>
+                  </div>
+                  {item.tempo && (
+                    <div className="grid grid-cols-4 gap-2">
+                      <Stepper label="Down" sublabel="lower" value={item.tempo.down} min={0} max={10} onChange={(v) => updateTempo(item.localId, 'down', v)} />
+                      <Stepper label="Rest" sublabel="bottom" value={item.tempo.rest} min={0} max={10} onChange={(v) => updateTempo(item.localId, 'rest', v)} />
+                      <Stepper label="Up" sublabel="lift" value={item.tempo.up} min={0} max={10} onChange={(v) => updateTempo(item.localId, 'up', v)} />
+                      <Stepper label="Hold" sublabel="top" value={item.tempo.hold} min={0} max={10} onChange={(v) => updateTempo(item.localId, 'hold', v)} />
+                    </div>
+                  )}
+                </div>
+
+                {/* PT-prescribed rest target (Tile 6 / D4): wins over the
+                    athlete's global stepper for this exercise only; clearing
+                    it falls back to the global value. */}
+                <div className="flex flex-col gap-2 border-t border-zinc-100 dark:border-zinc-800 pt-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">
+                      Rest target{item.restSeconds != null ? ` · ${item.restSeconds}s` : ''}
+                    </span>
+                    <button
+                      onClick={() => toggleRestTarget(item.localId)}
+                      className={`text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full border transition-colors ${
+                        item.restSeconds != null
+                          ? 'border-orange-400 text-orange-500 bg-orange-50 dark:bg-orange-950/20'
+                          : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-orange-400 hover:text-orange-500'
+                      }`}
+                    >
+                      {item.restSeconds != null ? 'Remove rest target' : 'Set rest target'}
+                    </button>
+                  </div>
+                  {item.restSeconds != null && (
+                    <Stepper
+                      label="Rest (s)"
+                      value={item.restSeconds}
                       min={0}
-                      value={item.distance ?? ''}
-                      placeholder="—"
-                      onChange={(e) => updateItem(item.localId, { distance: e.target.value ? Number(e.target.value) : null })}
-                      className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
+                      max={600}
+                      onChange={(v) => updateRestTarget(item.localId, v)}
                     />
-                  </label>
-                </>
-              ) : (
-                <>
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Reps</span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={item.reps ?? ''}
-                      placeholder="—"
-                      onChange={(e) => updateItem(item.localId, { reps: e.target.value ? Number(e.target.value) : null })}
-                      className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">Weight (kg)</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={item.weight ?? ''}
-                      placeholder="—"
-                      onChange={(e) => updateItem(item.localId, { weight: e.target.value ? Number(e.target.value) : null })}
-                      className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none"
-                    />
-                  </label>
-                </>
-              )}
-            </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ))}
 
@@ -509,7 +716,9 @@ export default function TemplateEditor({
       )}
       {perfModal && (
         <LastPerfModal
+          distanceUnit={readDistanceUnitPref()}
           exerciseName={perfModal.name}
+          category={perfModal.category}
           title={PERF_TITLE[perfModal.mode]}
           data={perfData}
           loading={perfLoading}
