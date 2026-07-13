@@ -57,6 +57,11 @@ export default function DruhTimer({
   const [rep, setRep] = useState(initial.rep)
   const [phase, setPhase] = useState<TempoPhase>(initial.phase)
   const [secs, setSecs] = useState(initial.secondsLeft)
+  // Tile 11: an early Stop & log surfaces the computed rep count for
+  // confirm/adjust rather than saving it silently (the count over-counts if
+  // the lifter paused mid-set). null = not confirming (still running).
+  // Natural goal-completion skips this and calls finish() directly.
+  const [confirmReps, setConfirmReps] = useState<number | null>(null)
 
   const rafRef = useRef<number | null>(null)
   const startRef = useRef<number>(0)
@@ -143,9 +148,24 @@ export default function DruhTimer({
     onStop(completedReps)
   }
 
+  // Tile 11: pause the run and surface the computed count for confirm/adjust
+  // instead of logging it silently — the lifter adjusts ± and saves.
   function handleStopEarly() {
+    if (doneRef.current || confirmReps != null) return
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
     const elapsed = (performance.now() - startRef.current) / 1000
-    finish(stopEarlyReps(tempo, goalReps, elapsed))
+    setConfirmReps(stopEarlyReps(tempo, goalReps, elapsed))
+  }
+
+  function adjustConfirmReps(delta: number) {
+    setConfirmReps((r) => (r == null ? r : Math.max(0, Math.min(goalReps, r + delta))))
+  }
+
+  // Adjusting to 0 and saving logs nothing — the existing ≤0 rule in the
+  // caller (handleGuidedStop) already refuses to create/fill a set at 0.
+  function confirmStopEarly() {
+    if (confirmReps == null) return
+    finish(confirmReps)
   }
 
   function skipReady() {
@@ -155,8 +175,9 @@ export default function DruhTimer({
   }
 
   const inReady = ready > 0
+  const inConfirm = confirmReps != null
   const cue = TEMPO_PHASE_CUE[phase]
-  const bg = inReady ? 'bg-zinc-800' : PHASE_BG[phase]
+  const bg = inConfirm ? 'bg-zinc-800' : inReady ? 'bg-zinc-800' : PHASE_BG[phase]
 
   return (
     <div className={`fixed inset-0 z-[80] flex flex-col ${bg} transition-colors duration-150 text-white`}>
@@ -173,7 +194,31 @@ export default function DruhTimer({
         </button>
       </div>
 
-      {inReady ? (
+      {inConfirm ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
+          <p className="text-lg font-semibold text-white/70">How many reps did you actually complete?</p>
+          <div className="flex items-center gap-6">
+            <button
+              onClick={() => adjustConfirmReps(-1)}
+              disabled={confirmReps <= 0}
+              aria-label="Decrease reps"
+              className="w-14 h-14 rounded-full bg-white/15 hover:bg-white/25 disabled:opacity-30 text-3xl font-black transition-colors"
+            >
+              −
+            </button>
+            <p className="text-[7rem] leading-none font-black tabular-nums drop-shadow min-w-[3ch]">{confirmReps}</p>
+            <button
+              onClick={() => adjustConfirmReps(1)}
+              disabled={confirmReps >= goalReps}
+              aria-label="Increase reps"
+              className="w-14 h-14 rounded-full bg-white/15 hover:bg-white/25 disabled:opacity-30 text-3xl font-black transition-colors"
+            >
+              +
+            </button>
+          </div>
+          <p className="text-sm font-semibold uppercase tracking-widest text-white/50">goal was {goalReps}</p>
+        </div>
+      ) : inReady ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 px-6 text-center">
           <p className="text-3xl font-black tracking-widest text-white/90">GET READY</p>
           <p className="text-lg font-semibold text-white/70">{goalReps} reps · tempo {formatTempo(tempo)}</p>
@@ -197,7 +242,14 @@ export default function DruhTimer({
         >
           Cancel
         </button>
-        {inReady ? (
+        {inConfirm ? (
+          <button
+            onClick={confirmStopEarly}
+            className="flex-1 rounded-2xl bg-white py-4 text-base font-black text-zinc-900 transition-colors hover:bg-white/90"
+          >
+            {confirmReps <= 0 ? 'Log nothing' : `Log ${confirmReps} rep${confirmReps === 1 ? '' : 's'}`}
+          </button>
+        ) : inReady ? (
           <button
             onClick={skipReady}
             className="flex-1 rounded-2xl bg-white py-4 text-base font-black text-zinc-900 transition-colors hover:bg-white/90"

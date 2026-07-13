@@ -204,7 +204,7 @@ export default function ExerciseGuide({
       {mode === 'ready' ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 px-6 text-center">
           <p className="text-3xl font-black tracking-widest text-white/90">GET READY</p>
-          <p className="text-lg font-semibold text-white/70">Set {setNum} · {sets[idx]?.goalReps} reps{sets[idx]?.weight ? ` @ ${sets[idx]?.weight}kg` : ''}</p>
+          <p className="text-lg font-semibold text-white/70">Set {setNum} · {sets[idx]?.weight ? `${sets[idx]?.weight}kg × ` : ''}{sets[idx]?.goalReps} reps</p>
           <p className="text-[9rem] leading-none font-black tabular-nums drop-shadow">{readyLeft}</p>
         </div>
       ) : mode === 'set' ? (

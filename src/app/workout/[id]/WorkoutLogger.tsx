@@ -33,6 +33,7 @@ import {
   resolveEditFields,
   setDifficulty,
   mergeIncomingSets,
+  mergeGuideResults,
   MergeMode,
 } from '@/lib/setListOps'
 import { buildClipboardEntries, clipboardEntriesToLocalSets } from '@/lib/clipboardOps'
@@ -296,6 +297,14 @@ export default function WorkoutLogger({
     exerciseId: number
     exerciseName: string
     rows: { localId: string; reps: number; weight: number }[]
+  } | null>(null)
+  // Tile 12: batched end-of-guide rep review — rather than interrupting each
+  // set with a confirm, the guide-all's `onDone` results are staged here for
+  // one editable review before they're written back to `localSets`. Nothing
+  // is committed until the review is confirmed.
+  const [guideReview, setGuideReview] = useState<{
+    exerciseName: string
+    results: { localId: string; reps: number; weight: number | null; goalReps: number }[]
   } | null>(null)
 
   // Sheets & modals
@@ -636,7 +645,12 @@ export default function WorkoutLogger({
     })
   }
 
-  // Called when the DRUH timer stops (goal reached or stopped early)
+  // Called when the DRUH timer stops (goal reached, or the Tile 11
+  // confirm/adjust step is saved). Uses functional `setLocalSets` updates —
+  // not the `localSets` closed over by this render — so the write always
+  // applies against the CURRENT set list rather than a snapshot from
+  // whichever render happened to create this particular callback (the same
+  // stale-closure hazard root-caused in `handleGuideDone` below).
   function handleGuidedStop(completedReps: number) {
     if (!runningDruh) return
     const targetId = runningDruh.targetLocalId
@@ -646,10 +660,13 @@ export default function WorkoutLogger({
     if (targetId) {
       setRunningDruh(null)
       if (completedReps <= 0) return // did nothing → leave the set pending
-      const nextSets = localSets.map((s) =>
-        s.localId === targetId ? { ...s, reps: completedReps, weight: goalWeight, done: true } : s,
-      )
-      setLocalSets(nextSets)
+      let nextSets: LocalSet[] = []
+      setLocalSets((prev) => {
+        nextSets = prev.map((s) =>
+          s.localId === targetId ? { ...s, reps: completedReps, weight: goalWeight, done: true } : s,
+        )
+        return nextSets
+      })
       setSavedOnce(true)
       persist(nextSets)
       startRestFor(targetId)
@@ -675,8 +692,11 @@ export default function WorkoutLogger({
       difficulty: null,
       done: true,
     }
-    const nextSets = [...localSets, newSet]
-    setLocalSets(nextSets)
+    let nextSets: LocalSet[] = []
+    setLocalSets((prev) => {
+      nextSets = [...prev, newSet]
+      return nextSets
+    })
     setSavedOnce(true)
     setRunningDruh(null)
     setSelectedExercise(null)
@@ -773,18 +793,60 @@ export default function WorkoutLogger({
     setGuideSetup(null)
   }
 
-  // Called when the whole-exercise guide finishes/exits — write actual reps and
-  // mark each guided set done.
+  // Called when the whole-exercise guide finishes OR Exit is tapped.
+  //
+  // Tile 12b root cause (CONFIRMED bug — "Exit loses the first exercise"):
+  // `ExerciseGuide`'s rAF loop is set up once in a mount-time `useEffect` and
+  // self-perpetuates via `requestAnimationFrame(loop)`, so every call to
+  // `finish()` — including the one Exit triggers — invokes the `onDone` prop
+  // exactly as it was bound at MOUNT. The old code merged results by mapping
+  // over the OUTER `localSets` closed over by that particular render of
+  // `handleGuideDone`; if a stale reference to that mount-time function ever
+  // fired (or any other code path called it against an out-of-date `localSets`
+  // capture), it would write back a snapshot that clobbers every exercise the
+  // guide didn't touch — including exercise A, sitting untouched before B.
+  //
+  // The fix: `handleGuideDone` itself no longer touches `localSets` at all —
+  // it only stages the raw results for review. The actual merge
+  // (`commitGuideReview` below) runs from a plain button click in a fresh
+  // render, so it always reads/writes the CURRENT `localSets`, never a
+  // snapshot. `mergeGuideResults` (setListOps.ts) is the pure, independently
+  // tested merge step, and per Tile 12b's invariant it only ever touches sets
+  // whose localId is in the results — every other exercise passes through
+  // byte-for-byte untouched, regardless of when this fires.
   function handleGuideDone(results: { localId: string; reps: number }[]) {
+    const exerciseId = guidingExerciseId
     setGuidingExerciseId(null)
-    if (results.length === 0) return
-    const byId = new Map(results.map((r) => [r.localId, r.reps]))
-    const nextSets = localSets.map((s) =>
-      byId.has(s.localId) ? { ...s, reps: byId.get(s.localId)!, done: true } : s,
+    if (results.length === 0 || exerciseId == null) return // nothing completed — no-op, nothing lost
+    const exerciseName = grouped[exerciseId]?.name ?? ''
+    setGuideReview({
+      exerciseName,
+      results: results.map((r) => {
+        // `localSets` still holds the PRE-guide values here (the review's
+        // commit hasn't run yet) — that set's `reps` is exactly the goal
+        // `guideSetsFor` read when the guide started.
+        const s = localSets.find((x) => x.localId === r.localId)
+        return { localId: r.localId, reps: r.reps, weight: s?.weight ?? null, goalReps: s?.reps ?? r.reps }
+      }),
+    })
+  }
+
+  function updateGuideReviewReps(localId: string, reps: number) {
+    setGuideReview((g) =>
+      g ? { ...g, results: g.results.map((r) => (r.localId === localId ? { ...r, reps } : r)) } : g,
     )
+  }
+
+  // Commits the (possibly-adjusted) end-of-guide review — the ONLY place the
+  // guide's results are actually written back to `localSets`. Runs from a
+  // fresh render's onClick, so `localSets` here is always current.
+  function commitGuideReview() {
+    if (!guideReview) return
+    const nextSets = mergeGuideResults(localSets, guideReview.results)
     setLocalSets(nextSets)
     setSavedOnce(true)
     persist(nextSets)
+    setGuideReview(null)
   }
 
   // ── Rest timer ─────────────────────────────────────────────────────────────
@@ -2076,19 +2138,19 @@ export default function WorkoutLogger({
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Stepper
-                label="Goal reps"
-                value={Number(guidedSetup.goalReps) || 0}
-                min={1}
-                max={50}
-                onChange={(v) => setGuidedSetup((g) => (g ? { ...g, goalReps: String(v) } : g))}
-              />
-              <Stepper
                 label="Weight (kg)"
                 value={Number(guidedSetup.weight) || 0}
                 min={0}
                 max={500}
                 decimal
                 onChange={(v) => setGuidedSetup((g) => (g ? { ...g, weight: v > 0 ? String(v) : '' } : g))}
+              />
+              <Stepper
+                label="Goal reps"
+                value={Number(guidedSetup.goalReps) || 0}
+                min={1}
+                max={50}
+                onChange={(v) => setGuidedSetup((g) => (g ? { ...g, goalReps: String(v) } : g))}
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -2198,8 +2260,8 @@ export default function WorkoutLogger({
               {guideSetup.rows.map((r, i) => (
                 <div key={r.localId} className="flex items-end gap-3">
                   <span className="text-xs font-bold text-zinc-400 w-8 pb-2">#{i + 1}</span>
-                  <Stepper label="Reps" value={r.reps} min={1} max={50} onChange={(v) => updateGuideRow(r.localId, { reps: v })} />
                   <Stepper label="Weight" sublabel="kg" value={r.weight} min={0} max={500} decimal onChange={(v) => updateGuideRow(r.localId, { weight: v })} />
+                  <Stepper label="Reps" value={r.reps} min={1} max={50} onChange={(v) => updateGuideRow(r.localId, { reps: v })} />
                   <button
                     onClick={() => removeGuideRow(r.localId)}
                     disabled={guideSetup.rows.length <= 1}
@@ -2244,6 +2306,50 @@ export default function WorkoutLogger({
           restSeconds={resolveRestTarget(ptRest[guidingExerciseId], restTarget)}
           onDone={handleGuideDone}
         />
+      )}
+
+      {/* Tile 12: batched end-of-guide rep review — one editable review of
+          every completed set's reps before anything is written back. */}
+      {guideReview && (
+        <Modal
+          title={`Review: ${guideReview.exerciseName}`}
+          onClose={() => setGuideReview(null)}
+          backdropClassName="fixed inset-0 bg-black/70 flex items-center justify-center z-[75] px-4"
+          panelClassName="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl max-h-[85vh] overflow-y-auto outline-none"
+        >
+          <>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-1">Confirm reps</p>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white truncate">{guideReview.exerciseName}</h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                Adjust any set before logging — 0 reps leaves that set pending (not logged).
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              {guideReview.results.map((r, i) => (
+                <div key={r.localId} className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-zinc-400 w-16 shrink-0">
+                    Set {i + 1}{r.weight ? ` · ${r.weight}kg` : ''}
+                  </span>
+                  <Stepper
+                    label="Reps"
+                    sublabel={`goal ${r.goalReps}`}
+                    value={r.reps}
+                    min={0}
+                    max={Math.max(r.goalReps, r.reps, 50)}
+                    onChange={(v) => updateGuideReviewReps(r.localId, v)}
+                  />
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={commitGuideReview}
+              className="w-full rounded-xl bg-orange-500 hover:bg-orange-600 py-2.5 text-sm font-bold text-white transition-colors"
+            >
+              Log these sets
+            </button>
+          </>
+        </Modal>
       )}
     </div>
   )

@@ -154,6 +154,26 @@ export function mergeIncomingSets(
   return mode === 'append' ? [...existing, ...incoming] : incoming
 }
 
+// ─── Tile 12b: whole-exercise guide results merge ──────────────────────────
+// Pure write-back for the guide-all end-of-guide review: merges confirmed
+// per-set rep counts onto the CURRENT set list. Extracted so the caller can
+// always apply it against the latest state (e.g. a functional `setLocalSets`
+// update or a fresh render's `localSets`) rather than a snapshot captured
+// when the guide/timer first mounted — that mount-time-snapshot pattern was
+// the root cause of the "Exit loses the first exercise" bug (a stale
+// `localSets` closure clobbering every OTHER exercise's newer state). Only
+// sets whose localId is present AND whose confirmed reps are > 0 are
+// written; everything else (including other exercises entirely) passes
+// through untouched, mirroring Tile 11's "adjusting to 0 logs nothing" rule.
+export function mergeGuideResults(
+  sets: LocalSet[],
+  results: { localId: string; reps: number }[],
+): LocalSet[] {
+  const byId = new Map(results.filter((r) => r.reps > 0).map((r) => [r.localId, r.reps]))
+  if (byId.size === 0) return sets
+  return sets.map((s) => (byId.has(s.localId) ? { ...s, reps: byId.get(s.localId)!, done: true } : s))
+}
+
 export type SetDeleteRequest = { pendingId: string | null; confirmed: boolean }
 
 // ADR-0008 (WP-09): two-tap confirm transition for the set-delete ✕, mirroring
