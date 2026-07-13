@@ -21,7 +21,7 @@
     "test:pt:e2e": "playwright test --config playwright.pt.config.ts",
     "test:pt:load": "k6 run tests/load/personal-trainer.js",
     "test:touch-targets": "node .claude/test_touch-targets.mjs",
-    "test:filters": "node --experimental-strip-types --test .claude/test_exercise-picker-muscle-filter.mjs",
+    "test:filters": "node --import tsx --test .claude/test_exercise-picker-muscle-filter.mjs",
     "seed:exercises": "tsx scripts/seed-exercises.ts",
     "exercises:fetch-wger": "tsx scripts/fetch-wger.ts",
     "exercises:merge": "tsx scripts/merge-exercises.ts",

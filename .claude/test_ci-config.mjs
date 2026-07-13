@@ -99,6 +99,11 @@ test('ci.yml only runs npm scripts that exist in package.json', () => {
 test('ci.yml checks out the repo and installs with npm ci (reproducible, lockfile-pinned)', () => {
   const yml = readCi()
   assert.match(yml, /actions\/checkout@/, 'ci.yml must check out the repository')
+  assert.match(
+    yml,
+    /node-version:\s*22\b/,
+    'ci.yml must use the supported Node 22 runtime used by the test commands',
+  )
   assert.match(yml, /npm ci\b/, 'ci.yml must install with `npm ci` for reproducibility')
 })
 
