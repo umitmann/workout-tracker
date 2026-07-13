@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const baseURL = process.env.PT_E2E_BASE_URL ?? 'http://localhost:3000'
+const startProductionServer = process.env.PT_E2E_START_SERVER === 'true'
+
 export default defineConfig({
   testDir: './tests/e2e/personal-trainer',
   testMatch: '**/*.spec.ts',
@@ -16,11 +19,19 @@ export default defineConfig({
     : [['list'], ['html', { outputFolder: 'test-results/pt-html', open: 'never' }]],
   outputDir: 'test-results/pt-artifacts',
   use: {
-    baseURL: process.env.PT_E2E_BASE_URL ?? 'http://localhost:3000',
+    baseURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
+  webServer: startProductionServer
+    ? {
+        command: 'npm run start -- --hostname 127.0.0.1',
+        url: baseURL,
+        reuseExistingServer: false,
+        timeout: 120_000,
+      }
+    : undefined,
   projects: [
     {
       name: 'mobile-chromium',

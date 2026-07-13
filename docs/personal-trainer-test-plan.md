@@ -251,6 +251,13 @@ Its authenticated role-navigation, skip-link, and dashboard Axe audit runs
 under the existing `PT_E2E_ENABLED` fixture gate. The Playwright project pins
 Chromium explicitly so its engine matches the `mobile-chromium` project name.
 
+`npm run test:pt:e2e:public` builds on an existing production artifact, starts
+it with Playwright's `webServer`, and selects exactly the credential-free
+account-access suite. CI first runs `next build`, installs Chromium and its
+system dependencies, then executes this command in a separate browser job.
+This gate contains no actor credentials and cannot mutate relationship or
+health data; the stateful suites remain separately fixture-gated.
+
 The separate immutable start journey uses a resettable active relationship so
 it does not compete with the established connect/consent fixture. It assigns a
 uniquely titled snapshot, verifies trainer attribution and the prescribed
@@ -279,6 +286,18 @@ credentials plus `PT_E2E_TRAINER_NAME`, `PT_E2E_TRAINEE_NAME`, and a private
 `PT_E2E_COMPLETED_WORKOUT_MARKER`. It covers directory request, trainer
 acceptance, default-closed categories, from-now workout consent, trainer-visible
 consent metadata without results, revoke, audit history, and relationship end.
+
+For formal release evidence, use the strict runner after exporting every
+fixture variable above and the separate plan-start fixture:
+
+```bash
+PT_E2E_CONFIRM_DISPOSABLE_TARGET=yes npm run test:pt:e2e:release
+```
+
+The runner validates all variables before Playwright starts, forces every
+feature gate on so a skipped suite cannot look green, rejects remote plaintext
+HTTP, and refuses the known production application URL. It is intentionally
+usable only against localhost or an isolated, resettable HTTPS test target.
 
 ## Load contract
 
