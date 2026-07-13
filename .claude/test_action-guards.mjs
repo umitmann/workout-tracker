@@ -125,8 +125,9 @@ test('addSet: user present + ownership ok -> insert proceeds, returns id', async
 
 test('saveTemplateExercises: no user -> Unauthorized, zero mutations, delete().eq("routine_id") never fires', async () => {
   const fake = createFakeSupabaseClient({ user: null })
-  const result = await saveTemplateExercisesCore(fake, 1, 'Push day', SOME_EXERCISES)
+  const result = await saveTemplateExercisesCore(fake, 'routine-1', 'Push day', SOME_EXERCISES)
   assert.deepEqual(result, { error: 'Unauthorized' })
+  assert.equal(fake.mutationCount('save_routine_snapshot', 'rpc'), 0)
   assert.equal(fake.mutationCount('routine_exercises', 'delete'), 0)
   assert.equal(fake.mutationCount('routine_exercises', 'insert'), 0)
   assert.equal(fake.mutationCount('routines', 'update'), 0)
@@ -137,18 +138,19 @@ test('saveTemplateExercises: no ownership -> Not found, zero mutations, delete()
     user: { id: 'u1' },
     selectResults: { routines: { data: null, error: null } },
   })
-  const result = await saveTemplateExercisesCore(fake, 1, 'Push day', SOME_EXERCISES)
+  const result = await saveTemplateExercisesCore(fake, 'routine-1', 'Push day', SOME_EXERCISES)
   assert.deepEqual(result, { error: 'Not found' })
+  assert.equal(fake.mutationCount('save_routine_snapshot', 'rpc'), 0)
   assert.equal(fake.mutationCount('routine_exercises', 'delete'), 0)
   assert.equal(fake.mutationCount('routine_exercises', 'insert'), 0)
   assert.equal(fake.mutationCount('routines', 'update'), 0)
 })
 
-test('saveTemplateExercises: user present + ownership ok -> delete().eq("routine_id") fires once before insert', async () => {
+test('saveTemplateExercises: user present + ownership ok -> one atomic snapshot RPC and no direct replacement writes', async () => {
   const fake = createFakeSupabaseClient({
     user: { id: 'u1' },
-    selectResults: { routines: { data: { id: 1 }, error: null } },
-    insertResults: { routine_exercises: { data: null, error: null } },
+    selectResults: { routines: { data: { id: 'routine-1' }, error: null } },
+    rpcResults: { save_routine_snapshot: { data: null, error: null } },
   })
   // revalidatePath() throws outside a real Next.js request scope (no static
   // generation store in this node:test harness) — the mutation work under
@@ -156,16 +158,52 @@ test('saveTemplateExercises: user present + ownership ok -> delete().eq("routine
   // correct by the time it throws. Tolerate that specific, environment-only
   // failure rather than asserting the action's return value here.
   try {
-    const result = await saveTemplateExercisesCore(fake, 1, 'Push day', SOME_EXERCISES)
+    const result = await saveTemplateExercisesCore(fake, 'routine-1', 'Push day', SOME_EXERCISES)
     assert.deepEqual(result, { success: true })
   } catch (e) {
     assert.match(String(e?.message ?? e), /static generation store/)
   }
-  const deleteCalls = fake.mutationCalls('routine_exercises', 'delete')
-  assert.equal(deleteCalls.length, 1)
-  assert.deepEqual(deleteCalls[0].filters, [['routine_id', 1]])
-  const insertCalls = fake.mutationCalls('routine_exercises', 'insert')
-  assert.equal(insertCalls.length, 1)
+  const rpcCalls = fake.mutationCalls('save_routine_snapshot', 'rpc')
+  assert.equal(rpcCalls.length, 1)
+  assert.deepEqual(rpcCalls[0].payload, {
+    p_routine_id: 'routine-1',
+    p_name: 'Push day',
+    p_exercises: [{
+      exercise_id: 1,
+      sets: 3,
+      reps: 8,
+      weight: 50,
+      duration_minutes: null,
+      distance: null,
+      set_details: null,
+      tempo: null,
+      rest_seconds: null,
+      order: 0,
+    }],
+  })
+  assert.equal(fake.mutationCount('routine_exercises', 'delete'), 0)
+  assert.equal(fake.mutationCount('routine_exercises', 'insert'), 0)
+  assert.equal(fake.mutationCount('routines', 'update'), 0)
+})
+
+test('saveTemplateExercises: atomic RPC failure is surfaced without a destructive fallback', async () => {
+  const fake = createFakeSupabaseClient({
+    user: { id: 'u1' },
+    selectResults: { routines: { data: { id: 'routine-1' }, error: null } },
+    rpcResults: {
+      save_routine_snapshot: { data: null, error: { message: 'snapshot rejected' } },
+    },
+  })
+  const result = await saveTemplateExercisesCore(
+    fake,
+    'routine-1',
+    'Push day',
+    SOME_EXERCISES,
+  )
+  assert.deepEqual(result, { error: 'snapshot rejected' })
+  assert.equal(fake.mutationCount('routine_exercises', 'delete'), 0)
+  assert.equal(fake.mutationCount('routine_exercises', 'insert'), 0)
+  assert.equal(fake.mutationCount('routines', 'update'), 0)
 })
 
 // ─── Robustness: guard matrix does not depend on payload shape ─────────────
@@ -187,7 +225,7 @@ test('saveWorkoutProgress: no user -> guard short-circuits even with empty sets 
 
 test('saveTemplateExercises: no user -> guard short-circuits even with empty exercises array', async () => {
   const fake = createFakeSupabaseClient({ user: null })
-  const result = await saveTemplateExercisesCore(fake, 1, 'Empty', [])
+  const result = await saveTemplateExercisesCore(fake, 'routine-1', 'Empty', [])
   assert.deepEqual(result, { error: 'Unauthorized' })
   assert.equal(fake.mutationCount('routine_exercises', 'delete'), 0)
 })

@@ -546,9 +546,149 @@ notify pgrst, 'reload schema';
 
 ---
 
-## Future — Admin & Trainer Tables
+## Phase 11 — Existing persistence and RLS hardening
 
-Not needed now. Documented in [../examples/admin-groups.md](../examples/admin-groups.md) for reference.
+Applied through the Supabase SQL Editor on 2026-07-13 from
+[`20260713000100_harden_existing_persistence.sql`](../supabase/migrations/20260713000100_harden_existing_persistence.sql).
 
-When the time comes, two additional tables are needed: `roles` and `trainer_clients`.
-The `scheduled_workouts` table already has the `assigned_by` column to support trainer-assigned workouts without a migration.
+The live-schema preflight confirmed that `exercises.id`, `workouts.id`, and
+`sets.id` are `bigint` identity columns; routine IDs are `uuid`; there were no
+cross-owner set rows or invalid numeric/prescription rows; and
+`scheduled_workouts` and `workouts.status = 'planned'` were both empty.
+
+This migration:
+
+- replaced permissive broad `ALL` policies with explicit authenticated,
+  owner-and-parent-scoped policies;
+- added a composite set/workout owner foreign key;
+- fixed the missing ownership `USING` condition for routine-exercise updates;
+- added validated value, prescription-shape, order, and ownership constraints;
+- added the RLS/query supporting indexes;
+- changed future public-schema default privileges to fail closed; and
+- hardened `save_workout_sets` with an empty search path, fully qualified
+  objects, bounded input, row locking, and authenticated-only execution while
+  retaining its application-compatible signature.
+
+The post-migration verification returned `true` for policy replacement, anon
+and service-role denial, authenticated execution, function hardening, and all
+validated constraints.
+
+### Phase 11 follow-up — explicit authenticated API grants
+
+Immediately after the hardening migration, authenticated application reads
+returned empty because the project's historical table access depended on ACLs
+that had not been inventoried or made explicit. No data was deleted: the SQL
+Editor confirmed 43 workout rows and 362 set rows remained.
+
+Applied
+[`20260713000101_restore_authenticated_api_grants.sql`](../supabase/migrations/20260713000101_restore_authenticated_api_grants.sql)
+through the SQL Editor on 2026-07-13. It explicitly grants the authenticated
+role the table/sequence access required by the app while retaining RLS as the
+row boundary, preserves the elevated service-role table contract, and revokes
+anonymous/public table access. Verification returned `true` for all required
+authenticated grants and anonymous denials, with the same 43 workouts and 362
+sets present.
+
+### Phase 11 follow-up — remove the redundant PostgREST relationship
+
+After authenticated grants were restored, workout pages still rendered empty.
+The data remained intact, but the new composite `sets_workout_owner_fkey` and
+the old `sets_workout_id_fkey` both described `sets -> workouts`. PostgREST
+could not choose a relationship for embedded `workouts(...sets(...))` queries;
+the application DAL suppressed that read error and rendered an empty list.
+
+Applied
+[`20260713000102_remove_redundant_sets_workout_fk.sql`](../supabase/migrations/20260713000102_remove_redundant_sets_workout_fk.sql)
+through the SQL Editor on 2026-07-13. It removed only the redundant original
+foreign key. The validated composite owner foreign key and `ON DELETE CASCADE`
+remain. Verification confirmed exactly one sets/workouts relationship, the
+same 43 workouts and 362 sets, and the application workout list was restored.
+
+Future relationship migrations must check PostgREST embedding ambiguity as
+well as relational integrity. Data-access functions must also surface query
+errors rather than converting them to empty collections.
+
+---
+
+## Phase 12 — Atomic routine snapshot persistence
+
+Applied through the Supabase SQL Editor on 2026-07-13 from
+[`20260713000200_atomic_routine_snapshot.sql`](../supabase/migrations/20260713000200_atomic_routine_snapshot.sql).
+
+The `save_routine_snapshot(uuid, text, jsonb)` function now replaces a routine
+name and its ordered exercise prescription in one transaction. It derives the
+actor from `auth.uid()`, locks and verifies an owned non-preset routine, bounds
+and validates the snapshot, uses an empty search path and fully qualified
+objects, and grants execution only to `authenticated`.
+
+The matching Server Action calls this RPC without a destructive direct-table
+fallback. Critical workout and template DAL reads now throw contextual database
+errors instead of silently presenting a failed query as an empty collection.
+
+Post-migration verification returned `true` for anonymous/service denial,
+authenticated execution, and function hardening. The migration did not mutate
+existing content: 4 routines and 17 routine-exercise rows remained.
+
+---
+
+## Phase 13 — Profiles, trainer directory, and platform role
+
+Applied through the Supabase SQL Editor on 2026-07-13 from
+[`20260713000300_profiles_trainer_directory.sql`](../supabase/migrations/20260713000300_profiles_trainer_directory.sql).
+
+The migration is additive and does not alter workouts, sets, routines,
+routine exercises, bodyweight, or notes. It creates:
+
+- private, owner-readable `profiles`, backfilled for every `auth.users` row
+  and maintained by a bounded signup trigger;
+- owner-readable `trainer_profiles` whose mutations go through validated RPCs;
+- a safe authenticated directory DTO that exposes approved/published listing
+  fields but never auth UUIDs, email, or review provenance;
+- private `platform_roles` containing only the `platform_admin` authority; and
+- bounded admin review functions that cannot access workout or health tables.
+
+Anonymous and service-role execution of the public RPCs is denied; only
+`authenticated` receives execution, with current actor and platform-role
+checks inside the hardened definer functions. Platform administration does
+not imply access to workouts, sets, bodyweight, or notes.
+
+The migration, one-time bootstrap, pending/approved directory transition,
+raw-table isolation, privilege-escalation denial, and new-user trigger were
+successfully exercised against a disposable PostgreSQL 17 database. Static
+security contracts are in `.claude/test_personal-trainer-migration.mjs`; the
+real-JWT integration contract is gated in
+`.claude/test_trainer-directory-rls.mjs`.
+
+After live migration verification, one existing account can be bootstrapped
+with the separate, environment-specific
+[`bootstrap_platform_admin.sql`](../supabase/manual/bootstrap_platform_admin.sql).
+The bootstrap is intentionally not part of the repeatable migration chain and
+requires exactly one auth user matching the supplied login email.
+
+Live verification returned `true` for all eight foundation, backfill, ACL,
+base-table, directory-function, and hardening checks. Existing content was
+preserved at 44 workouts, 379 sets, 6 routines, and 21 routine-exercise rows.
+The initial platform administrator was then bootstrapped successfully through
+the separate operator script; the account email is intentionally not recorded
+in migration history.
+
+Application activation does not require another database migration. The
+matching Next.js slice uses only the scoped Phase 13 functions for trainer
+self-service, approved directory reads, and administrator review. The next SQL
+change is Phase 3 of the personal-trainer plan (bilateral relationships and
+consent); it must not be applied until the directory slice has been deployed
+and its real-JWT/browser gates have passed in a dedicated test environment.
+
+---
+
+## Superseded — original Admin & Trainer Tables sketch
+
+The original two-table sketch in
+[../examples/admin-groups.md](../examples/admin-groups.md) is superseded and
+must not be implemented directly. `roles` + `trainer_clients` do not represent
+bilateral consent or scoped/revocable result access, and the active app no
+longer uses `scheduled_workouts` for its calendar.
+
+See
+[personal-trainer-architecture.md](personal-trainer-architecture.md) for the
+target schema, authorization model, prerequisites, and phased migration plan.

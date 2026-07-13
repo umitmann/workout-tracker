@@ -6,7 +6,7 @@
  * things that *are* checkable from a clean clone without any secrets:
  *
  *   1. .github/workflows/ci.yml exists and is structurally sound — it runs
- *      lint, tsc, test:unit and test:filters on push, needs no secrets, and
+ *      lint, tsc, test:unit, test:data-access and test:filters on push, needs no secrets, and
  *      does not reference undefined npm scripts.
  *   2. The headless auth-bootstrap script (.claude/bootstrap-auth.mjs,
  *      replacing the interactive setup-auth.mjs for CI purposes) exposes its
@@ -54,8 +54,13 @@ test('ci.yml triggers on push (no manual-only / secret-gated trigger)', () => {
   assert.match(onBlockMatch[1], /push:/, 'ci.yml must trigger on push')
 })
 
-test('ci.yml runs lint, tsc, test:unit and test:filters', () => {
+test('ci.yml runs audit, lint, tsc, unit/data-access tests and filters', () => {
   const yml = readCi()
+  assert.match(
+    yml,
+    /npm audit --audit-level=high\b/,
+    'ci.yml must reject high or critical dependency advisories',
+  )
   assert.match(yml, /npm run lint\b/, 'ci.yml must run `npm run lint`')
   assert.match(
     yml,
@@ -63,6 +68,11 @@ test('ci.yml runs lint, tsc, test:unit and test:filters', () => {
     'ci.yml must typecheck with `npx tsc --noEmit` (no `tsc` npm script exists yet)',
   )
   assert.match(yml, /npm run test:unit\b/, 'ci.yml must run `npm run test:unit`')
+  assert.match(
+    yml,
+    /npm run test:data-access\b/,
+    'ci.yml must prevent database errors from regressing to empty UI state',
+  )
   assert.match(yml, /npm run test:filters\b/, 'ci.yml must run `npm run test:filters`')
 })
 

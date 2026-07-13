@@ -1,6 +1,6 @@
 'use client'
 
-import { ExerciseHistoryPoint } from '@/lib/dal'
+import type { ExerciseHistoryPoint } from '@/lib/dal'
 import {
   AXIS_LABEL_CLASS,
   LEGEND_TEXT_CLASS,

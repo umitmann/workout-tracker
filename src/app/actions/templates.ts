@@ -21,18 +21,18 @@ export async function createTemplate(name: string) {
 
   if (error || !data) return { error: error?.message ?? 'Failed to create' }
   revalidatePath('/workouts')
-  return { id: data.id as number }
+  return { id: data.id as string }
 }
 
 export async function saveTemplateExercises(
-  routineId: number,
+  routineId: string,
   name: string,
   exercises: TemplateExercisePayload[],
 ) {
   return saveTemplateExercisesCore(await createServerSupabaseClient(), routineId, name, exercises)
 }
 
-export async function deleteTemplate(routineId: number) {
+export async function deleteTemplate(routineId: string) {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')

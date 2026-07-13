@@ -11,7 +11,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createFakeSupabaseClient } from './fakes/supabase.mjs'
 
-const { isMissingColumnError } = await import('../src/lib/dal.ts')
+const { isMissingColumnError } = await import('../src/lib/schemaCompatibility.ts')
 const { saveWorkoutProgressCore, validateSet } = await import('../src/app/actions/cores.ts')
 const { setDifficulty } = await import('../src/lib/setListOps.ts')
 

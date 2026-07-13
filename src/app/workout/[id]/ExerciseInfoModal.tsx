@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { fetchExerciseHistory } from '@/app/actions/exercises'
-import { ExerciseHistoryPoint } from '@/lib/dal'
+import type { ExerciseHistoryPoint } from '@/lib/dal'
 import { ExerciseHistoryChart } from '@/components/ExerciseHistoryChart'
 import { useSwipe } from '@/lib/useSwipe'
 import { localDateStr } from '@/lib/localDate'

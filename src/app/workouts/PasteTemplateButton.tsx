@@ -1,13 +1,15 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
+import { clipboardEntryToTemplateFields } from '@/lib/clipboardOps'
 import { createTemplate, saveTemplateExercises } from '@/app/actions/templates'
 
 export default function PasteTemplateButton() {
   const { clipboard, clear } = useWorkoutClipboard()
   const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
   if (!clipboard) return null
@@ -19,36 +21,45 @@ export default function PasteTemplateButton() {
 
   function handlePaste() {
     if (!clipboard) return
+    setError(null)
     startTransition(async () => {
       const result = await createTemplate(`Workout ${dateLabel}`)
-      if ('error' in result) return
-      await saveTemplateExercises(
+      if ('error' in result) {
+        setError(result.error ?? 'Could not create template')
+        return
+      }
+      const saved = await saveTemplateExercises(
         result.id,
         `Workout ${dateLabel}`,
-        // Tile 4: the clipboard now carries the exact per-set list, so the
-        // template is built losslessly via `set_details` (one row per
-        // copied set) instead of collapsing to a single `sets x reps x
-        // weight` count from set #1.
-        clipboard.entries.map((e, i) => ({
-          exerciseId: e.exerciseId,
-          sets: e.sets.length,
-          reps: e.sets[0]?.reps ?? null,
-          weight: e.sets[0]?.weight ?? null,
-          duration_minutes: null,
-          distance: null,
-          set_details: e.sets.map((s) => ({ weight: s.weight, reps: s.reps })),
-          tempo: null,
-          rest_seconds: null,
-          order: i,
-        })),
+        // Tile 4: the clipboard carries the exact rows and their authored
+        // uniform/per-set mode, so this cannot collapse a dropset to set #1.
+        clipboard.entries.map((entry, order) => {
+          const prescription = clipboardEntryToTemplateFields(entry)
+          return {
+            exerciseId: entry.exerciseId,
+            sets: prescription.sets,
+            reps: prescription.reps,
+            weight: prescription.weight,
+            duration_minutes: null,
+            distance: null,
+            set_details: prescription.setDetails,
+            tempo: null,
+            rest_seconds: null,
+            order,
+          }
+        }),
       )
+      if ('error' in saved) {
+        setError(saved.error ?? 'Could not save template')
+        return
+      }
       clear()
       router.push(`/workouts/${result.id}`)
     })
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-dashed border-orange-400 bg-orange-50 dark:bg-orange-950/20 px-4 py-3">
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-orange-400 bg-orange-50 dark:bg-orange-950/20 px-4 py-3">
       <div className="flex-1 min-w-0">
         <p className="text-xs font-bold uppercase tracking-widest text-orange-500">Clipboard</p>
         <p className="text-sm font-medium text-zinc-900 dark:text-white truncate">
@@ -62,6 +73,7 @@ export default function PasteTemplateButton() {
       >
         {isPending ? '…' : 'Paste as template'}
       </button>
+      {error && <p role="alert" className="w-full text-xs text-red-600 dark:text-red-400">{error}</p>}
     </div>
   )
 }

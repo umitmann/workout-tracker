@@ -7,7 +7,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-const { buildClipboardEntries, clipboardEntriesToLocalSets } = await import('../src/lib/clipboardOps.ts')
+const {
+  buildClipboardEntries,
+  clipboardEntriesToLocalSets,
+  clipboardEntryToTemplateFields,
+  previewExercisesToClipboardEntries,
+} = await import('../src/lib/clipboardOps.ts')
 const { mergeIncomingSets } = await import('../src/lib/setListOps.ts')
 
 function localSet(overrides = {}) {
@@ -36,6 +41,7 @@ test('buildClipboardEntries: captures every set its own weight/reps, in order â€
   const entries = buildClipboardEntries([1], grouped)
 
   assert.equal(entries.length, 1)
+  assert.equal(entries[0].setMode, 'per_set')
   assert.deepEqual(entries[0].sets, [
     { weight: 60, reps: 10 },
     { weight: 60, reps: 8 },
@@ -110,6 +116,88 @@ test('copy -> paste round-trip: multi-exercise order preserved', () => {
       [2, 75, 6],
     ],
   )
+})
+
+test('template paste preserves explicit dropset mode even when all set values match', () => {
+  const fields = clipboardEntryToTemplateFields({
+    exerciseId: 1,
+    exerciseName: 'Squat',
+    setMode: 'per_set',
+    sets: [
+      { weight: 60, reps: 10 },
+      { weight: 60, reps: 10 },
+      { weight: 60, reps: 10 },
+    ],
+  })
+
+  assert.equal(fields.sets, 3)
+  assert.deepEqual(fields.setDetails, [
+    { weight: 60, reps: 10 },
+    { weight: 60, reps: 10 },
+    { weight: 60, reps: 10 },
+  ])
+})
+
+test('template paste preserves uniform mode without manufacturing set_details', () => {
+  const fields = clipboardEntryToTemplateFields({
+    exerciseId: 1,
+    exerciseName: 'Squat',
+    setMode: 'uniform',
+    sets: [
+      { weight: 60, reps: 10 },
+      { weight: 60, reps: 10 },
+      { weight: 60, reps: 10 },
+    ],
+  })
+
+  assert.deepEqual(fields, {
+    sets: 3,
+    reps: 10,
+    weight: 60,
+    setDetails: null,
+  })
+})
+
+test('legacy template clipboard entries fail safe to per-set mode', () => {
+  const fields = clipboardEntryToTemplateFields({
+    exerciseId: 1,
+    exerciseName: 'Squat',
+    sets: [
+      { weight: 60, reps: 10 },
+      { weight: 50, reps: 8 },
+    ],
+  })
+
+  assert.deepEqual(fields.setDetails, [
+    { weight: 60, reps: 10 },
+    { weight: 50, reps: 8 },
+  ])
+})
+
+test('calendar copy keeps every dropset row instead of repeating set one', () => {
+  const entries = previewExercisesToClipboardEntries([{
+    exerciseId: 1,
+    exerciseName: 'Squat',
+    setCount: 3,
+    firstSetWeight: 60,
+    firstSetReps: 10,
+    sets: [
+      { weight: 60, reps: 10 },
+      { weight: 55, reps: 8 },
+      { weight: 50, reps: 6 },
+    ],
+  }])
+
+  assert.deepEqual(entries, [{
+    exerciseId: 1,
+    exerciseName: 'Squat',
+    setMode: 'per_set',
+    sets: [
+      { weight: 60, reps: 10 },
+      { weight: 55, reps: 8 },
+      { weight: 50, reps: 6 },
+    ],
+  }])
 })
 
 test('mergeIncomingSets: overwrite replaces everything', () => {

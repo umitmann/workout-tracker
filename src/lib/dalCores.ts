@@ -130,13 +130,14 @@ export type WorkoutPreviewExercise = {
   setCount: number
   firstSetReps: number | null
   firstSetWeight: number | null
+  sets: { reps: number | null; weight: number | null }[]
 }
 
-// Builds the calendar month-view preview: a per-exercise name + set-count
-// summary for every workout that has logged sets. Planned workouts get no
-// entry at all (checklist §10.6) — there is nothing to preview until the
-// user has actually logged something, regardless of status. Exercise order
-// within a preview follows first-seen order in `setsByWorkout`.
+// Builds the calendar month-view preview. The summary fields keep rendering
+// cheap while `sets` retains the exact ordered rows needed by Copy; dropping
+// those rows used to turn 60x10 / 55x8 / 50x6 into 3 x 60x10. Planned
+// workouts get no entry at all (checklist §10.6). Exercise and set order both
+// follow first-seen order in `setsByWorkout`.
 export function buildPreviews(
   workouts: PreviewWorkout[],
   setsByWorkout: Map<number, PreviewSet[]>,
@@ -158,9 +159,11 @@ export function buildPreviews(
           setCount: 1,
           firstSetReps: s.reps,
           firstSetWeight: s.weight,
+          sets: [{ reps: s.reps, weight: s.weight }],
         })
       } else {
         existing.setCount++
+        existing.sets.push({ reps: s.reps, weight: s.weight })
       }
     }
     previews[w.id] = Array.from(grouped.values())

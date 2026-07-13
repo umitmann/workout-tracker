@@ -9,7 +9,8 @@ A Next.js app for tracking workouts, built with Supabase and Google SSO.
 
 - [Database setup & SQL](docs/database.md)
 - [Individual user schema & flows](examples/individual-user.md)
-- [Admin & trainer groups (future)](examples/admin-groups.md)
+- [Personal trainer architecture & migration plan](docs/personal-trainer-architecture.md)
+- [Personal trainer test strategy](docs/personal-trainer-test-plan.md)
 - [Current build state](examples/current-state.md)
 
 ## Stack
@@ -42,10 +43,12 @@ Three tiers, from fastest/no-infra to slowest/full-infra:
    network, no Supabase, no dev server:
    ```bash
    npm run test:unit
+   npm run test:pt:unit
    npm run test:filters
+   npm run test:pt:migration
    ```
-2. **CI** — `.github/workflows/ci.yml` runs `npm run lint`, `npx tsc --noEmit`,
-   `npm run test:unit`, and `npm run test:filters` on every push and pull
+2. **CI** — `.github/workflows/ci.yml` runs the high-severity dependency audit,
+   lint, TypeScript, unit/data-access, and filter suites on every push and pull
    request. This tier needs **no secrets** — it never talks to Supabase or a
    dev server.
 3. **Playwright behaviour checklist** — `.claude/verify_checklist.mjs` (plus

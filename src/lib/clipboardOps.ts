@@ -4,6 +4,7 @@
 
 import type { LocalSet } from './setListOps'
 import type { ClipboardEntry } from './WorkoutClipboardContext'
+import type { WorkoutPreviewExercise } from './dalCores'
 
 // Copy is state-independent and lossless: every exercise, every set's own
 // weight/reps, in the order they appear in `localSets` — identical whether
@@ -16,8 +17,47 @@ export function buildClipboardEntries(
   return exerciseOrder.map((exerciseId) => ({
     exerciseId,
     exerciseName: grouped[exerciseId].name,
+    // A performed workout consists of actual, individual set rows. Preserve
+    // those rows as a per-set prescription when it is pasted into a template,
+    // even when their current values happen to be identical.
+    setMode: 'per_set',
     sets: grouped[exerciseId].sets.map((s) => ({ weight: s.weight, reps: s.reps })),
   }))
+}
+
+// Calendar cards render only a compact summary, but their DTO carries every
+// ordered set so Copy can be lossless. Performed set rows become an explicit
+// per-set template prescription.
+export function previewExercisesToClipboardEntries(
+  preview: WorkoutPreviewExercise[],
+): ClipboardEntry[] {
+  return preview.map((exercise) => ({
+    exerciseId: exercise.exerciseId,
+    exerciseName: exercise.exerciseName,
+    setMode: 'per_set',
+    sets: exercise.sets.map((set) => ({ reps: set.reps, weight: set.weight })),
+  }))
+}
+
+export type ClipboardTemplateFields = {
+  sets: number
+  reps: number | null
+  weight: number | null
+  setDetails: { weight: number | null; reps: number | null }[] | null
+}
+
+// Shared by both template paste surfaces. The explicit mode—not a comparison
+// of the current values—decides whether the template remains uniform or
+// per-set. Treat a legacy entry with no mode as per-set, which is the
+// lossless/fail-safe interpretation.
+export function clipboardEntryToTemplateFields(entry: ClipboardEntry): ClipboardTemplateFields {
+  const copiedSets = entry.sets.map((set) => ({ weight: set.weight, reps: set.reps }))
+  return {
+    sets: copiedSets.length,
+    reps: copiedSets[0]?.reps ?? null,
+    weight: copiedSets[0]?.weight ?? null,
+    setDetails: entry.setMode === 'uniform' ? null : copiedSets,
+  }
 }
 
 // Rebuilds real per-set LocalSet rows from a clipboard entry list — one row

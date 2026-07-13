@@ -187,8 +187,22 @@ test('buildPreviews groups completed-workout sets per exercise with a set count'
   ])
   const previews = buildPreviews(workouts, setsByWorkout)
   assert.deepEqual(previews[1], [
-    { exerciseId: 1, exerciseName: 'Squat', setCount: 2, firstSetWeight: 100, firstSetReps: 5 },
-    { exerciseId: 2, exerciseName: 'Bench Press', setCount: 1, firstSetWeight: 60, firstSetReps: 8 },
+    {
+      exerciseId: 1,
+      exerciseName: 'Squat',
+      setCount: 2,
+      firstSetWeight: 100,
+      firstSetReps: 5,
+      sets: [{ weight: 100, reps: 5 }, { weight: 105, reps: 3 }],
+    },
+    {
+      exerciseId: 2,
+      exerciseName: 'Bench Press',
+      setCount: 1,
+      firstSetWeight: 60,
+      firstSetReps: 8,
+      sets: [{ weight: 60, reps: 8 }],
+    },
   ])
 })
 
@@ -197,7 +211,14 @@ test('buildPreviews groups in-progress-workout sets the same way as completed', 
   const setsByWorkout = new Map([[2, [{ exercise_id: 5, exercise_name: 'Row', weight: 40, reps: 12 }]]])
   const previews = buildPreviews(workouts, setsByWorkout)
   assert.deepEqual(previews[2], [
-    { exerciseId: 5, exerciseName: 'Row', setCount: 1, firstSetWeight: 40, firstSetReps: 12 },
+    {
+      exerciseId: 5,
+      exerciseName: 'Row',
+      setCount: 1,
+      firstSetWeight: 40,
+      firstSetReps: 12,
+      sets: [{ weight: 40, reps: 12 }],
+    },
   ])
 })
 

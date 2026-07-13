@@ -27,9 +27,11 @@ export async function fetchWorkoutPreview(workoutId: number): Promise<WorkoutPre
         setCount: 1,
         firstSetReps: s.reps,
         firstSetWeight: s.weight,
+        sets: [{ reps: s.reps, weight: s.weight }],
       })
     } else {
       existing.setCount++
+      existing.sets.push({ reps: s.reps, weight: s.weight })
     }
   }
   return Array.from(grouped.values())

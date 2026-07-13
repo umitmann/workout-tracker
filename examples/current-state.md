@@ -152,5 +152,6 @@ NOTIFY pgrst, 'reload schema';
 
 ## Next Steps
 - Preset / system-provided routines (seed `routines` with `is_preset = true`)
-- Trainer/admin features — assign workouts to clients (see `examples/admin-groups.md`)
+- Personal trainer layer — discovery, consent, assignments, and result sharing
+  (see `docs/personal-trainer-architecture.md`)
 - Progress page — overall volume/frequency trends across all exercises

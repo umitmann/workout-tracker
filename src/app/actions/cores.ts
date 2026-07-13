@@ -2,8 +2,8 @@
 // reachable via the server-action POST boundary. The exported 'use server'
 // actions in workouts.ts/sets.ts/templates.ts are thin wrappers that construct
 // the real Supabase client and delegate here; tests inject a fake client.
-import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { isMissingColumnError, isMissingFunctionError, SetDetail } from '@/lib/dal'
+import type { createServerSupabaseClient } from '@/lib/supabase-server'
+import { isMissingColumnError, isMissingFunctionError } from '@/lib/schemaCompatibility'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -23,6 +23,8 @@ export type SetPayload = SetData & {
   weight: number | null
   reps: number | null
 }
+
+type SetDetail = { reps: number | null; weight: number | null }
 
 export type TemplateExercisePayload = {
   exerciseId: number
@@ -393,62 +395,46 @@ export async function deleteSetCore(supabase: SupabaseServerClient, setId: numbe
 
 export async function saveTemplateExercisesCore(
   supabase: SupabaseServerClient,
-  routineId: number,
+  routineId: string,
   name: string,
   exercises: TemplateExercisePayload[],
 ) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
-  const { data: routine } = await supabase
+  const { data: routine, error: ownershipError } = await supabase
     .from('routines')
     .select('id')
     .eq('id', routineId)
     .eq('user_id', user.id)
     .single()
 
-  if (!routine) return { error: 'Not found' }
-
-  // Update name
-  await supabase.from('routines').update({ name }).eq('id', routineId)
-
-  // Replace exercises
-  await supabase.from('routine_exercises').delete().eq('routine_id', routineId)
-
-  if (exercises.length > 0) {
-    const rows: Record<string, unknown>[] = exercises.map((e) => ({
-      routine_id: routineId,
-      exercise_id: e.exerciseId,
-      sets: e.sets,
-      reps: e.reps,
-      weight: e.weight,
-      duration_minutes: e.duration_minutes,
-      distance: e.distance,
-      set_details: e.set_details,
-      tempo: e.tempo,
-      rest_seconds: e.rest_seconds,
-      order: e.order,
-    }))
-    // Retry, dropping optional columns that haven't been migrated yet (one at
-    // a time, so a fully-unmigrated DB still degrades to the base columns).
-    let attempt = rows
-    let lastError: string | null = null
-    for (let i = 0; i < 4; i++) {
-      const { error } = await supabase.from('routine_exercises').insert(attempt)
-      if (!error) { lastError = null; break }
-      lastError = error.message
-      if (isMissingColumnError(error, 'tempo')) {
-        attempt = attempt.map(({ tempo, ...rest }) => rest)
-      } else if (isMissingColumnError(error, 'set_details')) {
-        attempt = attempt.map(({ set_details, ...rest }) => rest)
-      } else if (isMissingColumnError(error, 'rest_seconds')) {
-        attempt = attempt.map(({ rest_seconds, ...rest }) => rest)
-      } else {
-        break
-      }
+  if (!routine) {
+    return {
+      error:
+        !ownershipError || ownershipError.code === 'PGRST116'
+          ? 'Not found'
+          : ownershipError.message,
     }
-    if (lastError) return { error: lastError }
   }
+
+  const { error } = await supabase.rpc('save_routine_snapshot', {
+    p_routine_id: routineId,
+    p_name: name,
+    p_exercises: exercises.map((exercise) => ({
+      exercise_id: exercise.exerciseId,
+      sets: exercise.sets,
+      reps: exercise.reps,
+      weight: exercise.weight,
+      duration_minutes: exercise.duration_minutes,
+      distance: exercise.distance,
+      set_details: exercise.set_details,
+      tempo: exercise.tempo,
+      rest_seconds: exercise.rest_seconds,
+      order: exercise.order,
+    })),
+  })
+  if (error) return { error: error.message }
 
   revalidatePath('/workouts')
   return { success: true }

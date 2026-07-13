@@ -6,13 +6,14 @@ import { createTemplate, saveTemplateExercises, deleteTemplate, TemplateExercise
 import { readDistanceUnitPref } from '@/lib/distanceUnit'
 import { startWorkoutFromTemplate, startPlannedWorkout, scheduleWorkout } from '@/app/actions/workouts'
 import { fetchExerciseDetails, fetchLastExercisePerformance, fetchBestExercisePerformance, fetchBestExercisePerformance60Days } from '@/app/actions/exercises'
-import { LastExercisePerformance, RoutineWithExercises, SetDetail } from '@/lib/dal'
+import type { LastExercisePerformance, RoutineWithExercises, SetDetail } from '@/lib/dal'
 import ExercisePickerSheet, { SlimExercise } from '@/app/workout/[id]/ExercisePickerSheet'
 import ExerciseInfoModal from '@/app/workout/[id]/ExerciseInfoModal'
 import LastPerfModal from '@/app/workout/[id]/LastPerfModal'
 import Stepper from '@/app/workout/[id]/Stepper'
 import { TempoConfig, parseTempo, formatTempo } from '@/lib/tempo'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
+import { clipboardEntryToTemplateFields } from '@/lib/clipboardOps'
 import { localDateStr } from '@/lib/localDate'
 
 type TemplateExercise = {
@@ -243,6 +244,7 @@ export default function TemplateEditor({
       entries: items.map((item) => ({
         exerciseId: item.exerciseId,
         exerciseName: item.exerciseName,
+        setMode: item.setDetails ? 'per_set' : 'uniform',
         sets:
           item.setDetails ??
           Array.from({ length: item.sets }, () => ({ weight: item.weight, reps: item.reps })),
@@ -265,23 +267,18 @@ export default function TemplateEditor({
     if (!clipboard) return
     setItems(
       clipboard.entries.map((entry) => {
-        // A single uniform "N identical sets" round-trips back to the plain
-        // sets/reps/weight fields; anything with per-set variation keeps its
-        // full setDetails list rather than collapsing to set #1.
-        const isUniform =
-          entry.sets.length > 0 &&
-          entry.sets.every((s) => s.weight === entry.sets[0].weight && s.reps === entry.sets[0].reps)
+        const prescription = clipboardEntryToTemplateFields(entry)
         return {
           localId: crypto.randomUUID(),
           exerciseId: entry.exerciseId,
           exerciseName: entry.exerciseName,
           exerciseCategory: null,
-          sets: entry.sets.length,
-          reps: entry.sets[0]?.reps ?? null,
-          weight: entry.sets[0]?.weight ?? null,
+          sets: prescription.sets,
+          reps: prescription.reps,
+          weight: prescription.weight,
           duration_minutes: null,
           distance: null,
-          setDetails: isUniform ? null : entry.sets,
+          setDetails: prescription.setDetails,
           tempo: null,
           restSeconds: null,
         }
@@ -320,7 +317,8 @@ export default function TemplateEditor({
       } else {
         const created = await createTemplate(name.trim())
         if ('error' in created) { setError(created.error ?? 'Create failed'); return }
-        await saveTemplateExercises(created.id, name.trim(), payload)
+        const saved = await saveTemplateExercises(created.id, name.trim(), payload)
+        if ('error' in saved) { setError(saved.error ?? 'Save failed'); return }
       }
       router.push('/workouts')
     })
@@ -333,7 +331,7 @@ export default function TemplateEditor({
     const payload = buildPayload()
 
     startTransition(async () => {
-      let routineId: string | number
+      let routineId: string
       if (template) {
         const result = await saveTemplateExercises(template.id, name.trim(), payload)
         if ('error' in result) { setError(result.error ?? 'Save failed'); return }
@@ -341,7 +339,8 @@ export default function TemplateEditor({
       } else {
         const created = await createTemplate(name.trim())
         if ('error' in created) { setError(created.error ?? 'Create failed'); return }
-        await saveTemplateExercises(created.id, name.trim(), payload)
+        const saved = await saveTemplateExercises(created.id, name.trim(), payload)
+        if ('error' in saved) { setError(saved.error ?? 'Save failed'); return }
         routineId = created.id
       }
       if (workoutId) {

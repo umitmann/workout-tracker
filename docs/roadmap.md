@@ -58,7 +58,12 @@ Some exercises (planks, wall sits, L-sits) are measured in time rather than rep 
 
 ## Personal Trainer use-case
 
-Enable a *trainer* role that can manage workouts for one or more client users.
+Enable personal trainers to work with explicitly connected trainee accounts.
+
+> Architecture and migration are now specified in
+> [personal-trainer-architecture.md](personal-trainer-architecture.md). The
+> design below was the original product sketch; where it differs, the
+> consent-based architecture is authoritative.
 
 ### Features
 
@@ -66,44 +71,12 @@ Enable a *trainer* role that can manage workouts for one or more client users.
 |---|---------|-------|
 | PT-1 | **Plan workouts for clients** | Trainer can schedule workouts on a client's calendar, assign templates, set target weights/reps |
 | PT-2 | **View other people's workouts** | Trainer dashboard shows all client calendars and completed workout summaries |
-| PT-3 | **Grant admin rights to another user** | Owner of an account (or super-admin) can elevate another user to `admin` role, giving full read/write access across all user data |
+| PT-3 | **Manage trainer access** | Trainee can accept/end a relationship and independently grant/revoke completed-result access |
 
-### Role model
-
-Three roles are envisioned:
-
-| Role | Capabilities |
-|---|---|
-| `user` | Default. Can only see and modify their own data. |
-| `trainer` | Can see and schedule workouts for their assigned clients. Cannot modify client account settings. |
-| `admin` | Full read/write across all users. Can assign/revoke trainer relationships and promote other users to admin. |
-
-### Database changes needed
-
-The `scheduled_workouts` table already has `assigned_by uuid` to track trainer-assigned workouts without a migration.
-
-Two new tables will be required:
-
-```sql
--- Maps users to roles
-create table user_roles (
-  user_id  uuid not null references auth.users on delete cascade,
-  role     text not null check (role in ('user', 'trainer', 'admin')),
-  primary key (user_id, role)
-);
-
--- Maps trainers to their clients
-create table trainer_clients (
-  trainer_id  uuid not null references auth.users on delete cascade,
-  client_id   uuid not null references auth.users on delete cascade,
-  granted_at  timestamptz default now(),
-  primary key (trainer_id, client_id)
-);
-```
-
-RLS policies will need to be extended on `workouts`, `sets`, and `routines` to allow trainers to read/write on behalf of their clients.
-
-> See `docs/database.md` → "Future — Admin & Trainer Tables" for the original note.
+The implementation uses separate platform authority, trainer listing status,
+bilateral relationships, explicit trainee-issued grants, and immutable plan
+snapshots. An active relationship by itself does not reveal workout results,
+and trainers never receive write access to performed workouts or sets.
 
 ---
 

@@ -1,4 +1,9 @@
-# Admin & Trainer Groups (Future Feature)
+# Admin & Trainer Groups (Historical Draft)
+
+> **Superseded:** This file is retained as the original behavioral sketch. Its
+> role, access, and scheduling schema must not be implemented directly. See
+> [`docs/personal-trainer-architecture.md`](../docs/personal-trainer-architecture.md)
+> for the consent-based architecture, security findings, and migration plan.
 
 ## Use Case
 

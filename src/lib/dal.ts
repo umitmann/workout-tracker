@@ -1,47 +1,14 @@
-import { unstable_cache } from 'next/cache'
+import 'server-only'
+
 import { cache } from 'react'
-import { createClient } from '@supabase/supabase-js'
 import { createServerSupabaseClient } from './supabase-server'
 import { selectBestSession, aggregateHistory, buildPreviews } from './dalCores'
-import type { SessionSetRow, WorkoutRef, DatedSet } from './dalCores'
+import type { SessionSetRow, WorkoutRef, DatedSet, PreviewSet } from './dalCores'
 import { localDateStr, dateNDaysBefore } from './localDate'
+import { isNoRowsError, requireQueryData } from './dataAccessError'
+import { isMissingColumnError } from './schemaCompatibility'
 
-// True only when a query failed because a column does not exist (e.g. a not-yet
-// migrated rest_seconds). Postgres undefined_column = 42703; PostgREST surfaces
-// it via code or a "does not exist" message mentioning the column.
-// A real Postgres/PostgREST "undefined_column" error always carries a message
-// naming the specific column — checked first so that when two independent
-// optional columns (e.g. rest_seconds and difficulty) can each be missing,
-// callers can tell which one actually failed and strip only that one. The
-// bare code-42703 fallback below only fires when no message is present at
-// all (defensive — keeps working against a minimal/synthetic error shape).
-export function isMissingColumnError(error: unknown, column: string): boolean {
-  if (!error || typeof error !== 'object') return false
-  const e = error as { code?: string; message?: string }
-  const msg = (e.message ?? '').toLowerCase()
-  if (msg) return msg.includes(column.toLowerCase()) && msg.includes('does not exist')
-  return e.code === '42703'
-}
-
-// True only when an RPC call failed because the function does not exist yet
-// (not-yet-migrated). PostgREST surfaces this as PGRST202; Postgres itself as
-// undefined_function = 42883. Any other error (e.g. a real constraint
-// violation inside the function) must NOT be treated as "try the fallback".
-export function isMissingFunctionError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-  const e = error as { code?: string; message?: string }
-  if (e.code === 'PGRST202' || e.code === '42883') return true
-  const msg = (e.message ?? '').toLowerCase()
-  return msg.includes('function') && msg.includes('does not exist')
-}
-
-// Service-role client — no cookies, safe to use inside unstable_cache
-function createServiceSupabaseClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-}
+export { isMissingColumnError, isMissingFunctionError } from './schemaCompatibility'
 
 // Memoised per-request — multiple DAL calls on the same page share one getUser() round-trip
 const getAuthContext = cache(async () => {
@@ -54,14 +21,14 @@ export async function getRecentWorkouts(limit = 5) {
   const { supabase, user } = await getAuthContext()
   if (!user) return []
 
-  const { data } = await supabase
+  const result = await supabase
     .from('workouts')
     .select('id, date, sets(id)')
     .eq('user_id', user.id)
     .order('date', { ascending: false })
     .limit(limit)
 
-  return data ?? []
+  return requireQueryData(result, 'list recent workouts') ?? []
 }
 
 // Column combos to try, most-complete first, so either optional column
@@ -85,7 +52,7 @@ export async function getWorkoutWithSets(workoutId: number) {
   const { supabase, user } = await getAuthContext()
   if (!user) return null
 
-  const [{ data: workout }, setsResult] = await Promise.all([
+  const [workoutResult, setsResult] = await Promise.all([
     supabase
       .from('workouts')
       .select('id, date, status, template_id')
@@ -99,6 +66,11 @@ export async function getWorkoutWithSets(workoutId: number) {
       .order('created_at', { ascending: true }),
   ])
 
+  if (workoutResult.error) {
+    if (isNoRowsError(workoutResult.error)) return null
+    requireQueryData(workoutResult, 'load workout')
+  }
+  const workout = workoutResult.data
   if (!workout) return null
 
   // Fall back gracefully ONLY if a not-yet-migrated optional column
@@ -116,47 +88,47 @@ export async function getWorkoutWithSets(workoutId: number) {
     sets = data
     error = nextError
   }
+  if (error) requireQueryData({ data: sets, error }, 'load workout sets')
 
   return { ...workout, sets: sets ?? [] }
 }
 
-export const getAllExercises = unstable_cache(
-  async () => {
-    const supabase = createServiceSupabaseClient()
+export async function getAllExercises() {
+  const { supabase, user } = await getAuthContext()
+  if (!user) return []
 
-    const { data } = await supabase
-      .from('exercises')
-      .select('id, name, category, equipment, muscles')
-      .order('name', { ascending: true })
+  const result = await supabase
+    .from('exercises')
+    .select('id, name, category, equipment, muscles')
+    .order('name', { ascending: true })
 
-    return data ?? []
-  },
-  ['all-exercises'],
-  { revalidate: false },
-)
+  return requireQueryData(result, 'list exercises') ?? []
+}
 
 export async function getExercise(id: number) {
   const supabase = await createServerSupabaseClient()
 
-  const { data } = await supabase
+  const result = await supabase
     .from('exercises')
     .select('*')
     .eq('id', id)
     .single()
 
-  return data
+  if (isNoRowsError(result.error)) return null
+  return requireQueryData(result, 'load exercise')
 }
 
 export async function getExerciseDetails(id: number) {
   const supabase = await createServerSupabaseClient()
 
-  const { data } = await supabase
+  const result = await supabase
     .from('exercises')
     .select('id, name, category, equipment, muscles, muscles_secondary, images, instructions')
     .eq('id', id)
     .single()
 
-  return data
+  if (isNoRowsError(result.error)) return null
+  return requireQueryData(result, 'load exercise details')
 }
 
 const TEMPLATE_COLS = (opts: { tempo: boolean; setDetails: boolean; restSeconds: boolean }) =>
@@ -186,23 +158,30 @@ export async function getUserTemplates() {
   const { supabase, user } = await getAuthContext()
   if (!user) return []
 
-  for (const variant of TEMPLATE_COL_VARIANTS) {
+  for (let index = 0; index < TEMPLATE_COL_VARIANTS.length; index++) {
+    const variant = TEMPLATE_COL_VARIANTS[index]
     const result = await supabase
       .from('routines')
       .select(TEMPLATE_COLS(variant))
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
     if (!result.error) return (result.data ?? []) as unknown as RoutineWithExercises[]
-    if (!isMissingTemplateColumnError(result.error)) break
+    if (
+      !isMissingTemplateColumnError(result.error) ||
+      index === TEMPLATE_COL_VARIANTS.length - 1
+    ) {
+      return (requireQueryData(result, 'list workout templates') ?? []) as unknown as RoutineWithExercises[]
+    }
   }
-  return []
+  throw new Error('Template column fallback exhausted without a result')
 }
 
 export async function getTemplate(routineId: string | number) {
   const { supabase, user } = await getAuthContext()
   if (!user) return null
 
-  for (const variant of TEMPLATE_COL_VARIANTS) {
+  for (let index = 0; index < TEMPLATE_COL_VARIANTS.length; index++) {
+    const variant = TEMPLATE_COL_VARIANTS[index]
     const result = await supabase
       .from('routines')
       .select(TEMPLATE_COLS(variant))
@@ -210,9 +189,15 @@ export async function getTemplate(routineId: string | number) {
       .eq('user_id', user.id)
       .single()
     if (!result.error) return result.data as unknown as RoutineWithExercises | null
-    if (!isMissingTemplateColumnError(result.error)) break
+    if (isNoRowsError(result.error)) return null
+    if (
+      !isMissingTemplateColumnError(result.error) ||
+      index === TEMPLATE_COL_VARIANTS.length - 1
+    ) {
+      return requireQueryData(result, 'load workout template') as unknown as RoutineWithExercises | null
+    }
   }
-  return null
+  throw new Error('Template column fallback exhausted without a result')
 }
 
 export type WorkoutStatus = 'planned' | 'in_progress' | 'completed'
@@ -231,6 +216,7 @@ export type WorkoutPreviewExercise = {
   setCount: number
   firstSetReps: number | null
   firstSetWeight: number | null
+  sets: { reps: number | null; weight: number | null }[]
 }
 
 export type MonthWorkoutsWithPreviews = {
@@ -254,7 +240,7 @@ export async function getMonthWorkouts(year: number, month: number): Promise<Wor
   const lastDay = new Date(year, month, 0).getDate()
   const to = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
-  const { data } = await supabase
+  const result = await supabase
     .from('workouts')
     .select('id, date, status, template_id, sets(id)')
     .eq('user_id', user.id)
@@ -262,6 +248,7 @@ export async function getMonthWorkouts(year: number, month: number): Promise<Wor
     .lte('date', to)
     .order('date', { ascending: true })
 
+  const data = requireQueryData(result, 'list calendar workouts')
   return (data ?? []).map((w: any) => ({
     id: w.id,
     date: w.date,
@@ -282,7 +269,7 @@ export async function getMonthWorkoutsWithPreviews(
   const lastDay = new Date(year, month, 0).getDate()
   const to = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
-  const { data } = await supabase
+  const result = await supabase
     .from('workouts')
     .select('id, date, status, template_id, sets(id, exercise_id, weight, reps, exercises(name))')
     .eq('user_id', user.id)
@@ -290,7 +277,7 @@ export async function getMonthWorkoutsWithPreviews(
     .lte('date', to)
     .order('date', { ascending: true })
 
-  const rows = (data ?? []) as any[]
+  const rows = (requireQueryData(result, 'list calendar workouts with previews') ?? []) as any[]
 
   const entries: WorkoutCalendarEntry[] = rows.map((w) => ({
     id: w.id,
@@ -300,11 +287,20 @@ export async function getMonthWorkoutsWithPreviews(
     set_count: w.sets?.length ?? 0,
   }))
 
-  const setsByWorkout = new Map<number, { exercise_id: number; exercise_name: string; weight: number | null; reps: number | null }[]>()
+  type CalendarPreviewSetRow = {
+    id: number
+    exercise_id: number
+    weight: number | null
+    reps: number | null
+    exercises: { name: string } | null
+  }
+  const setsByWorkout = new Map<number, PreviewSet[]>()
   for (const w of rows) {
+    const orderedSets = [...((w.sets ?? []) as CalendarPreviewSetRow[])]
+      .sort((a, b) => a.id - b.id)
     setsByWorkout.set(
       w.id,
-      (w.sets ?? []).map((s: any) => ({
+      orderedSets.map((s) => ({
         exercise_id: s.exercise_id,
         exercise_name: s.exercises?.name ?? String(s.exercise_id),
         weight: s.weight,
@@ -575,7 +571,7 @@ export async function getExerciseNotes(exerciseIds: number[]): Promise<Record<nu
 }
 
 export type RoutineExerciseRow = {
-  id: number
+  id: string
   exercise_id: number
   sets: number
   reps: number | null
@@ -590,7 +586,7 @@ export type RoutineExerciseRow = {
 }
 
 export type RoutineWithExercises = {
-  id: number
+  id: string
   name: string
   created_at: string
   routine_exercises: RoutineExerciseRow[]

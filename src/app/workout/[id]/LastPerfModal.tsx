@@ -1,6 +1,6 @@
 'use client'
 
-import { LastExercisePerformance } from '@/lib/dal'
+import type { LastExercisePerformance } from '@/lib/dal'
 import Modal from '@/components/Modal'
 import { perfModalColumns } from '@/lib/perfModalColumns'
 import { DistanceUnit } from '@/lib/distanceUnit'

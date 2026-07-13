@@ -2,10 +2,11 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition, useEffect, useRef } from 'react'
-import { WorkoutCalendarEntry, RoutineWithExercises } from '@/lib/dal'
+import type { WorkoutCalendarEntry, RoutineWithExercises } from '@/lib/dal'
 import { fetchUserTemplates } from '@/app/actions/templates'
 import { scheduleWorkout, logWorkoutForDate, startPlannedWorkout, deleteWorkoutSoft, fetchWorkoutPreview, fetchMonthWorkoutsWithPreviews, WorkoutPreviewExercise } from '@/app/actions/workouts'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
+import { previewExercisesToClipboardEntries } from '@/lib/clipboardOps'
 import { useSwipe } from '@/lib/useSwipe'
 import { localDateStr, classifyCalendarDay } from '@/lib/localDate'
 
@@ -222,18 +223,7 @@ export default function CalendarView({
     const preview = workoutPreviews.get(workout.id)
     if (!preview) return
     copyToClipboard({
-      // NOTE: the calendar month-view preview (`fetchWorkoutPreview`) only
-      // carries set #1 + a count per exercise (Tile 7's cap, not Tile 4's) —
-      // out of scope here. This mirrors that aggregate as `setCount`
-      // identical rows rather than claiming per-set fidelity it doesn't have.
-      entries: preview.map((ex) => ({
-        exerciseId: ex.exerciseId,
-        exerciseName: ex.exerciseName,
-        sets: Array.from({ length: ex.setCount }, () => ({
-          reps: ex.firstSetReps,
-          weight: ex.firstSetWeight,
-        })),
-      })),
+      entries: previewExercisesToClipboardEntries(preview),
       sourceDate: workout.date,
     })
     setCopiedId(workout.id)

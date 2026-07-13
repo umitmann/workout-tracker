@@ -17,10 +17,14 @@ jobs:
 
       - run: npm ci
 
+      - run: npm audit --audit-level=high
+
       - run: npm run lint
 
       - run: npx tsc --noEmit
 
       - run: npm run test:unit
+
+      - run: npm run test:data-access
 
       - run: npm run test:filters

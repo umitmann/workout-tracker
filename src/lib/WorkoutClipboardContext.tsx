@@ -11,9 +11,15 @@ export type ClipboardSet = {
   reps: number | null
 }
 
+export type ClipboardSetMode = 'uniform' | 'per_set'
+
 export type ClipboardEntry = {
   exerciseId: number
   exerciseName: string
+  // Set rows alone cannot distinguish an explicitly-authored dropset whose
+  // rows currently happen to match from a uniform prescription. Keep the
+  // author's mode so template -> clipboard -> template is lossless.
+  setMode: ClipboardSetMode
   sets: ClipboardSet[]
 }
 
