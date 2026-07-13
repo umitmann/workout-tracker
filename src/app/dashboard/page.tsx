@@ -3,6 +3,11 @@ import Link from 'next/link'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { signOut } from '@/app/actions/auth'
 import { getMonthWorkoutsWithPreviews, getUserTemplates, getRecentBodyWeights } from '@/lib/dal'
+import { listMyTrainerRelationships } from '@/lib/trainerRelationshipDal'
+import {
+  countTrainerRelationshipNotifications,
+  trainerNotificationLabel,
+} from '@/lib/trainerRelationshipNotifications'
 import CalendarView from '@/app/workouts/CalendarView'
 import BodyweightCard from './BodyweightCard'
 import StartWorkoutButton from './StartWorkoutButton'
@@ -21,13 +26,21 @@ export default async function Dashboard({
   const year = y ? Number(y) : now.getFullYear()
   const month = m ? Number(m) : now.getMonth() + 1
 
-  const [{ entries: workouts, previews: initialPreviews }, templates, bodyWeights, adminResult] = await Promise.all([
+  const [
+    { entries: workouts, previews: initialPreviews },
+    templates,
+    bodyWeights,
+    adminResult,
+    trainerRelationships,
+  ] = await Promise.all([
     getMonthWorkoutsWithPreviews(year, month),
     getUserTemplates(),
     getRecentBodyWeights(),
     supabase.rpc('current_user_is_platform_admin'),
+    listMyTrainerRelationships(),
   ])
   const isPlatformAdmin = !adminResult.error && adminResult.data === true
+  const trainerNotifications = countTrainerRelationshipNotifications(trainerRelationships)
 
   const name = user.user_metadata?.full_name ?? user.email
   const avatar = user.user_metadata?.avatar_url as string | undefined
@@ -77,13 +90,13 @@ export default async function Dashboard({
             href="/connections"
             className="rounded-full border border-zinc-200 dark:border-zinc-700 px-6 py-3 text-sm font-bold uppercase tracking-wide text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
           >
-            My PT
+            {trainerNotificationLabel('My PT', trainerNotifications.trainee)}
           </Link>
           <Link
             href="/trainer/connections"
             className="rounded-full border border-zinc-200 dark:border-zinc-700 px-6 py-3 text-sm font-bold uppercase tracking-wide text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
           >
-            PT Requests
+            {trainerNotificationLabel('PT Requests', trainerNotifications.trainer)}
           </Link>
           {isPlatformAdmin && (
             <Link

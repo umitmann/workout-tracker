@@ -12,6 +12,7 @@ const files = await Promise.all(
     '../src/app/connections/ConnectionCard.tsx',
     '../src/app/connections/PermissionControl.tsx',
     '../src/app/trainer/connections/page.tsx',
+    '../src/app/dashboard/page.tsx',
   ].map((path) => readFile(new URL(path, import.meta.url), 'utf8')),
 )
 
@@ -24,6 +25,7 @@ const [
   connectionCard,
   permissionControl,
   trainerPage,
+  dashboard,
 ] = files
 
 test('relationship mutations stay behind Server Actions and narrow RPCs', () => {
@@ -71,4 +73,11 @@ test('Phase 3 UI does not import workout or bodyweight result readers', () => {
   assert.doesNotMatch(combined, /trainer_get_completed_workouts|trainer_get_bodyweights/)
   assert.doesNotMatch(combined, /getWorkoutsInRange|getBodyWeightsInRange/)
   assert.match(connectionCard, /result-reading remains disabled/)
+})
+
+test('dashboard PT buttons render current actionable notification counts', () => {
+  assert.match(dashboard, /listMyTrainerRelationships\(\)/)
+  assert.match(dashboard, /countTrainerRelationshipNotifications\(trainerRelationships\)/)
+  assert.match(dashboard, /trainerNotificationLabel\('My PT', trainerNotifications\.trainee\)/)
+  assert.match(dashboard, /trainerNotificationLabel\('PT Requests', trainerNotifications\.trainer\)/)
 })

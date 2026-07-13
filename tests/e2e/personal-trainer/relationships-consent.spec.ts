@@ -28,11 +28,22 @@ test.describe('trainer relationship and consent surface', () => {
       })
 
       await test.step('trainer accepts, with both data categories still closed', async () => {
-        await trainer.page.goto('/trainer/connections')
+        await trainer.page.goto('/dashboard')
+        const notificationLink = trainer.page.getByRole('link', {
+          name: /^PT Requests \(1\)$/i,
+        })
+        await expect(notificationLink).toBeVisible()
+        await notificationLink.click()
         const request = trainer.page.getByRole('article').filter({ hasText: traineeName })
         await expect(request.getByText(/^pending$/i)).toBeVisible()
         await request.getByRole('button', { name: /^accept$/i }).click()
         await expect(request.getByRole('status')).toContainText(/connection active/i)
+
+        await trainer.page.goto('/dashboard')
+        await expect(trainer.page.getByRole('link', { name: /^PT Requests$/i })).toBeVisible()
+        await expect(trainer.page.getByRole('link', { name: /PT Requests \(/i })).toHaveCount(0)
+
+        await trainer.page.goto('/trainer/connections')
         await trainer.page.reload()
         const active = trainer.page.getByRole('article').filter({ hasText: traineeName })
         await expect(active.getByText(/not shared/i)).toHaveCount(2)
