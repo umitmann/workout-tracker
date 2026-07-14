@@ -32,6 +32,7 @@ tools for those resources.
 | Calendar | A month change previously involved Server Action router-state races. | The existing private GET transport, in-memory current-session cache, and bounded adjacent-month prefetch remain. | Fast next/previous navigation without shared health-data caching. |
 | YouTube | Eager embeds in a list could create many third-party connections and large page cost. | Videos appear only in exercise detail/info surfaces; iframes use `loading="lazy"` and `youtube-nocookie.com`. | No YouTube cost on library/list load; media loads only when explanation is viewed. |
 | Exercise discovery | The catalog was globally readable before trainer scoping. | A database RPC returns only platform, public, owned, or current-client discoverable rows. Historical entitlements stay outside discovery. | Correct permission-aware payloads and no client-only cross-user cache risk. |
+| Desktop 3D planner | A WebGL engine would be wasteful on the established phone editor and on desktop users who never request 3D. | The desktop generator is an explicit opt-in client chunk. Three.js, OrbitControls, and the body scene are absent from the classic render path; the scene renders on demand, caps device pixel ratio at 2, and disposes controls, GPU resources, and the context on exit. | The mobile/default path keeps its established UI and avoids the 576,258-byte raw 3D production chunk. |
 | Query waterfalls | Main dashboard reads already use `Promise.all`; client-result and directory pages also parallelize independent reads. | Retained; new account and exercise management screens follow the same pattern. | Avoids serial database waits. |
 
 ## Cache and prefetch policy
@@ -65,6 +66,13 @@ tools for those resources.
   expensive private queries for links a user may never open.
 - The dashboard's independent data calls begin together. Plan reads stay
   fail-soft so a plan API incident cannot block the workout log and history.
+- The desktop planner defers search updates, caps the visible catalog window
+  at 80 rows, and asks the user to narrow larger result sets. The full catalog
+  remains searchable; the DOM and hover work stay bounded.
+- The 3D scene has no continuous animation loop. Camera interaction, resize,
+  muscle-load changes, and hover changes request a frame; an idle planner does
+  no ongoing WebGL rendering. A non-WebGL browser receives the same accessible
+  muscle buttons and programming controls with a textual fallback.
 
 ## Measurement protocol
 

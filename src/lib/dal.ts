@@ -95,17 +95,31 @@ export type AvailableExercise = {
   category: string | null
   equipment: string | null
   muscles: string[] | null
+  muscles_secondary: string[] | null
   creator_id?: string | null
   visibility?: 'platform' | 'public' | 'clients'
   video_url?: string | null
 }
 
-export async function getAllExercises() {
+export async function getAllExercises(): Promise<AvailableExercise[]> {
   const { supabase, user } = await getAuthContext()
   if (!user) return []
 
+  const enriched = await supabase.rpc('list_available_exercises_v2')
+  if (!enriched.error) return (enriched.data ?? []) as AvailableExercise[]
+  if (!isMissingFunctionError(enriched.error)) {
+    return (requireQueryData(enriched, 'list available exercises') ?? []) as AvailableExercise[]
+  }
+
+  // Rolling-deploy fallback: Phase 18 remains readable while the additive
+  // secondary-muscle RPC is being applied through the Supabase SQL Editor.
   const scoped = await supabase.rpc('list_available_exercises')
-  if (!scoped.error) return (scoped.data ?? []) as AvailableExercise[]
+  if (!scoped.error) {
+    return (scoped.data ?? []).map((exercise: Omit<AvailableExercise, 'muscles_secondary'>) => ({
+      ...exercise,
+      muscles_secondary: null,
+    }))
+  }
   if (!isMissingFunctionError(scoped.error)) {
     return (requireQueryData(scoped, 'list available exercises') ?? []) as AvailableExercise[]
   }
@@ -114,7 +128,7 @@ export async function getAllExercises() {
   // legacy policy exposes only the original authenticated catalog.
   const legacy = await supabase
     .from('exercises')
-    .select('id, name, category, equipment, muscles')
+    .select('id, name, category, equipment, muscles, muscles_secondary')
     .order('name', { ascending: true })
 
   return (requireQueryData(legacy, 'list exercises') ?? []) as AvailableExercise[]

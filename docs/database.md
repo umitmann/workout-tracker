@@ -948,6 +948,48 @@ and durable historical entitlement.
 
 ---
 
+## Phase 19 — desktop muscle-generator exercise metadata
+
+**Ready for SQL Editor application** from
+[`20260714000900_desktop_muscle_generator.sql`](../supabase/migrations/20260714000900_desktop_muscle_generator.sql).
+
+This small additive migration creates `list_available_exercises_v2()`. It uses
+the exact Phase 18 discovery rules but also returns `muscles_secondary`, which
+lets the desktop workout generator distinguish primary from secondary
+programmed exposure. The v1 function is retained so the database and website
+can be deployed in either order. The app tries v2 first and safely falls back
+to v1 until this migration is present.
+
+It creates no tables, changes no RLS policy, and does not insert, update,
+delete, or rewrite any workout, set, routine, exercise, plan, relationship, or
+result row.
+
+### Supabase SQL Editor procedure
+
+1. Confirm Phase 18 has already been applied. In particular,
+   `public.list_available_exercises()` and the exercise columns `visibility`,
+   `creator_id`, `archived_at`, and `muscles_secondary` must exist.
+2. Open the migration link above, copy the **entire file**, and paste it into
+   one new Supabase SQL Editor query. Run the whole query once; do not select a
+   fragment.
+3. The final result row must show `true` for
+   `authenticated_desktop_catalog_allowed`,
+   `non_user_desktop_catalog_denied`, and
+   `secondary_muscles_available`.
+4. Compare `stored_workout_count`, `stored_set_count`, and
+   `stored_routine_count` with the counts from the previous migration. They
+   must not decrease.
+5. If the website temporarily reports that the v2 function is missing, run
+   `notify pgrst, 'reload schema';` once. Until PostgREST refreshes, the site
+   continues through its v1 fallback and the mobile editor is unaffected.
+
+The complete migration chain through Phase 19 has been replayed from an empty
+PostgreSQL 17/Supabase project. The versioned function's execution grants and
+result shape were then verified in the live disposable database before the
+desktop Playwright suite ran against it.
+
+---
+
 ## Executable clean-room baseline — repository recovery support
 
 **Added and clean-reset verified** on 2026-07-14 in

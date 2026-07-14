@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { createTemplate, saveTemplateExercises, deleteTemplate, TemplateExercisePayload } from '@/app/actions/templates'
 import { readDistanceUnitPref } from '@/lib/distanceUnit'
@@ -16,8 +17,22 @@ import { TempoConfig, parseTempo, formatTempo } from '@/lib/tempo'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 import { clipboardEntryToTemplateFields } from '@/lib/clipboardOps'
 import { localDateStr } from '@/lib/localDate'
+import {
+  isDesktopGeneratorEligible,
+  resolveWorkoutGeneratorMode,
+  type WorkoutGeneratorMode,
+} from '@/lib/desktopGeneratorMode'
 
-type TemplateExercise = {
+const DesktopWorkoutGenerator = dynamic(() => import('./DesktopWorkoutGenerator'), {
+  ssr: false,
+  loading: () => (
+    <div className="mx-auto grid min-h-[720px] w-full max-w-[1800px] place-items-center px-6 text-sm font-semibold text-zinc-500">
+      Loading 3D workout generator…
+    </div>
+  ),
+})
+
+export type TemplateExercise = {
   localId: string
   exerciseId: number
   exerciseName: string
@@ -31,6 +46,10 @@ type TemplateExercise = {
   tempo: TempoConfig | null // PT-prescribed DRUH tempo; null = none
   restSeconds: number | null // PT-prescribed rest target (seconds); null = use the athlete's global stepper
 }
+
+export type TemplateExerciseUpdate = Partial<
+  Pick<TemplateExercise, 'sets' | 'reps' | 'weight' | 'duration_minutes' | 'distance'>
+>
 
 type ExerciseDetails = {
   id: number
@@ -61,6 +80,8 @@ export default function TemplateEditor({
   const [copied, setCopied] = useState(false)
   const [showPasteConfirm, setShowPasteConfirm] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [generatorMode, setGeneratorMode] = useState<WorkoutGeneratorMode>('classic')
+  const [desktopEligible, setDesktopEligible] = useState(false)
 
   const today = localDateStr()
   const isScheduling = !!date && date > today
@@ -98,6 +119,25 @@ export default function TemplateEditor({
   const [perfData, setPerfData] = useState<LastExercisePerformance | null>(null)
   const [perfLoading, setPerfLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    function syncDesktopEligibility() {
+      const eligible = isDesktopGeneratorEligible(window.innerWidth)
+      setDesktopEligible(eligible)
+      if (!eligible) setGeneratorMode('classic')
+    }
+    syncDesktopEligibility()
+    window.addEventListener('resize', syncDesktopEligibility)
+    return () => window.removeEventListener('resize', syncDesktopEligibility)
+  }, [])
+
+  function toggleGeneratorMode() {
+    if (generatorMode === 'desktop') {
+      setGeneratorMode('classic')
+      return
+    }
+    setGeneratorMode(resolveWorkoutGeneratorMode('desktop', window.innerWidth))
+  }
 
   function handleAddExercise(ex: SlimExercise) {
     const isCardio = ex.category === 'cardio'
@@ -216,7 +256,7 @@ export default function TemplateEditor({
     })
   }
 
-  function updateItem(localId: string, patch: Partial<Pick<TemplateExercise, 'sets' | 'reps' | 'weight' | 'duration_minutes' | 'distance'>>) {
+  function updateItem(localId: string, patch: TemplateExerciseUpdate) {
     setItems((prev) => prev.map((i) => (i.localId === localId ? { ...i, ...patch } : i)))
   }
 
@@ -394,6 +434,15 @@ export default function TemplateEditor({
           {template ? 'Edit template' : 'New template'}
         </h1>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleGeneratorMode}
+            disabled={!desktopEligible}
+            aria-pressed={generatorMode === 'desktop'}
+            className="hidden lg:inline-flex rounded-full border border-orange-400 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-orange-600 transition-colors hover:bg-orange-50 disabled:opacity-40 dark:text-orange-400 dark:hover:bg-orange-950/20"
+          >
+            {generatorMode === 'desktop' ? 'Use classic editor' : 'Open 3D generator'}
+          </button>
           {items.length > 0 && (
             <button
               onClick={handleCopy}
@@ -420,6 +469,24 @@ export default function TemplateEditor({
         </div>
       </header>
 
+      {generatorMode === 'desktop' && desktopEligible ? (
+        <DesktopWorkoutGenerator
+          exercises={exercises}
+          items={items}
+          name={name}
+          error={error}
+          isPending={isPending}
+          actionLabel={isScheduling ? 'Schedule' : 'Start now'}
+          onNameChange={setName}
+          onAddExercise={handleAddExercise}
+          onRemoveExercise={handleRemove}
+          onMoveExercise={moveItem}
+          onUpdateExercise={updateItem}
+          onSave={handleSave}
+          onStart={handleStartNow}
+          onUseClassic={() => setGeneratorMode('classic')}
+        />
+      ) : (
       <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-6">
         {/* Name */}
         <input
@@ -710,6 +777,7 @@ export default function TemplateEditor({
           </button>
         )}
       </main>
+      )}
 
       {/* Info modal */}
       {infoLoading && (
