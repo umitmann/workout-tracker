@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:template-actions": "node --import tsx --test .claude/test_template-swipe-actions.mjs",
     "test:auth-setup": "node .claude/setup-auth.mjs",
     "test:auth-bootstrap": "node .claude/bootstrap-auth.mjs",
     "test:cardio": "node .claude/test_cardio-exercise-unit-aware-logging.mjs",

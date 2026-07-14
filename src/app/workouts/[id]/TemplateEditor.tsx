@@ -9,6 +9,7 @@ import { fetchExerciseDetails, fetchLastExercisePerformance, fetchBestExercisePe
 import type { LastExercisePerformance, RoutineWithExercises, SetDetail } from '@/lib/dal'
 import ExercisePickerSheet, { SlimExercise } from '@/app/workout/[id]/ExercisePickerSheet'
 import ExerciseInfoModal from '@/app/workout/[id]/ExerciseInfoModal'
+import Modal from '@/components/Modal'
 import LastPerfModal from '@/app/workout/[id]/LastPerfModal'
 import Stepper from '@/app/workout/[id]/Stepper'
 import { TempoConfig, parseTempo, formatTempo } from '@/lib/tempo'
@@ -59,6 +60,7 @@ export default function TemplateEditor({
   const { clipboard, copy: copyToClipboard } = useWorkoutClipboard()
   const [copied, setCopied] = useState(false)
   const [showPasteConfirm, setShowPasteConfirm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const today = localDateStr()
   const isScheduling = !!date && date > today
@@ -361,6 +363,11 @@ export default function TemplateEditor({
   }
 
   function handleDelete() {
+    if (!template) return
+    setShowDeleteConfirm(true)
+  }
+
+  function handleConfirmDelete() {
     if (!template) return
     startTransition(async () => {
       await deleteTemplate(template.id)
@@ -772,6 +779,43 @@ export default function TemplateEditor({
             </div>
           </div>
         </div>
+      )}
+
+      {showDeleteConfirm && template && (
+        <Modal
+          title={`Delete ${template.name}`}
+          destructive
+          initialFocusIndex={0}
+          onClose={() => {
+            if (!isPending) setShowDeleteConfirm(false)
+          }}
+          backdropClassName="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4"
+          panelClassName="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-zinc-900"
+        >
+          <p className="text-xs font-bold uppercase tracking-widest text-red-600">Confirm deletion</p>
+          <h3 className="mt-2 text-lg font-black text-zinc-950 dark:text-white">Delete {template.name}?</h3>
+          <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+            This permanently removes the template. Existing workout history is kept. This cannot be undone.
+          </p>
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={isPending}
+              className="min-h-12 flex-1 rounded-xl border border-zinc-300 px-4 text-sm font-bold text-zinc-700 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmDelete}
+              disabled={isPending}
+              className="min-h-12 flex-1 rounded-xl bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              {isPending ? 'Deleting…' : 'Delete template permanently'}
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   )

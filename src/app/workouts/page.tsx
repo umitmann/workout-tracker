@@ -1,13 +1,13 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import AppShell from '@/components/AppShell'
-import { deleteTemplate } from '@/app/actions/templates'
 import { buildAppNavigation } from '@/lib/appNavigation'
 import { getUserTemplates } from '@/lib/dal'
 import { getServerAuthContext } from '@/lib/serverAuth'
 import { listMyTrainerRelationships } from '@/lib/trainerRelationshipDal'
 import { countTrainerRelationshipNotifications } from '@/lib/trainerRelationshipNotifications'
 import PasteTemplateButton from './PasteTemplateButton'
+import TemplateSwipeList from './TemplateSwipeList'
 
 export default async function WorkoutsPage() {
   const { user } = await getServerAuthContext()
@@ -46,19 +46,7 @@ export default async function WorkoutsPage() {
           <Link href="/workouts/new" className="mt-5 inline-flex min-h-12 items-center rounded-xl bg-orange-600 px-5 text-sm font-bold text-white hover:bg-orange-700">Create your first plan</Link>
         </section>
       ) : (
-        <ul className="mt-5 grid gap-3 sm:grid-cols-2">
-          {templates.map((template) => (
-            <li key={template.id} className="flex min-w-0 items-stretch gap-2 rounded-[1.4rem] border border-zinc-200 bg-white p-2 shadow-sm transition hover:border-orange-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-orange-900">
-              <Link href={`/workouts/${template.id}`} className="flex min-h-20 min-w-0 flex-1 flex-col justify-center rounded-xl px-3 py-2">
-                <span className="truncate text-base font-black text-zinc-950 dark:text-white">{template.name}</span>
-                <span className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{template.routine_exercises.length} exercise{template.routine_exercises.length === 1 ? '' : 's'}</span>
-              </Link>
-              <form action={deleteTemplate.bind(null, template.id)} className="flex items-center">
-                <button type="submit" title="Delete template" aria-label={`Delete ${template.name}`} className="grid min-h-11 min-w-11 place-items-center rounded-xl text-zinc-400 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950">×</button>
-              </form>
-            </li>
-          ))}
-        </ul>
+        <TemplateSwipeList templates={templates} />
       )}
     </AppShell>
   )

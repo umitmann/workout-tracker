@@ -25,6 +25,8 @@ jobs:
 
       - run: npm run test:unit
 
+      - run: npm run test:template-actions
+
       - run: npm run test:data-access
 
       - run: npm run test:filters
