@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useTransition, useEffect, useRef } from 'react'
 import type { WorkoutCalendarEntry, RoutineWithExercises } from '@/lib/dal'
 import { fetchUserTemplates } from '@/app/actions/templates'
-import { scheduleWorkout, logWorkoutForDate, startPlannedWorkout, deleteWorkoutSoft, fetchWorkoutPreview, fetchMonthWorkoutsWithPreviews, WorkoutPreviewExercise } from '@/app/actions/workouts'
+import { scheduleWorkout, logWorkoutForDate, startPlannedWorkout, deleteWorkoutSoft, fetchWorkoutPreview, type MonthWorkoutsWithPreviews, type WorkoutPreviewExercise } from '@/app/actions/workouts'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 import { previewExercisesToClipboardEntries } from '@/lib/clipboardOps'
 import { useSwipe } from '@/lib/useSwipe'
@@ -26,6 +26,20 @@ type DaySheet = {
 
 function monthKey(y: number, m: number) {
   return `${y}-${String(m).padStart(2, '0')}`
+}
+
+async function fetchCalendarMonth(
+  year: number,
+  month: number,
+  signal?: AbortSignal,
+): Promise<MonthWorkoutsWithPreviews> {
+  const response = await fetch(`/api/calendar?year=${year}&month=${month}`, {
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+    signal,
+  })
+  if (!response.ok) throw new Error('Calendar request failed')
+  return response.json() as Promise<MonthWorkoutsWithPreviews>
 }
 
 function statusDotColor(status: WorkoutCalendarEntry['status']) {
@@ -67,6 +81,7 @@ export default function CalendarView({
   const [viewMonth, setViewMonth] = useState(initialMonth)
   const [viewWorkouts, setViewWorkouts] = useState<WorkoutCalendarEntry[]>(initialWorkouts)
   const [loadingMonth, setLoadingMonth] = useState(false)
+  const [monthError, setMonthError] = useState<string | null>(null)
 
   const [sheet, setSheet] = useState<DaySheet | null>(null)
   const [templates, setTemplates] = useState<RoutineWithExercises[] | null>(initialTemplates ?? null)
@@ -93,38 +108,31 @@ export default function CalendarView({
     workoutsByDate.get(w.date)!.push(w)
   }
 
-  // ── Prefetch adjacent months silently ─────────────────────────────────────
+  // ── Prefetch adjacent months without involving the Next router ────────────
 
   useEffect(() => {
-    // If any current-month workouts have sets but are missing from previewCache,
-    // initialPreviews didn't cover them — fetch now as a fallback
-    const hasMissingPreviews = viewWorkouts.some(
-      (w) => w.status !== 'planned' && w.set_count > 0 && !previewCache.current.has(w.id)
-    )
-    if (hasMissingPreviews) {
-      fetchMonthWorkoutsWithPreviews(viewYear, viewMonth).then(({ entries, previews }) => {
-        monthCache.current.set(monthKey(viewYear, viewMonth), entries)
-        for (const [id, p] of Object.entries(previews)) {
-          previewCache.current.set(Number(id), p)
-        }
-      })
-    }
+    const controller = new AbortController()
 
-    // Prefetch adjacent months
-    for (const delta of [-2, -1, 1, 2]) {
+    for (const delta of [-1, 1]) {
       const d = new Date(viewYear, viewMonth - 1 + delta, 1)
       const y = d.getFullYear()
       const m = d.getMonth() + 1
       const key = monthKey(y, m)
       if (!monthCache.current.has(key)) {
-        fetchMonthWorkoutsWithPreviews(y, m).then(({ entries, previews }) => {
-          monthCache.current.set(key, entries)
-          for (const [id, p] of Object.entries(previews)) {
-            previewCache.current.set(Number(id), p)
-          }
-        })
+        void fetchCalendarMonth(y, m, controller.signal)
+          .then(({ entries, previews }) => {
+            monthCache.current.set(key, entries)
+            for (const [id, p] of Object.entries(previews)) {
+              previewCache.current.set(Number(id), p)
+            }
+          })
+          .catch(() => {
+            // Prefetch is optional; navigation retries visibly if it is needed.
+          })
       }
     }
+
+    return () => controller.abort()
   }, [viewYear, viewMonth])
 
   // ── Navigation ─────────────────────────────────────────────────────────────
@@ -141,15 +149,21 @@ export default function CalendarView({
       setViewWorkouts(monthCache.current.get(key)!)
     } else {
       setLoadingMonth(true)
-      const { entries, previews } = await fetchMonthWorkoutsWithPreviews(y, m)
-      monthCache.current.set(key, entries)
-      for (const [id, p] of Object.entries(previews)) {
-        previewCache.current.set(Number(id), p)
+      setMonthError(null)
+      try {
+        const { entries, previews } = await fetchCalendarMonth(y, m)
+        monthCache.current.set(key, entries)
+        for (const [id, p] of Object.entries(previews)) {
+          previewCache.current.set(Number(id), p)
+        }
+        setViewYear(y)
+        setViewMonth(m)
+        setViewWorkouts(entries)
+      } catch {
+        setMonthError('That month could not be loaded. Try again.')
+      } finally {
+        setLoadingMonth(false)
       }
-      setViewYear(y)
-      setViewMonth(m)
-      setViewWorkouts(entries)
-      setLoadingMonth(false)
     }
   }
 
@@ -239,13 +253,17 @@ export default function CalendarView({
       startTransition(async () => {
         await scheduleWorkout(sheet.date)
         // Refresh month cache after scheduling so the new dot appears
-        const { entries: fresh, previews } = await fetchMonthWorkoutsWithPreviews(viewYear, viewMonth)
-        monthCache.current.set(monthKey(viewYear, viewMonth), fresh)
-        for (const [id, p] of Object.entries(previews)) {
-          previewCache.current.set(Number(id), p)
+        try {
+          const { entries: fresh, previews } = await fetchCalendarMonth(viewYear, viewMonth)
+          monthCache.current.set(monthKey(viewYear, viewMonth), fresh)
+          for (const [id, p] of Object.entries(previews)) {
+            previewCache.current.set(Number(id), p)
+          }
+          setViewWorkouts(fresh)
+          closeSheet()
+        } catch {
+          setMonthError('The workout was scheduled, but the calendar could not be refreshed.')
         }
-        setViewWorkouts(fresh)
-        closeSheet()
       })
     } else {
       startTransition(async () => {
@@ -292,8 +310,10 @@ export default function CalendarView({
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-4 px-2">
         <button
+          type="button"
+          aria-label="Previous month"
           onClick={() => navMonth(-1)}
-          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors text-zinc-600 dark:text-zinc-400"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
         >
           ‹
         </button>
@@ -306,19 +326,27 @@ export default function CalendarView({
           )}
         </div>
         <button
+          type="button"
+          aria-label="Next month"
           onClick={() => navMonth(1)}
-          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors text-zinc-600 dark:text-zinc-400"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
         >
           ›
         </button>
       </div>
+
+      {monthError && (
+        <p role="alert" className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          {monthError}
+        </p>
+      )}
 
       {/* Swipeable calendar area */}
       <div {...swipeHandlers} className="touch-pan-y select-none">
         {/* Day name headers */}
         <div className="grid grid-cols-7 mb-1">
           {DAY_NAMES.map((d) => (
-            <div key={d} className="text-center text-xs font-medium text-zinc-400 dark:text-zinc-600 py-1">
+            <div key={d} className="text-center text-xs font-medium text-zinc-600 dark:text-zinc-400 py-1">
               {d}
             </div>
           ))}
@@ -369,15 +397,15 @@ export default function CalendarView({
       <div className="flex items-center gap-4 mt-5 px-2">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span className="text-xs text-zinc-400 dark:text-zinc-600">Completed</span>
+          <span className="text-xs text-zinc-600 dark:text-zinc-400">Completed</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-amber-400" />
-          <span className="text-xs text-zinc-400 dark:text-zinc-600">In progress</span>
+          <span className="text-xs text-zinc-600 dark:text-zinc-400">In progress</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-zinc-400 dark:bg-zinc-600" />
-          <span className="text-xs text-zinc-400 dark:text-zinc-600">Planned</span>
+          <span className="text-xs text-zinc-600 dark:text-zinc-400">Planned</span>
         </div>
       </div>
 

@@ -102,12 +102,14 @@ function ScheduleWorkoutModal({
         </div>
 
         {state && (
+          // The successful action message begins with "Workout assigned"; keep the
+          // visual heading distinct so text and accessibility queries stay unique.
           <p
             role={state.success ? 'status' : 'alert'}
             aria-live="polite"
             className={`rounded-xl p-4 text-sm font-medium ${state.success ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200'}`}
           >
-            {state.success && <strong className="block">Workout assigned</strong>}
+            {state.success && <strong className="block">Assignment confirmed</strong>}
             <span className={state.success ? 'mt-1 block' : undefined}>{state.message}</span>
           </p>
         )}

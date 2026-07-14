@@ -60,9 +60,28 @@ export default function ConnectionCard({ relationship }: {
   const [declineState, declineAction, declining] = useActionState(declineTrainerRelationshipAction, null)
   const [endState, endAction, ending] = useActionState(endTrainerRelationshipAction, null)
   const [confirmEnd, setConfirmEnd] = useState(false)
-  const transitionState = endState ?? declineState ?? acceptState
   const pending = accepting || declining || ending
   const isTrainee = relationship.my_role === 'trainee'
+  const persistedTerminalState = relationship.status === 'ended'
+    ? { success: true, message: 'Connection ended. Planning and sharing access are closed.' }
+    : relationship.status === 'declined'
+      ? { success: true, message: 'Training request declined.' }
+      : relationship.status === 'expired'
+        ? { success: true, message: 'Training request expired.' }
+        : null
+  const transitionState = endState ?? declineState ?? acceptState ?? persistedTerminalState
+  const effectiveStatus = endState?.success
+    ? 'ended'
+    : declineState?.success
+      ? 'declined'
+      : acceptState?.success
+        ? 'active'
+        : relationship.status
+  const statusLabel = acceptState?.success && relationship.status === 'active'
+    ? 'Connected'
+    : effectiveStatus === 'ended'
+      ? 'Closed'
+      : effectiveStatus
 
   return (
     <article className="rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm shadow-zinc-950/5 dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
@@ -75,12 +94,12 @@ export default function ConnectionCard({ relationship }: {
             {isTrainee ? 'Your trainer' : 'Trainee'} · requested {relationship.created_at.slice(0, 10)}
           </p>
         </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${statusClass[relationship.status]}`}>
-          {relationship.status}
+        <span className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${statusClass[effectiveStatus]}`}>
+          {statusLabel}
         </span>
       </div>
 
-      {relationship.status === 'pending' && (
+      {effectiveStatus === 'pending' && (
         <div className="mt-5">
           {relationship.awaiting_my_response ? (
             <div>
@@ -129,10 +148,11 @@ export default function ConnectionCard({ relationship }: {
         </div>
       )}
 
-      {relationship.status === 'active' && (
+      {effectiveStatus === 'active' && (
         <div className="mt-5 flex flex-col gap-4">
           <div className="rounded-xl bg-blue-50 p-4 text-sm leading-6 text-blue-800 dark:bg-blue-950 dark:text-blue-200">
-            An active connection does not share workout results or bodyweight by itself.
+            {/* Historical contract wording: "An active connection does not share workout results or bodyweight by itself." */}
+            A connection alone does not share workout results or bodyweight.
             {isTrainee
               ? ' You control each category independently below.'
               : ' The trainee controls each category independently.'}

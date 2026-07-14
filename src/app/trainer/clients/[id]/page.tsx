@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import AppShell from '@/components/AppShell'
 import { buildAppNavigation } from '@/lib/appNavigation'
+import { isAuthorizationDenied } from '@/lib/dataAccessError'
 import { getUserTemplates } from '@/lib/dal'
 import { dateNDaysAfter, dateNDaysBefore, localDateStr } from '@/lib/localDate'
 import { getServerAuthContext } from '@/lib/serverAuth'
@@ -70,6 +71,8 @@ export default async function TrainerClientPage({
   let completedWorkouts: Awaited<ReturnType<typeof listTrainerCompletedWorkouts>> = []
   let workoutSets = new Map<number, TrainerCompletedWorkoutSet[]>()
   let bodyweights: Awaited<ReturnType<typeof listTrainerBodyweights>> = []
+  let workoutReadDenied = false
+  let bodyweightReadDenied = false
   let workoutReadFailed = false
   let bodyweightReadFailed = false
 
@@ -88,8 +91,9 @@ export default async function TrainerClientPage({
       workoutSets = new Map(
         completedWorkouts.slice(0, 10).map((workout, index) => [workout.id, detailRows[index]]),
       )
-    } catch {
-      workoutReadFailed = true
+    } catch (error) {
+      if (isAuthorizationDenied(error)) workoutReadDenied = true
+      else workoutReadFailed = true
       completedWorkouts = []
       workoutSets = new Map()
     }
@@ -102,11 +106,17 @@ export default async function TrainerClientPage({
         resultFrom,
         today,
       )
-    } catch {
-      bodyweightReadFailed = true
+    } catch (error) {
+      if (isAuthorizationDenied(error)) bodyweightReadDenied = true
+      else bodyweightReadFailed = true
       bodyweights = []
     }
   }
+
+  // A consent mutation can commit between the relationship summary and the
+  // audited result RPC. Treat the RPC's authorization denial as authoritative.
+  const workoutResultsShared = relationship.workout_results_access && !workoutReadDenied
+  const bodyweightShared = relationship.bodyweight_access && !bodyweightReadDenied
 
   const userName = user.user_metadata?.full_name ?? user.user_metadata?.display_name ?? user.email ?? 'Account'
   const avatarUrl = typeof user.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : null
@@ -163,11 +173,11 @@ export default async function TrainerClientPage({
             </div>
             <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
               <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">Workout results</p>
-              <p className={`mt-2 text-sm font-bold ${relationship.workout_results_access ? 'text-emerald-700 dark:text-emerald-300' : 'text-zinc-600 dark:text-zinc-300'}`}>{relationship.workout_results_access ? 'Shared' : 'Private'}</p>
+              <p className={`mt-2 text-sm font-bold ${workoutResultsShared ? 'text-emerald-700 dark:text-emerald-300' : 'text-zinc-600 dark:text-zinc-300'}`}>{workoutResultsShared ? 'Shared' : 'Private'}</p>
             </div>
             <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
               <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">Bodyweight</p>
-              <p className={`mt-2 text-sm font-bold ${relationship.bodyweight_access ? 'text-emerald-700 dark:text-emerald-300' : 'text-zinc-600 dark:text-zinc-300'}`}>{relationship.bodyweight_access ? 'Shared' : 'Private'}</p>
+              <p className={`mt-2 text-sm font-bold ${bodyweightShared ? 'text-emerald-700 dark:text-emerald-300' : 'text-zinc-600 dark:text-zinc-300'}`}>{bodyweightShared ? 'Shared' : 'Private'}</p>
             </div>
           </section>
 
@@ -223,7 +233,7 @@ export default async function TrainerClientPage({
                   <h2 id="completed-workouts-title" className="mt-1 text-xl font-black tracking-tight text-zinc-950 dark:text-white">Completed workouts</h2>
                 </div>
 
-                {!relationship.workout_results_access ? (
+                {!workoutResultsShared ? (
                   <div className="mt-5 rounded-2xl bg-zinc-50 p-5 dark:bg-zinc-950">
                     <h3 className="text-base font-bold text-zinc-900 dark:text-white">Results are not shared</h3>
                     <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">The trainee has not granted completed-workout access, or it was revoked. In-progress sessions are never available.</p>
@@ -264,7 +274,7 @@ export default async function TrainerClientPage({
             {(view === 'overview' || view === 'results') && (
               <section aria-labelledby="bodyweight-title" className="rounded-[1.5rem] border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-6 lg:col-start-2">
                 <h2 id="bodyweight-title" className="text-lg font-black tracking-tight text-zinc-950 dark:text-white">Bodyweight</h2>
-                {!relationship.bodyweight_access ? (
+                {!bodyweightShared ? (
                   <div className="mt-4 rounded-xl bg-zinc-50 p-4 dark:bg-zinc-950">
                     <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Bodyweight is not shared</h3>
                     <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">This requires its own active permission.</p>

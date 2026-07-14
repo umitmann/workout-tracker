@@ -199,6 +199,37 @@ Add fixture automation alongside the executable PT migrations. Do not put a
 service-role key in the browser suite or run destructive setup against the
 production project.
 
+## Disposable local release workflow
+
+The repository now contains a clean-room baseline and a local fixture builder,
+so the stateful tiers do not depend on hand-created Supabase accounts:
+
+```bash
+npx supabase db reset --workdir .context/supabase-qa
+
+# Export API_URL, ANON_KEY, and SERVICE_ROLE_KEY from `supabase status -o env`,
+# then create 19 isolated actors and their seeded relationships/data.
+NEXT_PUBLIC_SUPABASE_URL="$API_URL" \
+NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
+SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
+npm run test:pt:local:fixtures
+```
+
+The builder refuses a non-loopback Supabase URL. It writes credentials and JWTs
+only to ignored `.context/pt-local-qa.env` with mode `0600`; it never prints
+them. Source that file, build/start the app against the local project, and use
+the strict runner:
+
+```bash
+PT_E2E_BASE_URL=http://127.0.0.1:3002 npm run test:pt:e2e:release
+```
+
+For a local k6 run, `npm run test:pt:local:load-session` signs in separate
+trainee and trainer browser contexts and writes cookie headers only to ignored
+`.context/pt-load-local.env` with mode `0600`. The helper accepts loopback app
+URLs only. This enables all four read-only load surfaces without copying a
+session secret into source or terminal output.
+
 ## Playwright contract
 
 The directory/application/admin slice is executable now and has its own gate.
@@ -376,3 +407,34 @@ A PT release requires:
    actor's current grant; and
 7. `npm audit --audit-level=high` green, with any accepted lower-severity
    upstream advisory recorded in the architecture risk register.
+
+## 2026-07-14 final local release evidence
+
+The final candidate was rebuilt from an empty local database, not an evolved
+developer schema:
+
+- all ten migrations applied successfully on repeated `supabase db reset`
+  runs, followed by the 19-actor fixture seed;
+- the complete unit command ran 764 tests: 763 passed and one intentional
+  timezone-environment sanity check skipped; the separate data-access,
+  filter, and migration commands passed 5/5, 11/11, and 35/35;
+- 13/13 real-JWT integration checks passed: 4 directory, 7 delegated result,
+  1 planning/concurrency, and 1 relationship/consent scenario;
+- the strict production-build Playwright run passed 8/8 with no skips or
+  retries, including the unchanged established consent journeys plus the new
+  responsive/accessibility coverage; and
+- a Dockerized k6 run completed 273 authenticated requests and 1,092 content
+  checks across directory, trainee connections, client calendar, and completed
+  results with 0 failures and 0 dropped iterations. Surface p95 latency ranged
+  from 63.35 ms to 76.29 ms on the local stack, below every pinned threshold.
+
+TypeScript and the production build completed successfully. ESLint reported 0
+errors and 35 pre-existing warnings; none originated in the PT release files.
+`npm audit --audit-level=high` passed while continuing to report the two
+documented moderate PostCSS advisories pinned transitively by Next.js.
+
+During the sequential browser run, tracing found a real navigation race caused
+by calendar prefetch through Server Actions. The read path was moved to an
+authenticated no-store Route Handler and guarded by a unit contract; the same
+strict Playwright suite then passed from a fresh reset. Failure artifacts were
+used diagnostically and contain only disposable local actors.

@@ -427,3 +427,42 @@ Test comprehension before interaction: show a connection or client screen for
 five seconds, remove it, and ask what is shared, who can schedule, and what
 happens after revocation. If users cannot answer correctly, the hierarchy or
 copy—not the user—needs revision.
+
+## Final heuristic review and implemented overhaul — 2026-07-14
+
+The release candidate was reviewed against Nielsen's usability heuristics,
+WCAG 2.2 AA interaction criteria, privacy-by-design principles, and the core
+jobs-to-be-done for both roles. The goal was not cosmetic novelty; it was to
+make status, authority, privacy, and the next safe action predictable at a
+glance.
+
+| Finding | UX risk | Resolution |
+|---|---|---|
+| Coaching tasks were mixed into generic dashboard shortcuts | Users could not distinguish requests from client work | **PT Requests** now opens the request inbox; approved trainers also receive a separate **Clients** action. Both carry actionable count badges only when work exists. |
+| Pending, active, and past relationships shifted between unrelated layouts | Action feedback disappeared and repeated counterparties made the page ambiguous | Current cards keep stable relationship keys across activation. The latest terminal transition remains visibly acknowledged, while older relationships collapse into compact audit-history rows. |
+| Connection implied more access than it grants | Trainees could mistakenly believe workout/bodyweight data was already exposed | Connection, planning authority, workout-result consent, and bodyweight consent are stated as four separate concepts. Both data categories remain visibly independent and default closed. |
+| Destructive completion lacked durable feedback | Users could not tell whether End succeeded after the server refreshed | End/decline use explicit confirmation, optimistic terminal state, a polite status region, and a persisted closed-state acknowledgement after refresh. The closed card has no planning or sharing controls. |
+| A consent revoke could race a trainer read | Stale summary copy could temporarily imply shared access | Database locking remains authoritative; authorization denial now fails the view closed and renders “Results are not shared,” never stale payload or an ambiguous availability error. |
+| Missing/unauthorized records fell into a generic framework page | The product context and safe recovery path were lost | A privacy-neutral 404 explains that the item may be unavailable or inaccessible and provides safe navigation without revealing whether another user's record exists. |
+| Form hints became part of accessible field names | Speech/role selectors and assistive users received noisy or unstable labels | Trainer application hints are associated descriptions, while concise labels remain the fields' accessible names. |
+| Calendar controls and secondary captions were undersized/low contrast | Mobile operation and low-vision scanning failed the product target | Month arrows meet the 44px target; calendar and bodyweight captions use AA-safe foreground tokens in light and dark modes. |
+| Assignment completion and plan start were locally ambiguous | Duplicate success text and a stale plan page obscured the outcome | Assignment has one live confirmation; starting a plan redirects from the server to the exact linked workout. |
+| Speculative month prefetch used Server Actions | Late read responses could pull a user back to the dashboard mid-task | Calendar reads now use an authenticated GET transport, abort when the page unmounts, prefetch only adjacent months, and show a bounded retry message for visible failures. |
+
+The resulting flow follows one dominant path per role:
+
+```text
+Trainee: Find a PT → Request → Connected → Review assignment →
+         optionally share exact categories → Revoke or end at any time
+
+Trainer: Request inbox → Accept → Client workspace → Schedule snapshot →
+         view only currently shared completed results
+```
+
+The overhaul preserves the established product behavior tests exactly. New
+regression coverage was layered around semantics, responsive navigation,
+keyboard operation, serious Axe findings, terminal feedback, fail-closed
+consent races, and the calendar transport race. The remaining uncertainty is
+human comprehension at scale: moderated sessions and screen-reader testing are
+still required before claiming universal usability, and product analytics must
+continue to exclude health values and workout payloads.

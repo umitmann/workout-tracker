@@ -71,7 +71,7 @@ export default function BodyweightCard({ initial }: { initial: BodyWeightRow[] }
   return (
     <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5 flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Bodyweight</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-400">Bodyweight</p>
         {latest && (
           <div className="flex items-baseline gap-2">
             <span className="text-lg font-bold text-zinc-900 dark:text-white">{latest.weight} kg</span>
@@ -105,7 +105,7 @@ export default function BodyweightCard({ initial }: { initial: BodyWeightRow[] }
       {error && <p className="text-xs font-medium text-red-500">{error}</p>}
 
       <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 flex flex-col gap-2">
-        <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Export for PT</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-400">Export for PT</p>
         <div className="flex gap-2">
           <button
             onClick={() => handleExport('week')}

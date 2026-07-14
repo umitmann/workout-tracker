@@ -66,33 +66,37 @@ export default function TrainerProfileForm({
         <FieldErrors errors={errors.displayName} />
       </label>
 
-      <label className="flex flex-col gap-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        Public bio
+      <div className="flex flex-col gap-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label htmlFor="trainer-bio">Public bio</label>
         <textarea
+          id="trainer-bio"
           name="bio"
           maxLength={2000}
           rows={7}
           defaultValue={profile?.bio ?? ''}
           className={inputClass}
           aria-invalid={Boolean(errors.bio?.length)}
+          aria-describedby="trainer-bio-hint"
         />
-        <span className="text-xs font-normal text-zinc-500">Up to 2,000 characters. Do not add private contact details.</span>
+        <span id="trainer-bio-hint" className="text-xs font-normal text-zinc-500">Up to 2,000 characters. Do not add private contact details.</span>
         <FieldErrors errors={errors.bio} />
-      </label>
+      </div>
 
-      <label className="flex flex-col gap-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        Specialties
+      <div className="flex flex-col gap-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label htmlFor="trainer-specialties">Specialties</label>
         <input
+          id="trainer-specialties"
           name="specialties"
           maxLength={1000}
           defaultValue={profile?.specialties.join(', ') ?? ''}
           placeholder="strength training, mobility, running"
           className={inputClass}
           aria-invalid={Boolean(errors.specialties?.length)}
+          aria-describedby="trainer-specialties-hint"
         />
-        <span className="text-xs font-normal text-zinc-500">Separate up to 20 specialties with commas.</span>
+        <span id="trainer-specialties-hint" className="text-xs font-normal text-zinc-500">Separate up to 20 specialties with commas.</span>
         <FieldErrors errors={errors.specialties} />
-      </label>
+      </div>
 
       <label className="flex flex-col gap-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
         Location

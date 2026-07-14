@@ -29,3 +29,7 @@ export function requireQueryData<T>(
 export function isNoRowsError(error: DatabaseErrorLike | null | undefined): boolean {
   return error?.code === 'PGRST116'
 }
+
+export function isAuthorizationDenied(error: unknown): boolean {
+  return error instanceof DataAccessError && error.code === '42501'
+}

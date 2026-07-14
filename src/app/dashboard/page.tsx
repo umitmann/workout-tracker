@@ -101,7 +101,7 @@ export default async function Dashboard({
 
       <section aria-labelledby="quick-actions-title" className="mt-6">
         <h2 id="quick-actions-title" className="sr-only">Quick actions</h2>
-        <div className={`grid grid-cols-2 gap-3 ${hasTrainerRole ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
+        <div className={`grid grid-cols-2 gap-3 ${hasTrainerRole ? 'sm:grid-cols-3 lg:grid-cols-5' : 'sm:grid-cols-3'}`}>
           <Link href="/workouts" className="flex min-h-20 flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-4 text-sm font-bold text-zinc-900 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
             <span aria-hidden="true" className="text-xl text-orange-600">◫</span>
             Workout plans
@@ -115,10 +115,16 @@ export default async function Dashboard({
             {myPtLabel}
           </Link>
           {hasTrainerRole && (
-            <Link href="/trainer/clients" className="relative flex min-h-20 flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-4 text-sm font-bold text-zinc-900 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
-              <span aria-hidden="true" className="text-xl text-orange-600">◇</span>
-              {ptRequestsLabel}
-            </Link>
+            <>
+              <Link href="/trainer/connections" className="relative flex min-h-20 flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-4 text-sm font-bold text-zinc-900 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
+                <span aria-hidden="true" className="text-xl text-orange-600">◇</span>
+                {ptRequestsLabel}
+              </Link>
+              <Link href="/trainer/clients" className="relative flex min-h-20 flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-4 text-sm font-bold text-zinc-900 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
+                <span aria-hidden="true" className="text-xl text-orange-600">◉</span>
+                Clients
+              </Link>
+            </>
           )}
         </div>
       </section>

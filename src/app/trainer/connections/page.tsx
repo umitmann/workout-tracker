@@ -16,6 +16,7 @@ export default async function TrainerConnectionsPage() {
   const notifications = countTrainerRelationshipNotifications(allRelationships)
   const pending = relationships.filter((relationship) => relationship.status === 'pending')
   const active = relationships.filter((relationship) => relationship.status === 'active')
+  const current = [...pending, ...active]
   const past = relationships.filter((relationship) => !pending.includes(relationship) && !active.includes(relationship))
   const userName = user.user_metadata?.full_name ?? user.user_metadata?.display_name ?? user.email ?? 'Account'
   const avatarUrl = typeof user.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : null
@@ -37,24 +38,23 @@ export default async function TrainerConnectionsPage() {
         <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">Accepting creates a planning connection only. Results remain private until the trainee grants a specific category.</p>
       </div>
 
-      {pending.length > 0 && (
-        <section aria-labelledby="pending-requests-title" className="mt-7">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 id="pending-requests-title" className="text-base font-black text-zinc-950 dark:text-white">Needs your response</h3>
-            <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-800 dark:bg-orange-950 dark:text-orange-200">{pending.length}</span>
+      {current.length > 0 && (
+        <section aria-labelledby="current-connections-title" className="mt-7">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h3 id="current-connections-title" className="text-base font-black text-zinc-950 dark:text-white">Current relationships</h3>
+              <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">Requests needing your response appear first, followed by active clients.</p>
+            </div>
+            <div aria-label="Relationship summary" className="flex flex-wrap gap-2">
+              {pending.length > 0 && <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-800 dark:bg-orange-950 dark:text-orange-200">{pending.length} awaiting</span>}
+              {active.length > 0 && <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">{active.length} active</span>}
+            </div>
           </div>
-          <div className="flex flex-col gap-4">{pending.map((relationship) => <ConnectionCard key={relationship.relationship_id} relationship={relationship} />)}</div>
+          <div className="flex flex-col gap-4">{current.map((relationship) => <ConnectionCard key={relationship.relationship_id} relationship={relationship} />)}</div>
         </section>
       )}
 
-      {active.length > 0 && (
-        <section aria-labelledby="active-connections-title" className="mt-8">
-          <h3 id="active-connections-title" className="mb-4 text-base font-black text-zinc-950 dark:text-white">Active connections</h3>
-          <div className="flex flex-col gap-4">{active.map((relationship) => <ConnectionCard key={relationship.relationship_id} relationship={relationship} />)}</div>
-        </section>
-      )}
-
-      {pending.length === 0 && active.length === 0 && (
+      {current.length === 0 && (
         <section className="mt-7 rounded-[1.5rem] border border-dashed border-zinc-300 bg-white/60 p-8 text-center dark:border-zinc-700 dark:bg-zinc-900/60">
           <p className="text-base font-bold text-zinc-900 dark:text-white">No trainee requests or connections yet.</p>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-zinc-500 dark:text-zinc-400">Publish your approved profile and enable new clients when you are ready.</p>

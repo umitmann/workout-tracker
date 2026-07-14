@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import type { TrainerRelationshipActionState } from '@/lib/trainerRelationshipTypes'
+import { isUuid } from '@/lib/trainerValidation'
 import {
   acceptTrainerRelationshipCore,
   declineTrainerRelationshipCore,
@@ -16,11 +17,25 @@ import {
 async function relationshipClient(): Promise<TrainerRelationshipActionClient> {
   return (await createServerSupabaseClient()) as unknown as TrainerRelationshipActionClient
 }
-function revalidateRelationshipViews() {
+function revalidateRelationshipViews(
+  formData?: FormData,
+  { participantPages = true }: { participantPages?: boolean } = {},
+) {
   revalidatePath('/dashboard')
   revalidatePath('/trainers')
-  revalidatePath('/connections')
-  revalidatePath('/trainer/connections')
+  if (participantPages) {
+    revalidatePath('/connections')
+    revalidatePath('/trainer/connections')
+  }
+  revalidatePath('/trainer/clients')
+
+  const rawRelationshipId = formData?.get('relationshipId')
+  if (typeof rawRelationshipId === 'string') {
+    const relationshipId = rawRelationshipId.trim().toLowerCase()
+    if (isUuid(relationshipId)) {
+      revalidatePath(`/trainer/clients/${relationshipId}`)
+    }
+  }
 }
 
 export async function requestTrainerRelationshipAction(
@@ -41,7 +56,7 @@ export async function acceptTrainerRelationshipAction(
   formData: FormData,
 ): Promise<TrainerRelationshipActionState> {
   const result = await acceptTrainerRelationshipCore(await relationshipClient(), formData)
-  if (result.success) revalidateRelationshipViews()
+  if (result.success) revalidateRelationshipViews(formData)
   return result
 }
 
@@ -50,7 +65,7 @@ export async function declineTrainerRelationshipAction(
   formData: FormData,
 ): Promise<TrainerRelationshipActionState> {
   const result = await declineTrainerRelationshipCore(await relationshipClient(), formData)
-  if (result.success) revalidateRelationshipViews()
+  if (result.success) revalidateRelationshipViews(formData, { participantPages: false })
   return result
 }
 
@@ -59,7 +74,7 @@ export async function endTrainerRelationshipAction(
   formData: FormData,
 ): Promise<TrainerRelationshipActionState> {
   const result = await endTrainerRelationshipCore(await relationshipClient(), formData)
-  if (result.success) revalidateRelationshipViews()
+  if (result.success) revalidateRelationshipViews(formData, { participantPages: false })
   return result
 }
 
@@ -68,7 +83,7 @@ export async function grantTrainerAccessAction(
   formData: FormData,
 ): Promise<TrainerRelationshipActionState> {
   const result = await grantTrainerAccessCore(await relationshipClient(), formData)
-  if (result.success) revalidateRelationshipViews()
+  if (result.success) revalidateRelationshipViews(formData)
   return result
 }
 
@@ -77,6 +92,6 @@ export async function revokeTrainerAccessAction(
   formData: FormData,
 ): Promise<TrainerRelationshipActionState> {
   const result = await revokeTrainerAccessCore(await relationshipClient(), formData)
-  if (result.success) revalidateRelationshipViews()
+  if (result.success) revalidateRelationshipViews(formData)
   return result
 }

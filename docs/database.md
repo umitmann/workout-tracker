@@ -899,6 +899,30 @@ Static release contracts live in
 
 ---
 
+## Executable clean-room baseline — repository recovery support
+
+**Added and clean-reset verified** on 2026-07-14 in
+[`20260713000000_baseline_workout_tracker.sql`](../supabase/migrations/20260713000000_baseline_workout_tracker.sql).
+This is not a new production schema phase and requires no SQL Editor action on
+the already-migrated project. It captures the inventoried pre-hardening tables,
+bigint identity strategy, foreign keys, columns, and initial owner-only RLS so
+the checked-in chain can rebuild an empty Supabase project.
+
+The migration is additive and idempotent at the table/policy boundary: it
+creates missing baseline objects without changing existing rows. Every later
+hardening and PT migration remains authoritative for the final constraints,
+policies, grants, and functions. The complete ten-file chain was applied
+repeatedly with `supabase db reset` against a fresh local Supabase stack, then
+seeded with 19 isolated actors for real-JWT and browser verification.
+
+The baseline contract in `.claude/test_baseline-migration.mjs` pins migration
+ordering, dependency-safe table creation, live bigint identity types, required
+legacy columns, RLS enablement, authenticated-only initial policies, and the
+absence of destructive table/data operations. Recovery now starts from the
+repository instead of relying on undocumented pre-existing production state.
+
+---
+
 ## Superseded — original Admin & Trainer Tables sketch
 
 The original two-table sketch in

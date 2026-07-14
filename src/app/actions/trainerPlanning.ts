@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import type { TrainerPlanningActionState } from '@/lib/trainerPlanningTypes'
 import {
@@ -34,7 +35,9 @@ export async function startWorkoutPlanAction(
   formData: FormData,
 ): Promise<TrainerPlanningActionState> {
   const result = await startWorkoutPlanCore(await planningClient(), formData)
-  if (result.success) revalidatePlanningViews()
+  if (result.success && result.workoutId) {
+    redirect(`/workout/${result.workoutId}`)
+  }
   return result
 }
 

@@ -311,13 +311,13 @@ recorded in [`database.md`](database.md).
 
 ### P0 — before PT feature work
 
-1. **Partially resolved — the migration history was not machine-replayable.**
-   `docs/database.md` remains the human-readable history and executable
-   migrations now cover the hardened live schema plus PT additions. A complete
-   pre-hardening baseline and generated database types are still missing, so a
-   brand-new Supabase project cannot yet be rebuilt solely from the committed
-   chain. Keep the PostgreSQL inventory replay as a release gate and finish the
-   full baseline before claiming zero-drift environment recreation.
+1. **Resolved — the migration history was not machine-replayable.**
+   `docs/database.md` remains the human-readable history, while the additive
+   `20260713000000_baseline_workout_tracker.sql` now captures the inventoried
+   pre-hardening schema before the nine hardening/PT migrations. Repeated local
+   `supabase db reset` runs rebuild the complete database from an empty project.
+   Generated database types remain useful follow-up maintenance, but they are
+   no longer a recovery blocker.
 
 2. **Resolved — template replacement could erase a template.**
    `saveTemplateExercisesCore` updates the name, deletes all
@@ -388,6 +388,15 @@ recorded in [`database.md`](database.md).
     `npm audit fix --force` proposes an invalid downgrade to Next.js 9.3.3;
     do not take it. Track the upstream Next.js release and keep
     `npm audit --audit-level=high` as the immediate CI/release gate.
+
+11. **Resolved — speculative dashboard reads raced later navigation.** The
+    calendar used read-only Server Actions in a mount effect to prefetch four
+    adjacent months. A late Next 16 action response could reapply the
+    dashboard's router tree after the user had opened a trainer request,
+    interrupting Accept and other work. Calendar month reads now use a bounded,
+    authenticated, private/no-store `GET /api/calendar` route, prefetch only the
+    two adjacent months, abort on unmount, and surface on-demand failures. This
+    also separates queries from mutations and removes avoidable database load.
 
 ## Migration plan
 
