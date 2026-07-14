@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated Playwright reports contain bundled third-party JavaScript and
+    // must not be treated as application source during full-repo lint runs.
+    "test-results/**",
+    "playwright-report/**",
     // Agent worktrees (full repo checkouts) — never lint them.
     ".claude/worktrees/**",
   ]),

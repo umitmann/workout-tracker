@@ -48,6 +48,21 @@ export function isTickSecond(sec: number): boolean {
   return sec >= 1 && sec <= 3
 }
 
+export type GuidedRestAudioCue = 'halfway' | 'countdown' | 'complete' | null
+
+// Pure cue schedule for the between-set guided rest. The component de-dupes
+// whole seconds before calling this, so each returned cue plays once. The
+// final countdown takes precedence for short rests whose midpoint overlaps it.
+export function guidedRestAudioCue(
+  restSeconds: number,
+  wholeSecondsLeft: number,
+): GuidedRestAudioCue {
+  if (wholeSecondsLeft <= 0) return 'complete'
+  if (isTickSecond(wholeSecondsLeft)) return 'countdown'
+  if (wholeSecondsLeft === Math.ceil(Math.max(0, restSeconds) / 2)) return 'halfway'
+  return null
+}
+
 export function guidedStateAt(tempo: TempoConfig, goalReps: number, elapsed: number): GuidedState {
   const dur = repDuration(tempo)
   const completed = completedRepsAt(tempo, elapsed)

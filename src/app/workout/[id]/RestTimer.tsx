@@ -99,7 +99,7 @@ export default function RestTimer({
           Done
         </button>
       </div>
-      <div className="flex items-center gap-1.5 text-xs">
+      <div className="flex flex-wrap items-center gap-1.5 text-xs">
         <button
           onClick={() => switchMode(mode === 'fixed' ? 'variable' : 'fixed')}
           className="rounded-full border border-orange-300 dark:border-orange-800 px-2.5 py-1 font-bold uppercase tracking-wide text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"

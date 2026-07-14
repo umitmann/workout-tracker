@@ -370,7 +370,13 @@ export default function TemplateEditor({
   function handleConfirmDelete() {
     if (!template) return
     startTransition(async () => {
-      await deleteTemplate(template.id)
+      const result = await deleteTemplate(template.id)
+      if ('error' in result) {
+        setError(result.error ?? 'Delete failed')
+        return
+      }
+      router.push('/workouts')
+      router.refresh()
     })
   }
 

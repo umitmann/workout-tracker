@@ -359,7 +359,7 @@ Admin (authorized only)
 
 ### Responsive behavior
 
-- 360px is the narrow QA floor;
+- 320px is the narrow QA floor;
 - mobile uses bottom navigation and bottom-sheet dialogs;
 - desktop uses a persistent left rail and centered content canvas;
 - tables become stacked definition lists/cards where horizontal comparison is
@@ -470,3 +470,24 @@ consent races, and the calendar transport race. The remaining uncertainty is
 human comprehension at scale: moderated sessions and screen-reader testing are
 still required before claiming universal usability, and product analytics must
 continue to exclude health values and workout payloads.
+
+## Attachment-led workout logger pass — 2026-07-14
+
+Three real Android screenshots were compared with the production build, then
+the authenticated trainee, trainer, and administrator surfaces were captured
+at 320, 390, 768, and 1280 CSS pixels in light and dark mode. The dense active
+workout was additionally audited at 80%, 100%, 125%, 150%, and 200% zoom.
+
+| Finding | Resolution |
+|---|---|
+| Add-set, guided, and delete controls could be pushed beyond the right edge on a narrow logger | Set rows, steppers, headers, timer controls, and guide/review rows now wrap or use bounded `minmax(0, 1fr)` grids. |
+| Editing one weight risked implying every set should become uniform | Per-set edits remain local, preserving dropsets; **Apply weight to all sets** is an explicit separate action. |
+| Re-seeded add-form defaults could clone the prior set when focus moved | Auto-commit is armed only by an actual edit, not by displayed defaults. |
+| Guided completion left the docked rest counting from the previous set | The old elapsed rest is recorded on its owner and a fresh main rest starts for the completed guided set. |
+| Empty active workouts bypassed the save/delete safety choice | Every active workout, including an empty accidental start, uses the same two-step leave/delete flow. |
+| A same-route template delete could succeed in the database while leaving a stale card | Deletion now returns an explicit result, reports failure, and removes the card only after confirmed success. |
+| Administrator status filters and the build label overflowed mobile controls | Filters wrap; the build SHA is hidden unless explicitly enabled for diagnostics. |
+
+The automated layout assertion rejects both document-level horizontal overflow
+and any visible interactive control extending beyond the viewport. It produced
+104 full-page role/route screenshots plus 10 active-workout zoom screenshots.

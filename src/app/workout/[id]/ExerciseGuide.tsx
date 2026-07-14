@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { TempoConfig, TempoPhase, secondsLeft } from '@/lib/tempo'
-import { guidedStateAt, stopEarlyReps, READY_SECONDS, readySecondsLeft } from '@/lib/guidedTimer'
+import {
+  guidedRestAudioCue,
+  guidedStateAt,
+  stopEarlyReps,
+  READY_SECONDS,
+  readySecondsLeft,
+} from '@/lib/guidedTimer'
 
 export type GuideSet = { localId: string; goalReps: number; weight: number | null }
 
@@ -67,7 +73,7 @@ export default function ExerciseGuide({
   const lastPhaseRef = useRef('')
   const lastTickRef = useRef(-1)
   const readyTickRef = useRef(-1)
-  const restBeepedRef = useRef(false)
+  const lastRestCueSecondRef = useRef(-1)
   const doneRef = useRef(false)
   audioRef.current = audio
 
@@ -117,9 +123,15 @@ export default function ExerciseGuide({
     } else {
       const left = Math.max(0, restSeconds - elapsed)
       setRestLeft(left)
-      if (!restBeepedRef.current && left <= 0) {
-        restBeepedRef.current = true
-        if (audioRef.current && ctxRef.current) tone(ctxRef.current, 660, 250, 0.3)
+      const wholeSecondsLeft = secondsLeft(left)
+      if (wholeSecondsLeft !== lastRestCueSecondRef.current) {
+        lastRestCueSecondRef.current = wholeSecondsLeft
+        const cue = guidedRestAudioCue(restSeconds, wholeSecondsLeft)
+        if (cue && audioRef.current && ctxRef.current) {
+          if (cue === 'halfway') tone(ctxRef.current, 520, 180, 0.25)
+          if (cue === 'countdown') tone(ctxRef.current, 700 + (3 - wholeSecondsLeft) * 120, 90, 0.22)
+          if (cue === 'complete') tone(ctxRef.current, 660, 250, 0.3)
+        }
       }
       if (elapsed >= restSeconds) { toReady(); return }
     }
@@ -152,7 +164,7 @@ export default function ExerciseGuide({
     if (idxRef.current >= sets.length - 1) { finish(); return }
     modeRef.current = 'rest'
     setMode('rest')
-    restBeepedRef.current = false
+    lastRestCueSecondRef.current = -1
     startRef.current = performance.now()
     rafRef.current = requestAnimationFrame(loop)
   }

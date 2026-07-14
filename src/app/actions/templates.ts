@@ -35,11 +35,21 @@ export async function saveTemplateExercises(
 export async function deleteTemplate(routineId: string) {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/')
+  if (!user) return { error: 'Unauthorized' }
 
-  await supabase.from('routines').delete().eq('id', routineId).eq('user_id', user.id)
+  const { data, error } = await supabase
+    .from('routines')
+    .delete()
+    .eq('id', routineId)
+    .eq('user_id', user.id)
+    .select('id')
+    .maybeSingle()
+
+  if (error || !data) {
+    return { error: error?.message ?? 'Template not found or access denied' }
+  }
   revalidatePath('/workouts')
-  redirect('/workouts')
+  return { success: true }
 }
 
 // Called from client components to get templates for the import picker

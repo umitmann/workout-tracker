@@ -21,16 +21,17 @@ test('short gestures and vertical scrolling never trigger template actions', () 
 })
 
 test('the workout-template list uses swipe actions and has no one-tap delete form', async () => {
-  const [page, list] = await Promise.all([
+  const [page, list, actions] = await Promise.all([
     readFile(new URL('../src/app/workouts/page.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/workouts/TemplateSwipeList.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/actions/templates.ts', import.meta.url), 'utf8'),
   ])
 
   assert.match(page, /<TemplateSwipeList templates=\{templates\}/)
   assert.doesNotMatch(page, /action=\{deleteTemplate/)
   assert.match(list, /resolveTemplateSwipe/)
   assert.match(list, /startWorkoutFromTemplate\(template\.id, localDateStr\(\)\)/)
-  assert.match(list, /onDeleteRequest=\{setPendingDelete\}/)
+  assert.match(list, /setPendingDelete\(template\)/)
   assert.match(list, /destructive/)
   assert.match(list, /Delete template permanently/)
   assert.match(list, /Swipe right to delete/)
@@ -39,6 +40,10 @@ test('the workout-template list uses swipe actions and has no one-tap delete for
   assert.match(list, /Delete…/)
   assert.match(list, /onPointerCancel/)
   assert.match(list, /Date\.now\(\) \+ 500/)
+  assert.match(list, /setVisibleTemplates/)
+  assert.match(list, /role="alert"/)
+  assert.match(actions, /if \(error \|\| !data\)/)
+  assert.match(actions, /return \{ success: true \}/)
 })
 
 test('both list and editor deletion require the shared confirmation modal', async () => {
@@ -54,4 +59,5 @@ test('both list and editor deletion require the shared confirmation modal', asyn
     assert.match(source, /deleteTemplate\(/)
   }
   assert.match(editor, /setShowDeleteConfirm\(true\)/)
+  assert.match(editor, /router\.push\('\/workouts'\)/)
 })

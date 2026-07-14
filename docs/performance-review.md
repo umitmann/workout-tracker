@@ -111,6 +111,13 @@ production Supabase plan and observability. If the same redirects occur, scale
 or tune the authentication/database tier and inspect `getUser()` failures.
 Do not mask them with shared user/session caching or stale relationship data.
 
+A post-UX-change 15-second combined smoke run exercised the same five surfaces
+for 797 authenticated requests: zero failures, zero dropped iterations, 100%
+semantic checks, aggregate p95 76 ms, and per-surface p95 between 70 and 79 ms.
+This confirms the UI changes did not introduce a short-run regression; it does
+not replace the longer staging soak required by the authentication finding
+above.
+
 ## Next thresholds
 
 Introduce another cache only when measurement shows a p95 regression or

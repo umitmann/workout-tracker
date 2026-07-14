@@ -16,6 +16,7 @@ const {
   requestSetDelete,
   commitPending,
   resolveEditFields,
+  applyWeightToExercise,
 } = await import('../src/lib/setListOps.ts')
 
 function set(overrides = {}) {
@@ -72,6 +73,31 @@ test('applyEdit accepts partial patches (only supplied fields change)', () => {
   assert.equal(next[0].reps, 5)
   assert.equal(next[0].duration_minutes, 3)
   assert.equal(next[0].distance, 2)
+})
+
+test('applyWeightToExercise explicitly applies one weight to every set of that exercise', () => {
+  const sets = [
+    set({ localId: 'a1', exerciseId: 1, weight: 80, reps: 8, done: true }),
+    set({ localId: 'a2', exerciseId: 1, weight: 70, reps: 10, done: false }),
+    set({ localId: 'b1', exerciseId: 2, weight: 25, reps: 12, done: true }),
+  ]
+  const next = applyWeightToExercise(sets, 1, 82.5)
+
+  assert.deepEqual(next.map((s) => s.weight), [82.5, 82.5, 25])
+  assert.deepEqual(next.map((s) => s.reps), [8, 10, 12])
+  assert.deepEqual(next.map((s) => s.done), [true, false, true])
+})
+
+test('applyWeightToExercise can clear weights and never mutates the source dropset', () => {
+  const sets = [
+    set({ localId: 'a1', exerciseId: 1, weight: 60 }),
+    set({ localId: 'a2', exerciseId: 1, weight: 50 }),
+  ]
+  const snapshot = structuredClone(sets)
+  const next = applyWeightToExercise(sets, 1, null)
+
+  assert.deepEqual(next.map((s) => s.weight), [null, null])
+  assert.deepEqual(sets, snapshot)
 })
 
 test('cancelEdit reverts the target set to its prior values', () => {
@@ -185,6 +211,16 @@ test('commitPending accepts a partial value (weight only)', () => {
   assert.equal(result.weight, 60)
   assert.equal(result.reps, null)
   assert.equal(result.done, false)
+})
+
+test('commitPending ignores re-seeded defaults until the user edits the add form', () => {
+  const result = commitPending(
+    { weight: '60', reps: '10', duration_minutes: '', distance: '' },
+    base,
+    false,
+    false,
+  )
+  assert.equal(result, null)
 })
 
 test('commitPending returns null for a fully-empty non-cardio form (no phantom set)', () => {

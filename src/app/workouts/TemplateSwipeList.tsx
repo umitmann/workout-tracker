@@ -175,7 +175,9 @@ function TemplateSwipeCard({
 }
 
 export default function TemplateSwipeList({ templates }: { templates: TemplateListItem[] }) {
+  const [visibleTemplates, setVisibleTemplates] = useState(templates)
   const [pendingDelete, setPendingDelete] = useState<TemplateListItem | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   function startTemplate(template: TemplateListItem) {
@@ -187,8 +189,16 @@ export default function TemplateSwipeList({ templates }: { templates: TemplateLi
 
   function confirmDelete() {
     if (!pendingDelete || isPending) return
+    const template = pendingDelete
     startTransition(async () => {
-      await deleteTemplate(pendingDelete.id)
+      const result = await deleteTemplate(template.id)
+      if ('error' in result) {
+        setDeleteError(result.error ?? 'Could not delete the template')
+        return
+      }
+      setVisibleTemplates((current) => current.filter((item) => item.id !== template.id))
+      setPendingDelete(null)
+      setDeleteError(null)
     })
   }
 
@@ -199,12 +209,15 @@ export default function TemplateSwipeList({ templates }: { templates: TemplateLi
         <span><span aria-hidden="true">←</span> Swipe left to start</span>
       </div>
       <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-        {templates.map((template) => (
+        {visibleTemplates.map((template) => (
           <TemplateSwipeCard
             key={template.id}
             template={template}
             disabled={isPending}
-            onDeleteRequest={setPendingDelete}
+            onDeleteRequest={(template) => {
+              setDeleteError(null)
+              setPendingDelete(template)
+            }}
             onStart={startTemplate}
           />
         ))}
@@ -226,6 +239,11 @@ export default function TemplateSwipeList({ templates }: { templates: TemplateLi
           <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
             This permanently removes the template. Existing workout history is kept. This cannot be undone.
           </p>
+          {deleteError && (
+            <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300">
+              {deleteError}
+            </p>
+          )}
           <div className="mt-5 flex gap-2">
             <button
               type="button"

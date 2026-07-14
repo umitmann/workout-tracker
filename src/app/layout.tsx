@@ -39,9 +39,11 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>
-        <span aria-hidden="true" className="fixed bottom-1 right-2 text-[10px] text-zinc-600 dark:text-zinc-400 font-mono select-none pointer-events-none z-50">
-          {process.env.COMMIT_SHA}
-        </span>
+        {process.env.SHOW_BUILD_SHA === "true" && (
+          <span aria-hidden="true" className="fixed bottom-1 right-2 text-[10px] text-zinc-600 dark:text-zinc-400 font-mono select-none pointer-events-none z-50">
+            {process.env.COMMIT_SHA}
+          </span>
+        )}
       </body>
     </html>
   );

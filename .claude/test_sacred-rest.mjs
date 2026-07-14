@@ -1,11 +1,10 @@
 /**
  * Unit tests for D5 (sacred rest): `canStartRestImplicitly` is the pure
  * decision helper behind `startRestFor` in WorkoutLogger.tsx — implicit
- * completion paths (toggleDone, handleAddSet, completeFromEdit, guided-stop)
- * may only start a rest when none is currently running. The explicit
- * "Start rest" button does NOT consult this helper — it always force-restarts
- * (see WorkoutLogger's `forceRestartRestFor`), which is exercised indirectly
- * here via the same idle/running distinction this helper encodes.
+ * completion paths (toggleDone, handleAddSet, completeFromEdit) may only start
+ * a rest when none is currently running. Explicit "Start rest" and guided
+ * completion are deliberate boundaries: they preserve the old elapsed rest,
+ * then restart, and therefore do not consult this helper.
  * Run: node --import tsx --test .claude/test_sacred-rest.mjs
  */
 import { test } from 'node:test'

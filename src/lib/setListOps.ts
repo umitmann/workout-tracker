@@ -36,6 +36,17 @@ export function applyEdit(sets: LocalSet[], localId: string, edit: SetEdit): Loc
   return sets.map((s) => (s.localId === localId ? { ...s, ...edit } : s))
 }
 
+// Explicit bulk action for strength exercises. Individual edits remain
+// individual by default so dropsets survive copy/paste and normal editing;
+// callers must offer and invoke this action deliberately.
+export function applyWeightToExercise(
+  sets: LocalSet[],
+  exerciseId: number,
+  weight: number | null,
+): LocalSet[] {
+  return sets.map((s) => (s.exerciseId === exerciseId ? { ...s, weight } : s))
+}
+
 // §4.5: reverts the target set to a prior snapshot (e.g. its value before
 // editing began) — the caller supplies that snapshot since this module holds
 // no history of its own.
@@ -102,7 +113,12 @@ export function commitPending(
   fields: PendingFields,
   base: Pick<LocalSet, 'localId' | 'exerciseId' | 'exerciseName' | 'exerciseCategory'>,
   isCardio: boolean,
+  wasEdited = true,
 ): LocalSet | null {
+  // Re-seeded values shown after Add are convenient defaults for the *next*
+  // set, not a pending set by themselves. Only a user edit arms blur/back
+  // auto-commit, preventing a tap elsewhere from cloning the prior set.
+  if (!wasEdited) return null
   const hasValue = isCardio
     ? !!(fields.duration_minutes || fields.distance)
     : !!(fields.weight || fields.reps)
@@ -172,6 +188,17 @@ export function mergeGuideResults(
   const byId = new Map(results.filter((r) => r.reps > 0).map((r) => [r.localId, r.reps]))
   if (byId.size === 0) return sets
   return sets.map((s) => (byId.has(s.localId) ? { ...s, reps: byId.get(s.localId)!, done: true } : s))
+}
+
+// The main rest timer belongs to the most recently completed guided set. A
+// zero-rep review row was not logged, so it cannot become the rest owner.
+export function lastCompletedGuideSetId(
+  results: { localId: string; reps: number }[],
+): string | null {
+  for (let i = results.length - 1; i >= 0; i -= 1) {
+    if (results[i].reps > 0) return results[i].localId
+  }
+  return null
 }
 
 // ─── Tile 15: edit-completed-workout snapshot/discard ──────────────────────

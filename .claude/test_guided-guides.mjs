@@ -16,7 +16,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 const { stopEarlyReps, completedRepsAt } = await import('../src/lib/guidedTimer.ts')
-const { mergeGuideResults } = await import('../src/lib/setListOps.ts')
+const { mergeGuideResults, lastCompletedGuideSetId } = await import('../src/lib/setListOps.ts')
 
 const T = { down: 3, rest: 1, up: 2, hold: 1 } // repDuration = 7
 
@@ -153,4 +153,17 @@ test('mergeGuideResults on a mid-guide Exit (partial results — 1 of 3 sets com
   assert.deepEqual(next.find((s) => s.localId === 'b2'), sets[2])
   assert.deepEqual(next.find((s) => s.localId === 'b3'), sets[3])
   assert.equal(next.length, 5)
+})
+
+test('lastCompletedGuideSetId selects the latest positive-rep result for the main rest reset', () => {
+  assert.equal(lastCompletedGuideSetId([
+    { localId: 'a', reps: 8 },
+    { localId: 'b', reps: 0 },
+    { localId: 'c', reps: 6 },
+  ]), 'c')
+})
+
+test('lastCompletedGuideSetId returns null when the guide logged no completed reps', () => {
+  assert.equal(lastCompletedGuideSetId([{ localId: 'a', reps: 0 }]), null)
+  assert.equal(lastCompletedGuideSetId([]), null)
 })

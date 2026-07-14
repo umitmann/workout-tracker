@@ -57,7 +57,7 @@ export default async function TrainerAdminPage({
             <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">Review public listing content only. Platform administration does not grant access to workouts, body measurements, or trainee data.</p>
           </div>
 
-          <nav aria-label="Verification status" className="mt-6 flex gap-2 overflow-x-auto pb-1">
+          <nav aria-label="Verification status" className="mt-6 flex flex-wrap gap-2 pb-1">
             {[null, ...TRAINER_VERIFICATION_STATUSES].map((value) => {
               const active = value === status
               return <Link key={value ?? 'all'} href={statusHref(value)} aria-current={active ? 'page' : undefined} className={`inline-flex min-h-11 shrink-0 items-center rounded-full px-4 text-sm font-bold ${active ? 'bg-orange-600 text-white' : 'border border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'}`}>{value ? label(value) : 'All'}</Link>

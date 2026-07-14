@@ -8,10 +8,26 @@ async function dragHorizontally(surface: Locator, deltaX: number) {
   const startX = box.x + box.width / 2
   const y = box.y + Math.min(box.height / 2, 44)
   const page = surface.page()
-  await page.mouse.move(startX, y)
-  await page.mouse.down()
-  await page.mouse.move(startX + deltaX, y, { steps: 8 })
-  await page.mouse.up()
+  const cdp = await page.context().newCDPSession(page)
+
+  try {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x: startX, y }],
+    })
+    for (let step = 1; step <= 8; step += 1) {
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x: startX + (deltaX * step) / 8, y }],
+      })
+    }
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    })
+  } finally {
+    await cdp.detach()
+  }
 }
 
 test.describe('workout template swipe actions', () => {

@@ -126,7 +126,7 @@ export default function Stepper({
     'hover:bg-orange-500 hover:text-white active:bg-orange-600 disabled:opacity-30 disabled:hover:bg-zinc-100 dark:disabled:hover:bg-zinc-800 transition-colors'
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex w-full min-w-0 flex-col items-center gap-1">
       {/* Label on top */}
       <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400 text-center leading-tight">
         {label}

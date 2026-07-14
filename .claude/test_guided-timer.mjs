@@ -6,7 +6,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-const { guidedStateAt, completedRepsAt, stopEarlyReps, isTickSecond, READY_SECONDS, readySecondsLeft } = await import('../src/lib/guidedTimer.ts')
+const {
+  guidedStateAt,
+  completedRepsAt,
+  stopEarlyReps,
+  isTickSecond,
+  guidedRestAudioCue,
+  READY_SECONDS,
+  readySecondsLeft,
+} = await import('../src/lib/guidedTimer.ts')
 const { restViewAt, formatClock, startsRestOnComplete, shouldStickRestBar } = await import('../src/lib/restTimer.ts')
 
 const T = { down: 3, rest: 1, up: 2, hold: 1 } // repDuration = 7
@@ -92,6 +100,23 @@ test('readySecondsLeft counts down in whole seconds', () => {
   assert.equal(readySecondsLeft(READY_SECONDS - 0.5), 1)
   assert.equal(readySecondsLeft(READY_SECONDS), 0)
   assert.equal(readySecondsLeft(READY_SECONDS + 2), 0)
+})
+
+test('guided rest announces its halfway point once at the midpoint', () => {
+  assert.equal(guidedRestAudioCue(90, 46), null)
+  assert.equal(guidedRestAudioCue(90, 45), 'halfway')
+  assert.equal(guidedRestAudioCue(90, 44), null)
+})
+
+test('guided rest counts the final three seconds and signals completion', () => {
+  assert.equal(guidedRestAudioCue(90, 3), 'countdown')
+  assert.equal(guidedRestAudioCue(90, 2), 'countdown')
+  assert.equal(guidedRestAudioCue(90, 1), 'countdown')
+  assert.equal(guidedRestAudioCue(90, 0), 'complete')
+})
+
+test('very short rests prioritize countdown over a halfway cue', () => {
+  assert.equal(guidedRestAudioCue(4, 2), 'countdown')
 })
 
 // ─── Rest timer ──────────────────────────────────────────────────────────────
