@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { signOut } from '@/app/actions/auth'
+import AccountMenu from './AccountMenu'
 
 export type AppNavigationItem = {
   href: string
@@ -140,7 +140,7 @@ export default function AppShell({
 
           <div className="mt-auto border-t border-zinc-200 pt-4 dark:border-zinc-800">
             {userName && (
-              <div className="mb-3 flex items-center gap-3 px-2">
+              <Link href="/account" className="flex min-h-11 items-center gap-3 rounded-xl px-2 transition hover:bg-zinc-100 dark:hover:bg-zinc-900">
                 {avatarUrl ? (
                   // Auth-provider avatars may be remote and are not part of the app image pipeline.
                   // eslint-disable-next-line @next/next/no-img-element
@@ -151,13 +151,8 @@ export default function AppShell({
                   </span>
                 )}
                 <span className="min-w-0 truncate text-sm font-medium text-zinc-700 dark:text-zinc-300">{userName}</span>
-              </div>
+              </Link>
             )}
-            <form action={signOut}>
-              <button type="submit" className="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-white">
-                Sign out
-              </button>
-            </form>
           </div>
         </aside>
 
@@ -168,7 +163,10 @@ export default function AppShell({
                 {eyebrow && <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-orange-600 dark:text-orange-400">{eyebrow}</p>}
                 <h1 className="truncate text-xl font-black tracking-tight text-zinc-950 dark:text-white md:text-2xl">{title}</h1>
               </div>
-              <div className="flex shrink-0 items-center gap-2">{actions}</div>
+              <div className="flex shrink-0 items-center gap-2">
+                {actions}
+                <AccountMenu userName={userName} avatarUrl={avatarUrl} />
+              </div>
             </div>
           </header>
 

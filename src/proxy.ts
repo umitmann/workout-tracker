@@ -37,6 +37,7 @@ export async function proxy(request: NextRequest) {
     '/trainer',
     '/connections',
     '/admin',
+    '/account',
   ]
   const isProtected = protectedPrefixes.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
@@ -64,5 +65,6 @@ export const config = {
     '/trainer/:path*',
     '/connections/:path*',
     '/admin/:path*',
+    '/account/:path*',
   ],
 }

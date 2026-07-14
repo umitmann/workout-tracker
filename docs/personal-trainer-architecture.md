@@ -532,7 +532,29 @@ separate future migration.
 **Gate:** per-user/date plan counts reconcile, no performed workout or set is
 deleted, calendar behavior matches before and after cutover.
 
-### Phase 7 — optional organizations/groups
+### Phase 7 — trainer-authored exercise catalog
+
+**Implementation status (2026-07-14):** the additive migration, account
+surface, trainer exercise manager, scoped discovery, privacy-enhanced YouTube
+explanations, direct-JWT/RLS contract, and browser journeys are implemented.
+Production still requires the Phase 18 SQL Editor migration documented in
+`database.md` before this application build is deployed.
+
+1. Keep existing exercises platform-owned and add trainer ownership only for
+   new custom rows.
+2. Let approved trainers choose authenticated-wide or active-client discovery.
+   Do not infer access from a pending or ended relationship.
+3. Preserve referenced workout/routine/plan history with a private durable
+   entitlement; never use that entitlement to broaden search.
+4. Accept only canonical HTTPS YouTube videos and render them lazily through
+   the privacy-enhanced domain on detail surfaces, never on catalog lists.
+5. Archive custom exercises instead of deleting historical identifiers.
+
+**Gate:** an outsider cannot discover or reference a client-only exercise;
+archive removes discovery while prior legitimate history remains readable;
+only the approved owner can mutate; legacy exercise behavior is unchanged.
+
+### Phase 8 — optional organizations/groups
 
 Do not block the one-to-one PT release on gyms or teams. If group ownership is
 required later, add `organizations` and `organization_memberships` with

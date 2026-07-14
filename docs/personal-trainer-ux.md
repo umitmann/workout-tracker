@@ -448,6 +448,10 @@ glance.
 | Calendar controls and secondary captions were undersized/low contrast | Mobile operation and low-vision scanning failed the product target | Month arrows meet the 44px target; calendar and bodyweight captions use AA-safe foreground tokens in light and dark modes. |
 | Assignment completion and plan start were locally ambiguous | Duplicate success text and a stale plan page obscured the outcome | Assignment has one live confirmation; starting a plan redirects from the server to the exact linked workout. |
 | Speculative month prefetch used Server Actions | Late read responses could pull a user back to the dashboard mid-task | Calendar reads now use an authenticated GET transport, abort when the page unmounts, prefetch only adjacent months, and show a bounded retry message for visible failures. |
+| Personal settings and sign-out were buried in page-specific navigation | Users lacked a predictable account affordance and could not reliably locate session controls | Every authenticated shell now has a top-right avatar/initial menu with account settings, trainer profile, and sign out. It closes on outside press, Escape, and menu navigation, restoring focus after Escape. |
+| Trainer technique knowledge had no first-class exercise authoring flow | Trainers had to approximate custom movements with unrelated catalog entries, while broad visibility could expose client-specific coaching | Approved trainers get one exercise manager with explicit **Everyone** versus **My active clients** choices, plain-language consequences, edit/archive controls, and durable history after archive. |
+| Video demonstrations could create privacy and performance surprises | Eager third-party embeds would contact YouTube on every catalog visit and slow long lists | The catalog shows only a small Video label. The actual iframe is lazy, appears only in exercise detail/info, and uses `youtube-nocookie.com` without autoplay. |
+| Parent loading boundaries remounted Server Action forms during revalidation | Successful mutations could look permanently pending and established feedback disappeared | Loading boundaries remain only on read-only discovery. Action-heavy account, connection, application, and trainer parents preserve mounted form state. The production Playwright suite pins this behavior. |
 
 The resulting flow follows one dominant path per role:
 
@@ -456,7 +460,7 @@ Trainee: Find a PT → Request → Connected → Review assignment →
          optionally share exact categories → Revoke or end at any time
 
 Trainer: Request inbox → Accept → Client workspace → Schedule snapshot →
-         view only currently shared completed results
+         create scoped exercises → view only currently shared completed results
 ```
 
 The overhaul preserves the established product behavior tests exactly. New

@@ -56,6 +56,9 @@ test('local fixture output satisfies strict release and direct-JWT suites', () =
     'PT_RELATIONSHIP_TRAINEE_ACCESS_TOKEN',
     'PT_RELATIONSHIP_TRAINER_ACCESS_TOKEN',
     'PT_RELATIONSHIP_OUTSIDER_ACCESS_TOKEN',
+    'PT_EXERCISE_RLS_TRAINER_ACCESS_TOKEN',
+    'PT_EXERCISE_RLS_CLIENT_ACCESS_TOKEN',
+    'PT_EXERCISE_RLS_OUTSIDER_ACCESS_TOKEN',
   ]) {
     assert.ok(PT_LOCAL_QA_OUTPUT_NAMES.includes(name), `missing direct-JWT fixture ${name}`)
   }

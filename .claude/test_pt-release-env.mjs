@@ -88,6 +88,7 @@ test('the release command validates first and forces every gated suite on', asyn
     'PT_DIRECTORY_E2E_ENABLED',
     'PT_RELATIONSHIP_E2E_ENABLED',
     'PT_PLAN_START_E2E_ENABLED',
+    'PT_EXERCISE_E2E_ENABLED',
   ]) {
     assert.match(command, new RegExp(`${flag}=true`))
   }

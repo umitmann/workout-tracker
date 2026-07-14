@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import AppShell from '@/components/AppShell'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { getServerAuthContext } from '@/lib/serverAuth'
 import { getMonthWorkoutsWithPreviews, getUserTemplates, getRecentBodyWeights } from '@/lib/dal'
 import { buildAppNavigation } from '@/lib/appNavigation'
 import { dateNDaysAfter, localDateStr } from '@/lib/localDate'
@@ -28,8 +28,7 @@ export default async function Dashboard({
 }: {
   searchParams: Promise<{ y?: string; m?: string }>
 }) {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, user } = await getServerAuthContext()
   if (!user) redirect('/')
 
   const { y, m } = await searchParams

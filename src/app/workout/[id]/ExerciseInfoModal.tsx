@@ -7,6 +7,7 @@ import { ExerciseHistoryChart } from '@/components/ExerciseHistoryChart'
 import { useSwipe } from '@/lib/useSwipe'
 import { localDateStr } from '@/lib/localDate'
 import Modal from '@/components/Modal'
+import YouTubeEmbed from '@/components/YouTubeEmbed'
 
 type Exercise = {
   id: number
@@ -17,6 +18,7 @@ type Exercise = {
   muscles_secondary: string[] | null
   images: string[] | null
   instructions: string[] | null
+  video_url?: string | null
 }
 
 type Tab = 'info' | 'history'
@@ -132,6 +134,7 @@ export default function ExerciseInfoModal({
               )}
 
               <div className="px-5 py-4 flex flex-col gap-4">
+                {exercise.video_url && <YouTubeEmbed url={exercise.video_url} title={exercise.name} />}
                 {exercise.equipment && (
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 mb-1">

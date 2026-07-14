@@ -67,6 +67,16 @@ export const PT_LOCAL_QA_OUTPUT_NAMES = Object.freeze([
   'PT_RELATIONSHIP_TRAINER_PROFILE_ID',
   'PT_RELATIONSHIP_TRAINEE_WORKOUT_ID',
   'PT_RELATIONSHIP_TRAINEE_BODYWEIGHT_ID',
+  'PT_EXERCISE_E2E_TRAINER_EMAIL',
+  'PT_EXERCISE_E2E_TRAINER_PASSWORD',
+  'PT_EXERCISE_E2E_CLIENT_EMAIL',
+  'PT_EXERCISE_E2E_CLIENT_PASSWORD',
+  'PT_EXERCISE_E2E_OUTSIDER_EMAIL',
+  'PT_EXERCISE_E2E_OUTSIDER_PASSWORD',
+  'PT_EXERCISE_RLS_TRAINER_ACCESS_TOKEN',
+  'PT_EXERCISE_RLS_CLIENT_ACCESS_TOKEN',
+  'PT_EXERCISE_RLS_OUTSIDER_ACCESS_TOKEN',
+  'PT_EXERCISE_RLS_RELATIONSHIP_ID',
 ])
 
 function hasText(value) {
@@ -130,6 +140,9 @@ const ACTORS = Object.freeze({
   relationshipTrainee: actor('relationship-trainee@pt-local.test', 'Relationship Trainee'),
   relationshipTrainer: actor('relationship-trainer@pt-local.test', 'Relationship Trainer PT'),
   relationshipOutsider: actor('relationship-outsider@pt-local.test', 'Relationship Outsider'),
+  exerciseTrainer: actor('exercise-trainer@pt-local.test', 'Exercise Trainer PT'),
+  exerciseClient: actor('exercise-client@pt-local.test', 'Exercise Client'),
+  exerciseOutsider: actor('exercise-outsider@pt-local.test', 'Exercise Outsider'),
 })
 
 function dateDaysFromNow(days) {
@@ -225,6 +238,7 @@ export async function setupPtLocalQa(env = process.env) {
     'resultsOtherTrainer',
     'planningTrainer',
     'relationshipTrainer',
+    'exerciseTrainer',
   ]
   const trainerProfiles = {}
   for (const key of approvedTrainerKeys) {
@@ -347,6 +361,7 @@ export async function setupPtLocalQa(env = process.env) {
   const resultsNoGrantRelationship = await activeRelationship('resultsTrainer', 'resultsNoGrantTrainee')
   const resultsEndedRelationship = await endedRelationship('resultsTrainer', 'resultsTrainee')
   const planningRelationship = await activeRelationship('planningTrainer', 'planningTrainee')
+  const exerciseRelationship = await activeRelationship('exerciseTrainer', 'exerciseClient')
 
   const rangeFrom = dateDaysFromNow(-30)
   const rangeTo = dateDaysFromNow(1)
@@ -524,6 +539,16 @@ export async function setupPtLocalQa(env = process.env) {
     PT_RELATIONSHIP_TRAINER_PROFILE_ID: trainerProfiles.relationshipTrainer.id,
     PT_RELATIONSHIP_TRAINEE_WORKOUT_ID: relationshipWorkout.id,
     PT_RELATIONSHIP_TRAINEE_BODYWEIGHT_ID: relationshipBodyweight.id,
+    PT_EXERCISE_E2E_TRAINER_EMAIL: ACTORS.exerciseTrainer.email,
+    PT_EXERCISE_E2E_TRAINER_PASSWORD: PASSWORD,
+    PT_EXERCISE_E2E_CLIENT_EMAIL: ACTORS.exerciseClient.email,
+    PT_EXERCISE_E2E_CLIENT_PASSWORD: PASSWORD,
+    PT_EXERCISE_E2E_OUTSIDER_EMAIL: ACTORS.exerciseOutsider.email,
+    PT_EXERCISE_E2E_OUTSIDER_PASSWORD: PASSWORD,
+    PT_EXERCISE_RLS_TRAINER_ACCESS_TOKEN: tokens.exerciseTrainer,
+    PT_EXERCISE_RLS_CLIENT_ACCESS_TOKEN: tokens.exerciseClient,
+    PT_EXERCISE_RLS_OUTSIDER_ACCESS_TOKEN: tokens.exerciseOutsider,
+    PT_EXERCISE_RLS_RELATIONSHIP_ID: exerciseRelationship.id,
   }
 
   for (const name of PT_LOCAL_QA_OUTPUT_NAMES) {

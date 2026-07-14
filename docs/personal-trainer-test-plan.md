@@ -13,9 +13,10 @@ turning every layer into a duplicate of every other layer.
 | Directory RLS integration | Real JWTs, owner-only base rows, listing visibility, privilege-escalation denial | `npm run test:pt:directory-rls` |
 | Relationship RLS integration | Real JWTs, raw-table denial, bilateral activation, trainee-only grants, unrelated-user denial, revoke/end | `npm run test:pt:relationship-rls` |
 | Planning RLS integration | Real JWTs, plan base-table denial, snapshot assignment, outsider denial, concurrent one-start invariant | `npm run test:pt:planning-rls` |
+| Exercise RLS integration | Real JWTs, approved owner writes, public/client discovery, guessed-ID denial, archive and historical entitlement | `npm run test:pt:exercise-rls` |
 | Supabase/RLS integration | Real JWTs, raw-table isolation, delegated-results RPC, minimal DTO | `npm run test:pt:rls` |
-| Playwright E2E | Directory/admin boundaries, full consent journey, and responsive WCAG/keyboard shell checks | `npm run test:pt:e2e` |
-| k6 load | Directory, connected-client calendar, and completed-results read paths | `npm run test:pt:load` |
+| Playwright E2E | Directory/admin boundaries, full consent journey, account menu, scoped exercise/video journey, and responsive WCAG/keyboard shell checks | `npm run test:pt:e2e` |
+| k6 load | Directory, exercise library, connections, connected-client calendar, and completed-results read paths | `npm run test:pt:load` |
 
 The default unit suite includes the PT unit tests. The other layers require
 dedicated infrastructure and skip or fail fast when their explicit enablement
@@ -208,7 +209,7 @@ so the stateful tiers do not depend on hand-created Supabase accounts:
 npx supabase db reset --workdir .context/supabase-qa
 
 # Export API_URL, ANON_KEY, and SERVICE_ROLE_KEY from `supabase status -o env`,
-# then create 19 isolated actors and their seeded relationships/data.
+# then create 22 isolated actors and their seeded relationships/data.
 NEXT_PUBLIC_SUPABASE_URL="$API_URL" \
 NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
 SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
@@ -227,7 +228,7 @@ PT_E2E_BASE_URL=http://127.0.0.1:3002 npm run test:pt:e2e:release
 For a local k6 run, `npm run test:pt:local:load-session` signs in separate
 trainee and trainer browser contexts and writes cookie headers only to ignored
 `.context/pt-load-local.env` with mode `0600`. The helper accepts loopback app
-URLs only. This enables all four read-only load surfaces without copying a
+URLs only. This enables all five read-only load surfaces without copying a
 session secret into source or terminal output.
 
 ## Playwright contract
@@ -339,6 +340,7 @@ The default profile exercises the authenticated directory for two minutes at
 and completed-result scenarios by providing their path variables:
 
 - directory: 10 requests/second;
+- exercise library: 10 requests/second;
 - trainee connections: 8 requests/second (opt in with a path);
 - client calendar: 15 requests/second; and
 - completed results: 10 requests/second.
@@ -353,6 +355,7 @@ Required variables:
 ```bash
 PT_LOAD_BASE_URL=https://test.example \
 PT_LOAD_DIRECTORY_PATH='/trainers?q=strength' \
+PT_LOAD_EXERCISES_PATH='/routines' \
 PT_LOAD_TRAINEE_COOKIE='sb-...=...' \
 PT_LOAD_DIRECTORY_MARKER='Approved Trainer' \
 npm run test:pt:load
@@ -384,6 +387,7 @@ checks, and these latency limits:
 | Surface | p95 | p99 |
 |---|---:|---:|
 | Directory | 600 ms | 1,200 ms |
+| Exercise library | 650 ms | 1,300 ms |
 | Trainee connections | 700 ms | 1,400 ms |
 | Client calendar | 800 ms | 1,500 ms |
 | Completed results | 900 ms | 1,800 ms |

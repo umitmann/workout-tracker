@@ -3,12 +3,14 @@ import { check } from 'k6'
 
 const baseUrl = (__ENV.PT_LOAD_BASE_URL || '').replace(/\/$/, '')
 const directoryPath = __ENV.PT_LOAD_DIRECTORY_PATH || '/trainers'
+const exercisesPath = __ENV.PT_LOAD_EXERCISES_PATH || '/routines'
 const connectionsPath = __ENV.PT_LOAD_CONNECTIONS_PATH || ''
 const calendarPath = __ENV.PT_LOAD_CLIENT_CALENDAR_PATH || ''
 const resultsPath = __ENV.PT_LOAD_CLIENT_RESULTS_PATH || ''
 const traineeCookie = __ENV.PT_LOAD_TRAINEE_COOKIE || ''
 const trainerCookie = __ENV.PT_LOAD_TRAINER_COOKIE || ''
 const directoryMarker = __ENV.PT_LOAD_DIRECTORY_MARKER || ''
+const exercisesMarker = __ENV.PT_LOAD_EXERCISES_MARKER || ''
 const connectionsMarker = __ENV.PT_LOAD_CONNECTIONS_MARKER || ''
 const calendarMarker = __ENV.PT_LOAD_CALENDAR_MARKER || ''
 const resultsMarker = __ENV.PT_LOAD_RESULTS_MARKER || ''
@@ -25,12 +27,25 @@ const scenarios = {
     preAllocatedVUs: Number(__ENV.PT_LOAD_DIRECTORY_VUS || 20),
     maxVUs: Number(__ENV.PT_LOAD_DIRECTORY_MAX_VUS || 60),
   },
+  exercise_library: {
+    executor: 'constant-arrival-rate',
+    exec: 'exerciseLibrary',
+    startTime: '5s',
+    rate: Number(__ENV.PT_LOAD_EXERCISES_RPS || 10),
+    timeUnit: '1s',
+    duration,
+    preAllocatedVUs: Number(__ENV.PT_LOAD_EXERCISES_VUS || 20),
+    maxVUs: Number(__ENV.PT_LOAD_EXERCISES_MAX_VUS || 60),
+  },
 }
 
 const thresholds = {
   'http_req_failed{scenario:trainer_directory}': ['rate<0.01'],
   'http_req_duration{scenario:trainer_directory}': ['p(95)<600', 'p(99)<1200'],
   'checks{scenario:trainer_directory}': ['rate>0.99'],
+  'http_req_failed{scenario:exercise_library}': ['rate<0.01'],
+  'http_req_duration{scenario:exercise_library}': ['p(95)<650', 'p(99)<1300'],
+  'checks{scenario:exercise_library}': ['rate>0.99'],
   dropped_iterations: ['count==0'],
 }
 
@@ -96,7 +111,7 @@ function requireRuntimeValue(value, name) {
 }
 
 function params(cookie, scenario) {
-  const traineeSurface = scenario === 'directory' || scenario === 'connections'
+  const traineeSurface = scenario === 'directory' || scenario === 'exercises' || scenario === 'connections'
   return {
     headers: {
       Cookie: requireRuntimeValue(cookie, `${traineeSurface ? 'PT_LOAD_TRAINEE' : 'PT_LOAD_TRAINER'}_COOKIE`),
@@ -104,6 +119,7 @@ function params(cookie, scenario) {
     },
     tags: { surface: scenario },
     redirects: 0,
+    responseCallback: http.expectedStatuses(200),
   }
 }
 
@@ -125,6 +141,11 @@ export function setup() {
 export function trainerDirectory() {
   const response = http.get(`${baseUrl}${directoryPath}`, params(traineeCookie, 'directory'))
   verify(response, directoryMarker, 'trainer directory')
+}
+
+export function exerciseLibrary() {
+  const response = http.get(`${baseUrl}${exercisesPath}`, params(traineeCookie, 'exercises'))
+  verify(response, exercisesMarker, 'exercise library')
 }
 
 export function traineeConnections() {

@@ -1,24 +1,20 @@
 import 'server-only'
 
-import { cache } from 'react'
-import { createServerSupabaseClient } from './supabase-server'
+import { getServerAuthContext } from './serverAuth'
 import { selectBestSession, aggregateHistory, buildPreviews } from './dalCores'
 import type { SessionSetRow, WorkoutRef, DatedSet, PreviewSet } from './dalCores'
 import { localDateStr, dateNDaysBefore } from './localDate'
 import { isNoRowsError, requireQueryData } from './dataAccessError'
-import { isMissingColumnError } from './schemaCompatibility'
+import { isMissingColumnError, isMissingFunctionError } from './schemaCompatibility'
 
 export { isMissingColumnError, isMissingFunctionError } from './schemaCompatibility'
 
-// Memoised per-request — multiple DAL calls on the same page share one getUser() round-trip
-const getAuthContext = cache(async () => {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  return { supabase, user }
-})
+// Compatibility name retained for the established server-boundary contract;
+// both references point at the single request-scoped verified auth cache.
+const getAuthContext = getServerAuthContext
 
 export async function getRecentWorkouts(limit = 5) {
-  const { supabase, user } = await getAuthContext()
+  const { supabase, user } = await getServerAuthContext()
   if (!user) return []
 
   const result = await supabase
@@ -49,7 +45,7 @@ function isMissingSetColumnError(error: unknown): boolean {
 }
 
 export async function getWorkoutWithSets(workoutId: number) {
-  const { supabase, user } = await getAuthContext()
+  const { supabase, user } = await getServerAuthContext()
   if (!user) return null
 
   const [workoutResult, setsResult] = await Promise.all([
@@ -93,20 +89,40 @@ export async function getWorkoutWithSets(workoutId: number) {
   return { ...workout, sets: sets ?? [] }
 }
 
+export type AvailableExercise = {
+  id: number
+  name: string
+  category: string | null
+  equipment: string | null
+  muscles: string[] | null
+  creator_id?: string | null
+  visibility?: 'platform' | 'public' | 'clients'
+  video_url?: string | null
+}
+
 export async function getAllExercises() {
   const { supabase, user } = await getAuthContext()
   if (!user) return []
 
-  const result = await supabase
+  const scoped = await supabase.rpc('list_available_exercises')
+  if (!scoped.error) return (scoped.data ?? []) as AvailableExercise[]
+  if (!isMissingFunctionError(scoped.error)) {
+    return (requireQueryData(scoped, 'list available exercises') ?? []) as AvailableExercise[]
+  }
+
+  // Safe rolling-deploy fallback until Phase 7 reaches the database. The
+  // legacy policy exposes only the original authenticated catalog.
+  const legacy = await supabase
     .from('exercises')
     .select('id, name, category, equipment, muscles')
     .order('name', { ascending: true })
 
-  return requireQueryData(result, 'list exercises') ?? []
+  return (requireQueryData(legacy, 'list exercises') ?? []) as AvailableExercise[]
 }
 
 export async function getExercise(id: number) {
-  const supabase = await createServerSupabaseClient()
+  const { supabase, user } = await getServerAuthContext()
+  if (!user) return null
 
   const result = await supabase
     .from('exercises')
@@ -119,14 +135,24 @@ export async function getExercise(id: number) {
 }
 
 export async function getExerciseDetails(id: number) {
-  const supabase = await createServerSupabaseClient()
+  const { supabase, user } = await getServerAuthContext()
+  if (!user) return null
 
   const result = await supabase
     .from('exercises')
-    .select('id, name, category, equipment, muscles, muscles_secondary, images, instructions')
+    .select('id, name, category, equipment, muscles, muscles_secondary, images, instructions, video_url, creator_id, visibility')
     .eq('id', id)
     .single()
 
+  if (isMissingColumnError(result.error, 'video_url')) {
+    const legacy = await supabase
+      .from('exercises')
+      .select('id, name, category, equipment, muscles, muscles_secondary, images, instructions')
+      .eq('id', id)
+      .single()
+    if (isNoRowsError(legacy.error)) return null
+    return requireQueryData(legacy, 'load exercise details')
+  }
   if (isNoRowsError(result.error)) return null
   return requireQueryData(result, 'load exercise details')
 }
@@ -155,7 +181,7 @@ function isMissingTemplateColumnError(error: unknown): boolean {
 }
 
 export async function getUserTemplates() {
-  const { supabase, user } = await getAuthContext()
+  const { supabase, user } = await getServerAuthContext()
   if (!user) return []
 
   for (let index = 0; index < TEMPLATE_COL_VARIANTS.length; index++) {
@@ -177,7 +203,7 @@ export async function getUserTemplates() {
 }
 
 export async function getTemplate(routineId: string | number) {
-  const { supabase, user } = await getAuthContext()
+  const { supabase, user } = await getServerAuthContext()
   if (!user) return null
 
   for (let index = 0; index < TEMPLATE_COL_VARIANTS.length; index++) {
@@ -233,7 +259,7 @@ export type ExerciseHistoryPoint = {
 }
 
 export async function getMonthWorkouts(year: number, month: number): Promise<WorkoutCalendarEntry[]> {
-  const { supabase, user } = await getAuthContext()
+  const { supabase, user } = await getServerAuthContext()
   if (!user) return []
 
   const from = `${year}-${String(month).padStart(2, '0')}-01`
@@ -262,7 +288,7 @@ export async function getMonthWorkoutsWithPreviews(
   year: number,
   month: number,
 ): Promise<MonthWorkoutsWithPreviews> {
-  const { supabase, user } = await getAuthContext()
+  const { supabase, user } = await getServerAuthContext()
   if (!user) return { entries: [], previews: {} }
 
   const from = `${year}-${String(month).padStart(2, '0')}-01`
@@ -320,7 +346,7 @@ export type LastExercisePerformance = {
 }
 
 export async function getLastExercisePerformance(exerciseId: number): Promise<LastExercisePerformance | null> {
-  const { supabase, user } = await getAuthContext()
+  const { supabase, user } = await getServerAuthContext()
   if (!user) return null
 
   // Find the most recent completed workout that actually contains this
@@ -376,7 +402,7 @@ export async function getLastExercisePerformance(exerciseId: number): Promise<La
 // server) only protects a future caller that forgets to, and would use the
 // server's day rather than the user's — not a correct substitute.
 export async function getBestExercisePerformance(exerciseId: number, limitDays?: number, today?: string): Promise<LastExercisePerformance | null> {
-  const { supabase, user } = await getAuthContext()
+  const { supabase, user } = await getServerAuthContext()
   if (!user) return null
 
   let query = supabase
@@ -421,7 +447,7 @@ export async function getBestExercisePerformance(exerciseId: number, limitDays?:
 }
 
 export async function getExerciseHistory(exerciseId: number, limitDays = 90, today?: string): Promise<ExerciseHistoryPoint[]> {
-  const { supabase, user } = await getAuthContext()
+  const { supabase, user } = await getServerAuthContext()
   if (!user) return []
 
   const sinceStr = dateNDaysBefore(today ?? localDateStr(), limitDays)
@@ -474,7 +500,7 @@ export type RangeWorkoutRow = {
 
 // Completed workouts (with sets + exercise names) between two YYYY-MM-DD dates.
 export async function getWorkoutsInRange(from: string, to: string): Promise<RangeWorkoutRow[]> {
-  const { supabase, user } = await getAuthContext()
+  const { supabase, user } = await getServerAuthContext()
   if (!user) return []
 
   const withRest =
@@ -518,7 +544,7 @@ export type BodyWeightRow = { date: string; weight: number }
 
 // Bodyweight log entries between two dates. Tolerates the table not existing yet.
 export async function getBodyWeightsInRange(from: string, to: string): Promise<BodyWeightRow[]> {
-  const { supabase, user } = await getAuthContext()
+  const { supabase, user } = await getServerAuthContext()
   if (!user) return []
 
   const { data, error } = await supabase
@@ -535,7 +561,7 @@ export async function getBodyWeightsInRange(from: string, to: string): Promise<B
 
 // Recent bodyweight entries for the dashboard widget (newest first).
 export async function getRecentBodyWeights(limit = 30): Promise<BodyWeightRow[]> {
-  const { supabase, user } = await getAuthContext()
+  const { supabase, user } = await getServerAuthContext()
   if (!user) return []
 
   const { data, error } = await supabase
@@ -553,7 +579,7 @@ export type SetDetail = { reps: number | null; weight: number | null }
 
 // Per-user, per-exercise notes. Tolerates the table not existing yet.
 export async function getExerciseNotes(exerciseIds: number[]): Promise<Record<number, string>> {
-  const { supabase, user } = await getAuthContext()
+  const { supabase, user } = await getServerAuthContext()
   if (!user || exerciseIds.length === 0) return {}
 
   const { data, error } = await supabase

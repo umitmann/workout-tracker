@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { getServerAuthContext } from '@/lib/serverAuth'
 import { getAllExercises, getTemplate } from '@/lib/dal'
 import TemplateEditor from './TemplateEditor'
 
@@ -10,8 +10,7 @@ export default async function EditTemplatePage({
   params: Promise<{ id: string }>
   searchParams: Promise<{ date?: string; workoutId?: string }>
 }) {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user } = await getServerAuthContext()
   if (!user) redirect('/')
 
   const [{ id }, { date, workoutId }] = await Promise.all([params, searchParams])

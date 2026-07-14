@@ -40,6 +40,7 @@ type ExerciseDetails = {
   muscles_secondary: string[] | null
   images: string[] | null
   instructions: string[] | null
+  video_url?: string | null
 }
 
 export default function TemplateEditor({

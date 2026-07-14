@@ -5,6 +5,7 @@ import { fetchExerciseHistory } from '@/app/actions/exercises'
 import type { ExerciseHistoryPoint } from '@/lib/dal'
 import { ExerciseHistoryChart } from '@/components/ExerciseHistoryChart'
 import { localDateStr } from '@/lib/localDate'
+import YouTubeEmbed from '@/components/YouTubeEmbed'
 
 type Tab = 'info' | 'history'
 
@@ -17,6 +18,7 @@ type Exercise = {
   muscles_secondary: string[] | null
   images: string[] | null
   instructions: string[] | null
+  video_url?: string | null
 }
 
 export default function ExerciseDetailClient({ exercise }: { exercise: Exercise }) {
@@ -65,6 +67,7 @@ export default function ExerciseDetailClient({ exercise }: { exercise: Exercise 
               className="w-full rounded-xl object-cover aspect-video bg-zinc-100 dark:bg-zinc-900"
             />
           )}
+          {exercise.video_url && <YouTubeEmbed url={exercise.video_url} title={exercise.name} />}
           <div className="flex gap-2 flex-wrap">
             {exercise.category && (
               <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">

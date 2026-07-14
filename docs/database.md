@@ -899,6 +899,55 @@ Static release contracts live in
 
 ---
 
+## Phase 18 — PT Phase 7 trainer-authored exercises
+
+**Ready for SQL Editor application** from
+[`20260714000800_trainer_custom_exercises.sql`](../supabase/migrations/20260714000800_trainer_custom_exercises.sql).
+
+This additive migration extends the existing exercise catalog with an owner,
+audience (`public` or `clients`), optional canonical YouTube URL, update time,
+and archive time. Existing rows remain platform exercises. Only approved
+trainers can create, edit, or archive their own custom rows, and those writes
+go through narrow authenticated RPCs. Raw exercise-table writes remain denied.
+
+“Clients” means the trainer and athletes in a currently active bilateral
+relationship for discovery. When an athlete actually references a custom
+exercise in a routine, set, or immutable plan, a private entitlement preserves
+that historical reference after archive or relationship end. It does not keep
+the exercise in search. This prevents broken workout history without turning
+past relationships into permanent catalog access.
+
+The same migration hardens the existing `save_my_profile` function so a caller
+cannot bypass the account form and store a non-HTTPS avatar URL directly.
+No workout, set, routine, plan, or legacy scheduling row is deleted or
+rewritten.
+
+### SQL Editor procedure
+
+1. Make a database backup and confirm Phases 2–6 are already present.
+2. Open the migration link above, copy the **entire file**, paste it into one
+   new Supabase SQL Editor query, and run it once. Do not run selected pieces.
+3. The final result row must show `true` for:
+   `trainer_exercise_columns_created`, `anonymous_exercise_access_denied`,
+   `authenticated_exercise_base_is_read_only`,
+   `exercise_entitlements_are_private`,
+   `trainer_exercise_rpc_permissions_are_scoped`, and
+   `non_user_rpc_execution_denied`, and
+   `account_profile_rpc_is_hardened`.
+4. On the first application, `trainer_exercise_count` and
+   `exercise_entitlement_count` should normally both be `0`. A non-zero value
+   means the migration had already been used; stop and reconcile rather than
+   rerunning it.
+5. If Supabase temporarily reports a missing column/function, run
+   `notify pgrst, 'reload schema';` once and retry the application smoke test.
+
+The full migration chain was replayed from a clean PostgreSQL 17/Supabase
+database. Real-JWT tests proved anonymous and outsider denial, approved-trainer
+ownership, active-client discovery, guessed-ID rejection, archive behavior,
+and durable historical entitlement.
+
+---
+
 ## Executable clean-room baseline — repository recovery support
 
 **Added and clean-reset verified** on 2026-07-14 in
@@ -911,9 +960,9 @@ the checked-in chain can rebuild an empty Supabase project.
 The migration is additive and idempotent at the table/policy boundary: it
 creates missing baseline objects without changing existing rows. Every later
 hardening and PT migration remains authoritative for the final constraints,
-policies, grants, and functions. The complete ten-file chain was applied
+policies, grants, and functions. The complete eleven-file chain was applied
 repeatedly with `supabase db reset` against a fresh local Supabase stack, then
-seeded with 19 isolated actors for real-JWT and browser verification.
+seeded with 22 isolated actors for real-JWT and browser verification.
 
 The baseline contract in `.claude/test_baseline-migration.mjs` pins migration
 ordering, dependency-safe table creation, live bigint identity types, required

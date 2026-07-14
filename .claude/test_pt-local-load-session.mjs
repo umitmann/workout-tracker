@@ -39,5 +39,7 @@ test('generated load sessions are private ignored files and never log cookies', 
   assert.match(source, /\.context\/pt-load-local\.env/)
   assert.match(source, /mode: 0o600/)
   assert.match(source, /chmod\(OUTPUT_PATH, 0o600\)/)
+  assert.match(source, /PT_LOAD_EXERCISES_PATH/)
+  assert.match(source, /PT_LOAD_EXERCISES_MARKER/)
   assert.doesNotMatch(source, /console\.log\([^\n]*(?:traineeCookie|trainerCookie)/)
 })

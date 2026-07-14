@@ -1,6 +1,14 @@
 import { expect, type Browser, type BrowserContext, type Page } from '@playwright/test'
 
-export type TestActor = 'trainee' | 'trainer' | 'otherTrainer' | 'applicant' | 'admin'
+export type TestActor =
+  | 'trainee'
+  | 'trainer'
+  | 'otherTrainer'
+  | 'applicant'
+  | 'admin'
+  | 'exerciseTrainer'
+  | 'exerciseClient'
+  | 'exerciseOutsider'
 
 type Credentials = {
   email: string
@@ -19,6 +27,10 @@ export function ptRelationshipE2eEnabled(): boolean {
   return process.env.PT_RELATIONSHIP_E2E_ENABLED === 'true'
 }
 
+export function ptExerciseE2eEnabled(): boolean {
+  return process.env.PT_EXERCISE_E2E_ENABLED === 'true'
+}
+
 export function requiredEnv(name: string): string {
   const value = process.env[name]
   if (!value) throw new Error(`Missing required PT E2E environment variable: ${name}`)
@@ -32,6 +44,9 @@ export function actorCredentials(actor: TestActor): Credentials {
     otherTrainer: 'PT_E2E_OTHER_TRAINER',
     applicant: 'PT_E2E_APPLICANT',
     admin: 'PT_E2E_ADMIN',
+    exerciseTrainer: 'PT_EXERCISE_E2E_TRAINER',
+    exerciseClient: 'PT_EXERCISE_E2E_CLIENT',
+    exerciseOutsider: 'PT_EXERCISE_E2E_OUTSIDER',
   }
   const prefix = prefixes[actor]
   return {
