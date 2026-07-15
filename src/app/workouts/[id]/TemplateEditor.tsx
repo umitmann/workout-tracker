@@ -33,6 +33,17 @@ const DesktopWorkoutGenerator = dynamic(() => import('./DesktopWorkoutGenerator'
   ),
 })
 
+const WorkoutCompositionAssistant = dynamic(() => import('./WorkoutCompositionAssistant'), {
+  ssr: false,
+  loading: () => (
+    <div className="fixed inset-0 z-[90] grid place-items-center bg-black/70 px-6" role="status">
+      <div className="rounded-2xl bg-white px-5 py-4 text-sm font-bold text-zinc-800 shadow-2xl dark:bg-zinc-900 dark:text-zinc-100">
+        Loading workout guide…
+      </div>
+    </div>
+  ),
+})
+
 export type TemplateExercise = {
   localId: string
   exerciseId: number
@@ -84,6 +95,7 @@ export default function TemplateEditor({
   const [generatorMode, setGeneratorMode] = useState<WorkoutGeneratorMode>('classic')
   const [desktopEligible, setDesktopEligible] = useState(false)
   const [showMobileMusclePlanner, setShowMobileMusclePlanner] = useState(false)
+  const [showCompositionGuide, setShowCompositionGuide] = useState(false)
 
   const today = localDateStr()
   const isScheduling = !!date && date > today
@@ -161,6 +173,31 @@ export default function TemplateEditor({
       },
     ])
     setShowPicker(false)
+  }
+
+  function handleAddPrescribedExercise(
+    ex: SlimExercise,
+    prescription: { sets: number; reps: number; restSeconds: number },
+  ): string {
+    const localId = crypto.randomUUID()
+    setItems((prev) => [
+      ...prev,
+      {
+        localId,
+        exerciseId: ex.id,
+        exerciseName: ex.name,
+        exerciseCategory: ex.category,
+        sets: prescription.sets,
+        reps: prescription.reps,
+        weight: null,
+        duration_minutes: null,
+        distance: null,
+        setDetails: null,
+        tempo: null,
+        restSeconds: prescription.restSeconds,
+      },
+    ])
+    return localId
   }
 
   function toggleTempo(localId: string) {
@@ -487,6 +524,7 @@ export default function TemplateEditor({
           onSave={handleSave}
           onStart={handleStartNow}
           onUseClassic={() => setGeneratorMode('classic')}
+          onOpenGuide={() => setShowCompositionGuide(true)}
         />
       ) : (
       <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-6">
@@ -509,6 +547,20 @@ export default function TemplateEditor({
             <span className="block text-sm font-bold">Choose muscles and see your load</span>
           </span>
           <span className="text-xl" aria-hidden="true">→</span>
+        </button>
+
+        <button
+          type="button"
+          aria-label="Guide my workout"
+          onClick={() => setShowCompositionGuide(true)}
+          className="flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-zinc-300 bg-white px-4 text-left shadow-sm transition hover:border-orange-400 active:scale-[0.99] dark:border-zinc-800 dark:bg-zinc-900"
+        >
+          <span>
+            <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-orange-500">Workout composition</span>
+            <span className="block text-sm font-bold text-zinc-950 dark:text-white">{items.length === 0 ? 'Guide my workout' : 'Review and improve this workout'}</span>
+            <span className="mt-0.5 block text-xs text-zinc-500">One gap at a time · up to three choices</span>
+          </span>
+          <span className="text-xl text-orange-500" aria-hidden="true">→</span>
         </button>
 
         {error && <p className="text-xs text-red-500">{error}</p>}
@@ -911,6 +963,19 @@ export default function TemplateEditor({
           items={items}
           onAddExercise={handleAddExercise}
           onClose={() => setShowMobileMusclePlanner(false)}
+        />
+      )}
+      {showCompositionGuide && (
+        <WorkoutCompositionAssistant
+          exercises={exercises}
+          items={items}
+          onAddExercise={handleAddPrescribedExercise}
+          onRemoveExercise={handleRemove}
+          onChooseManually={() => {
+            setShowCompositionGuide(false)
+            setShowPicker(true)
+          }}
+          onClose={() => setShowCompositionGuide(false)}
         />
       )}
     </div>

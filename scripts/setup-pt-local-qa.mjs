@@ -287,6 +287,68 @@ export async function setupPtLocalQa(env = process.env) {
     instructions: ['Use the disposable QA prescription.'],
   })
 
+  // Deterministic public catalog coverage for the workout-composition E2E.
+  // These span distinct movement and variation families so an acceptance
+  // round can add, reject, and recompute without relying on a large seed dump.
+  await insertMany('exercises', [
+    {
+      name: 'QA Guide Prisoner Squat',
+      category: 'strength',
+      equipment: 'body only',
+      muscles: ['quadriceps', 'glutes'],
+      muscles_secondary: ['hamstrings'],
+      instructions: ['Use a comfortable range of motion.'],
+    },
+    {
+      name: 'QA Guide Reverse Lunge',
+      category: 'strength',
+      equipment: 'body only',
+      muscles: ['quadriceps', 'glutes'],
+      muscles_secondary: ['hamstrings'],
+      instructions: ['Alternate legs with control.'],
+    },
+    {
+      name: 'QA Guide Glute Bridge',
+      category: 'strength',
+      equipment: 'body only',
+      muscles: ['glutes', 'hamstrings'],
+      muscles_secondary: ['lower back'],
+      instructions: ['Pause briefly at the top.'],
+    },
+    {
+      name: 'QA Guide Hip Thrust',
+      category: 'strength',
+      equipment: 'body only',
+      muscles: ['glutes', 'hamstrings'],
+      muscles_secondary: ['lower back'],
+      instructions: ['Keep the ribcage controlled.'],
+    },
+    {
+      name: 'QA Guide Push-Up',
+      category: 'strength',
+      equipment: 'body only',
+      muscles: ['chest'],
+      muscles_secondary: ['triceps', 'shoulders'],
+      instructions: ['Use an incline when needed.'],
+    },
+    {
+      name: 'QA Guide Inverted Row',
+      category: 'strength',
+      equipment: 'body only',
+      muscles: ['middle back', 'lats'],
+      muscles_secondary: ['biceps'],
+      instructions: ['Keep a straight body line.'],
+    },
+    {
+      name: 'QA Guide Front Plank',
+      category: 'strength',
+      equipment: 'body only',
+      muscles: ['abdominals'],
+      muscles_secondary: [],
+      instructions: ['Breathe normally while bracing.'],
+    },
+  ])
+
   async function createRoutine(ownerKey, name) {
     const routine = await insertOne('routines', {
       user_id: users[ownerKey].id,

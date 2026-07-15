@@ -47,8 +47,11 @@ test.describe('trainer-authored exercise journey', () => {
   test.skip(!ptExerciseE2eEnabled(), 'Set PT_EXERCISE_E2E_ENABLED=true to run trainer exercise behavior.')
 
   test('trainer creates scoped video exercises and discovery follows the audience', async ({ browser }) => {
-    const clientsName = 'E2E Client Tempo Squat 87261'
-    const publicName = 'E2E Public Mobility Flow 87261'
+    // Exercise names are owner-unique even after archival. A per-run marker
+    // keeps this browser journey repeatable against a long-lived QA database.
+    const runMarker = Date.now()
+    const clientsName = `E2E Client Tempo Squat ${runMarker}`
+    const publicName = `E2E Public Mobility Flow ${runMarker}`
     const trainer = await newSignedInContext(browser, 'exerciseTrainer')
 
     try {

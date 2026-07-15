@@ -34,6 +34,7 @@ export default function DesktopWorkoutGenerator({
   onSave,
   onStart,
   onUseClassic,
+  onOpenGuide,
 }: {
   exercises: SlimExercise[]
   items: TemplateExercise[]
@@ -49,6 +50,7 @@ export default function DesktopWorkoutGenerator({
   onSave: () => void
   onStart: () => void
   onUseClassic: () => void
+  onOpenGuide: () => void
 }) {
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
@@ -239,6 +241,9 @@ export default function DesktopWorkoutGenerator({
             </div>
             <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-black tabular-nums text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">{items.length}</span>
           </div>
+          <button type="button" aria-label="Guide my workout" onClick={onOpenGuide} className="mb-3 min-h-11 rounded-xl border border-orange-300 bg-orange-50 px-4 text-left text-xs font-black text-orange-800 transition hover:border-orange-500 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-300">
+            Guide my workout <span aria-hidden="true">→</span>
+          </button>
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 [scrollbar-gutter:stable]">
             {items.length === 0 && <div className="rounded-2xl border-2 border-dashed border-zinc-200 px-5 py-12 text-center dark:border-zinc-700"><p className="text-sm font-bold text-zinc-700 dark:text-zinc-300">Build from the library</p><p className="mt-1 text-xs leading-5 text-zinc-500">Exercises appear here with their set targets.</p></div>}
             {items.map((item, index) => (
