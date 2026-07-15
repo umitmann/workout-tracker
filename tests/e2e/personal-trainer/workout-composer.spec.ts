@@ -20,6 +20,7 @@ import {
  */
 
 const guideName = 'Workout composition guide'
+const workoutLabUrl = '/workouts/new?preview=workout-lab'
 
 async function openGuide(page: Page): Promise<Locator> {
   const trigger = page.getByRole('button', { name: 'Guide my workout' })
@@ -94,7 +95,7 @@ test.describe('guided workout composition', () => {
 
     try {
       await actor.page.setViewportSize({ width: 390, height: 844 })
-      await actor.page.goto('/workouts/new')
+      await actor.page.goto(workoutLabUrl)
       await actor.page.getByPlaceholder('Workout name…').fill(templateName)
 
       await expect(actor.page.getByRole('button', { name: 'Add exercise' })).toBeVisible()
@@ -147,7 +148,7 @@ test.describe('guided workout composition', () => {
 
     try {
       await actor.page.setViewportSize({ width: 390, height: 844 })
-      await actor.page.goto('/workouts/new')
+      await actor.page.goto(workoutLabUrl)
       const trigger = actor.page.getByRole('button', { name: 'Guide my workout' })
       const guide = await openGuide(actor.page)
 
@@ -200,7 +201,7 @@ test.describe('guided workout composition', () => {
 
     try {
       await actor.page.setViewportSize({ width: 390, height: 844 })
-      await actor.page.goto('/workouts/new')
+      await actor.page.goto(workoutLabUrl)
 
       await expect(actor.page.getByRole('button', { name: 'Guide my workout' })).toBeVisible()
       await expect(actor.page.getByRole('button', { name: 'Add exercise' })).toBeVisible()
@@ -234,6 +235,23 @@ test.describe('guided workout composition', () => {
       await expect(actor.page.getByTestId('desktop-workout-generator')).toHaveCount(0)
       await expect(actor.page.getByRole('button', { name: 'Guide my workout' })).toBeVisible()
       await expect(actor.page.getByRole('button', { name: 'Add exercise' })).toBeVisible()
+    } finally {
+      await actor.context.close()
+    }
+  })
+
+  test('unfinished planning tools stay hidden without the preview link', async ({ browser }) => {
+    const actor = await newSignedInContext(browser, 'exerciseClient')
+    try {
+      await actor.page.setViewportSize({ width: 390, height: 844 })
+      await actor.page.goto('/workouts/new')
+      await expect(actor.page.getByRole('button', { name: 'Guide my workout' })).toHaveCount(0)
+      await expect(actor.page.getByRole('button', { name: /choose muscles and see your load/i })).toHaveCount(0)
+      await expect(actor.page.getByRole('button', { name: 'Add exercise' })).toBeVisible()
+
+      await actor.page.goto(workoutLabUrl)
+      await expect(actor.page.getByRole('button', { name: 'Guide my workout' })).toBeVisible()
+      await expect(actor.page.getByRole('button', { name: /choose muscles and see your load/i })).toBeVisible()
     } finally {
       await actor.context.close()
     }

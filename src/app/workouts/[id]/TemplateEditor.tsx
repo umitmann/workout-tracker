@@ -80,11 +80,13 @@ export default function TemplateEditor({
   template,
   date,
   workoutId,
+  workoutLabPreview = false,
 }: {
   exercises: SlimExercise[]
   template?: RoutineWithExercises
   date?: string
   workoutId?: number
+  workoutLabPreview?: boolean
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -473,7 +475,7 @@ export default function TemplateEditor({
           {template ? 'Edit template' : 'New template'}
         </h1>
         <div className="ml-auto flex items-center gap-2">
-          <button
+          {workoutLabPreview && <button
             type="button"
             onClick={toggleGeneratorMode}
             disabled={!desktopEligible}
@@ -481,7 +483,7 @@ export default function TemplateEditor({
             className="hidden lg:inline-flex rounded-full border border-orange-400 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-orange-600 transition-colors hover:bg-orange-50 disabled:opacity-40 dark:text-orange-400 dark:hover:bg-orange-950/20"
           >
             {generatorMode === 'desktop' ? 'Use classic editor' : 'Open 3D generator'}
-          </button>
+          </button>}
           {items.length > 0 && (
             <button
               onClick={handleCopy}
@@ -508,7 +510,7 @@ export default function TemplateEditor({
         </div>
       </header>
 
-      {generatorMode === 'desktop' && desktopEligible ? (
+      {workoutLabPreview && generatorMode === 'desktop' && desktopEligible ? (
         <DesktopWorkoutGenerator
           exercises={exercises}
           items={items}
@@ -537,7 +539,7 @@ export default function TemplateEditor({
           className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-3 text-sm font-medium outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
         />
 
-        <button
+        {workoutLabPreview && <button
           type="button"
           onClick={() => setShowMobileMusclePlanner(true)}
           className="flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-orange-300 bg-gradient-to-r from-orange-50 to-white px-4 text-left text-orange-950 shadow-sm transition active:scale-[0.99] dark:border-orange-900 dark:from-orange-950/30 dark:to-zinc-900 dark:text-orange-100 lg:hidden"
@@ -547,9 +549,9 @@ export default function TemplateEditor({
             <span className="block text-sm font-bold">Choose muscles and see your load</span>
           </span>
           <span className="text-xl" aria-hidden="true">→</span>
-        </button>
+        </button>}
 
-        <button
+        {workoutLabPreview && <button
           type="button"
           aria-label="Guide my workout"
           onClick={() => setShowCompositionGuide(true)}
@@ -561,7 +563,7 @@ export default function TemplateEditor({
             <span className="mt-0.5 block text-xs text-zinc-500">One gap at a time · up to three choices</span>
           </span>
           <span className="text-xl text-orange-500" aria-hidden="true">→</span>
-        </button>
+        </button>}
 
         {error && <p className="text-xs text-red-500">{error}</p>}
 
@@ -957,7 +959,7 @@ export default function TemplateEditor({
           </div>
         </Modal>
       )}
-      {showMobileMusclePlanner && (
+      {workoutLabPreview && showMobileMusclePlanner && (
         <MobileMusclePlanner
           exercises={exercises}
           items={items}
@@ -965,7 +967,7 @@ export default function TemplateEditor({
           onClose={() => setShowMobileMusclePlanner(false)}
         />
       )}
-      {showCompositionGuide && (
+      {workoutLabPreview && showCompositionGuide && (
         <WorkoutCompositionAssistant
           exercises={exercises}
           items={items}

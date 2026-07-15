@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { getServerAuthContext } from '@/lib/serverAuth'
 import { getAllExercises, getTemplate } from '@/lib/dal'
+import { isWorkoutLabPreviewEnabled } from '@/lib/workoutLabPreview'
 import TemplateEditor from './TemplateEditor'
 
 export default async function EditTemplatePage({
@@ -8,12 +9,12 @@ export default async function EditTemplatePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ date?: string; workoutId?: string }>
+  searchParams: Promise<{ date?: string; workoutId?: string; preview?: string | string[] }>
 }) {
   const { user } = await getServerAuthContext()
   if (!user) redirect('/')
 
-  const [{ id }, { date, workoutId }] = await Promise.all([params, searchParams])
+  const [{ id }, { date, workoutId, preview }] = await Promise.all([params, searchParams])
   const [template, exercises] = await Promise.all([
     getTemplate(id),
     getAllExercises(),
@@ -27,6 +28,7 @@ export default async function EditTemplatePage({
       template={template}
       date={date}
       workoutId={workoutId ? Number(workoutId) : undefined}
+      workoutLabPreview={isWorkoutLabPreviewEnabled(preview)}
     />
   )
 }

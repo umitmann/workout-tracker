@@ -38,7 +38,7 @@ test.describe('phone anatomy and install UX', () => {
     const session = await newSignedInContext(browser, 'exerciseClient')
     try {
       await session.page.setViewportSize({ width: 390, height: 844 })
-      await session.page.goto('/workouts/new')
+      await session.page.goto('/workouts/new?preview=workout-lab')
       await expect(session.page.getByRole('button', { name: /choose muscles and see your load/i })).toBeVisible()
       await session.page.getByRole('button', { name: /choose muscles and see your load/i }).click()
       const planner = session.page.getByRole('dialog', { name: /mobile muscle planner/i })

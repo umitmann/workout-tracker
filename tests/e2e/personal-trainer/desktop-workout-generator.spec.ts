@@ -10,7 +10,7 @@ test.describe('desktop 3D workout generator', () => {
     const page = await context.newPage()
     try {
       await signIn(page, 'exerciseClient')
-      await page.goto('/workouts/new')
+      await page.goto('/workouts/new?preview=workout-lab')
 
       const toggle = page.getByRole('button', { name: 'Open 3D generator' })
       await expect(toggle).toBeVisible()
@@ -58,7 +58,7 @@ test.describe('desktop 3D workout generator', () => {
     const page = await context.newPage()
     try {
       await signIn(page, 'exerciseClient')
-      await page.goto('/workouts/new')
+      await page.goto('/workouts/new?preview=workout-lab')
       await page.getByRole('button', { name: 'Open 3D generator' }).click()
       await expect(page.getByTestId('desktop-workout-generator')).toBeVisible()
 
@@ -97,7 +97,9 @@ test.describe('desktop 3D workout generator', () => {
       await signIn(page, 'exerciseClient')
       await page.goto('/workouts/new')
       await expect(page.getByTestId('desktop-workout-generator')).toHaveCount(0)
-      await expect(page.getByRole('button', { name: 'Open 3D generator' })).toBeHidden()
+      await expect(page.getByRole('button', { name: 'Open 3D generator' })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Guide my workout' })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: /choose muscles and see your load/i })).toHaveCount(0)
       await page.getByRole('button', { name: 'Add exercise' }).click()
       await expect(page.getByRole('dialog', { name: 'Select exercise' })).toBeVisible()
     } finally {
