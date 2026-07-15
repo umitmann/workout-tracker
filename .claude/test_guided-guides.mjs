@@ -133,6 +133,26 @@ test('mergeGuideResults never mutates the input array', () => {
   assert.deepEqual(sets, snapshot)
 })
 
+test('mergeGuideResults persists the reviewed difficulty and guided rest without touching weight', () => {
+  const sets = [set({ localId: 'a1', exerciseId: 1, weight: 82.5, reps: 8, difficulty: null, rest_seconds: null })]
+  const next = mergeGuideResults(sets, [{ localId: 'a1', reps: 7, difficulty: 4, restSeconds: 36 }])
+
+  assert.deepEqual(next[0], {
+    ...sets[0],
+    reps: 7,
+    difficulty: 4,
+    rest_seconds: 36,
+    done: true,
+  })
+})
+
+test('mergeGuideResults leaves optional difficulty and rest unchanged when the guide did not supply them', () => {
+  const sets = [set({ localId: 'a1', reps: 8, difficulty: 3, rest_seconds: 44 })]
+  const next = mergeGuideResults(sets, [{ localId: 'a1', reps: 6 }])
+  assert.equal(next[0].difficulty, 3)
+  assert.equal(next[0].rest_seconds, 44)
+})
+
 test('mergeGuideResults on a mid-guide Exit (partial results — 1 of 3 sets completed) preserves the other exercises AND the guided exercise\'s own not-yet-completed sets', () => {
   const sets = [
     set({ localId: 'a1', exerciseId: 1, reps: 10, done: true }),

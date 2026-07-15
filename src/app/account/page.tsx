@@ -6,6 +6,7 @@ import { getServerAuthContext } from '@/lib/serverAuth'
 import { listMyTrainerRelationships } from '@/lib/trainerRelationshipDal'
 import { countTrainerRelationshipNotifications } from '@/lib/trainerRelationshipNotifications'
 import AccountProfileForm from './AccountProfileForm'
+import InstallAppCard from './InstallAppCard'
 
 export default async function AccountPage() {
   const { supabase, user } = await getServerAuthContext()
@@ -43,12 +44,15 @@ export default async function AccountPage() {
       })}
       maxWidth="max-w-3xl"
     >
-      <section aria-labelledby="profile-heading" className="rounded-[1.6rem] border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-7">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600 dark:text-orange-400">Profile & preferences</p>
-        <h2 id="profile-heading" className="mt-2 text-2xl font-black tracking-tight text-zinc-950 dark:text-white">Your personal details</h2>
-        <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">These settings are private except where you deliberately appear in the trainer directory.</p>
-        <AccountProfileForm profile={profile} email={user.email ?? ''} timeZones={timeZones} />
-      </section>
+      <div className="space-y-5">
+        <section aria-labelledby="profile-heading" className="rounded-[1.6rem] border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-7">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600 dark:text-orange-400">Profile & preferences</p>
+          <h2 id="profile-heading" className="mt-2 text-2xl font-black tracking-tight text-zinc-950 dark:text-white">Your personal details</h2>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">These settings are private except where you deliberately appear in the trainer directory.</p>
+          <AccountProfileForm profile={profile} email={user.email ?? ''} timeZones={timeZones} />
+        </section>
+        <InstallAppCard />
+      </div>
     </AppShell>
   )
 }

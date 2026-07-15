@@ -46,7 +46,7 @@ export default function DruhTimer({
   tempo: TempoConfig
   goalReps: number
   audioDefault?: boolean
-  onStop: (completedReps: number) => void
+  onStop: (completedReps: number, difficulty: number | null) => void
   onCancel: () => void
 }) {
   // Wake lock is now owned by WorkoutLogger at the session level (ADR-0007) —
@@ -62,6 +62,7 @@ export default function DruhTimer({
   // the lifter paused mid-set). null = not confirming (still running).
   // Natural goal-completion skips this and calls finish() directly.
   const [confirmReps, setConfirmReps] = useState<number | null>(null)
+  const [confirmDifficulty, setConfirmDifficulty] = useState<number | null>(null)
 
   const rafRef = useRef<number | null>(null)
   const startRef = useRef<number>(0)
@@ -145,16 +146,21 @@ export default function DruhTimer({
     if (doneRef.current) return
     doneRef.current = true
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
-    onStop(completedReps)
+    onStop(completedReps, confirmDifficulty)
   }
 
   // Tile 11: pause the run and surface the computed count for confirm/adjust
   // instead of logging it silently — the lifter adjusts ± and saves.
   function handleStopEarly() {
     if (doneRef.current || confirmReps != null) return
-    if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
     const elapsed = (performance.now() - startRef.current) / 1000
-    setConfirmReps(stopEarlyReps(tempo, goalReps, elapsed))
+    pauseForConfirmation(stopEarlyReps(tempo, goalReps, elapsed))
+  }
+
+  function pauseForConfirmation(repsCompleted: number) {
+    if (doneRef.current || confirmReps != null) return
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
+    setConfirmReps(repsCompleted)
   }
 
   function adjustConfirmReps(delta: number) {
@@ -217,6 +223,23 @@ export default function DruhTimer({
             </button>
           </div>
           <p className="text-sm font-semibold uppercase tracking-widest text-white/50">goal was {goalReps}</p>
+          <fieldset className="mt-3">
+            <legend className="mb-2 text-xs font-bold uppercase tracking-widest text-white/60">Difficulty (optional)</legend>
+            <div className="flex justify-center gap-2">
+              {[1, 2, 3, 4, 5].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-label={`Difficulty ${value} of 5`}
+                  aria-pressed={confirmDifficulty === value}
+                  onClick={() => setConfirmDifficulty((current) => current === value ? null : value)}
+                  className={`grid size-11 place-items-center rounded-full border-2 text-sm font-black transition ${confirmDifficulty === value ? 'border-white bg-white text-zinc-900' : 'border-white/30 bg-white/10 text-white hover:bg-white/20'}`}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+          </fieldset>
         </div>
       ) : inReady ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 px-6 text-center">
@@ -237,10 +260,10 @@ export default function DruhTimer({
       {/* Bottom: actions */}
       <div className="flex gap-3 px-6 pb-8">
         <button
-          onClick={onCancel}
+          onClick={inConfirm ? onCancel : handleStopEarly}
           className="flex-1 rounded-2xl bg-white/15 hover:bg-white/25 py-4 text-base font-bold transition-colors"
         >
-          Cancel
+          {inConfirm ? 'Discard set' : 'Review & exit'}
         </button>
         {inConfirm ? (
           <button

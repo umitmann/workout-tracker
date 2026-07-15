@@ -22,6 +22,7 @@ import {
   resolveWorkoutGeneratorMode,
   type WorkoutGeneratorMode,
 } from '@/lib/desktopGeneratorMode'
+import MobileMusclePlanner from './MobileMusclePlanner'
 
 const DesktopWorkoutGenerator = dynamic(() => import('./DesktopWorkoutGenerator'), {
   ssr: false,
@@ -82,6 +83,7 @@ export default function TemplateEditor({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [generatorMode, setGeneratorMode] = useState<WorkoutGeneratorMode>('classic')
   const [desktopEligible, setDesktopEligible] = useState(false)
+  const [showMobileMusclePlanner, setShowMobileMusclePlanner] = useState(false)
 
   const today = localDateStr()
   const isScheduling = !!date && date > today
@@ -423,17 +425,17 @@ export default function TemplateEditor({
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
+      <header className="flex flex-wrap items-center justify-between gap-y-3 px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
         <button
           onClick={() => router.push('/workouts')}
           className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"
         >
           ← Workouts
         </button>
-        <h1 className="text-sm font-medium text-zinc-900 dark:text-white">
+        <h1 className="min-w-0 text-sm font-medium text-zinc-900 dark:text-white">
           {template ? 'Edit template' : 'New template'}
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
             onClick={toggleGeneratorMode}
@@ -496,6 +498,18 @@ export default function TemplateEditor({
           onChange={(e) => setName(e.target.value)}
           className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-3 text-sm font-medium outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
         />
+
+        <button
+          type="button"
+          onClick={() => setShowMobileMusclePlanner(true)}
+          className="flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-orange-300 bg-gradient-to-r from-orange-50 to-white px-4 text-left text-orange-950 shadow-sm transition active:scale-[0.99] dark:border-orange-900 dark:from-orange-950/30 dark:to-zinc-900 dark:text-orange-100 lg:hidden"
+        >
+          <span>
+            <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-orange-500">Anatomy planner</span>
+            <span className="block text-sm font-bold">Choose muscles and see your load</span>
+          </span>
+          <span className="text-xl" aria-hidden="true">→</span>
+        </button>
 
         {error && <p className="text-xs text-red-500">{error}</p>}
 
@@ -890,6 +904,14 @@ export default function TemplateEditor({
             </button>
           </div>
         </Modal>
+      )}
+      {showMobileMusclePlanner && (
+        <MobileMusclePlanner
+          exercises={exercises}
+          items={items}
+          onAddExercise={handleAddExercise}
+          onClose={() => setShowMobileMusclePlanner(false)}
+        />
       )}
     </div>
   )

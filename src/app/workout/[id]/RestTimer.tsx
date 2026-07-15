@@ -27,17 +27,19 @@ function beep() {
 export default function RestTimer({
   initialMode = 'fixed',
   initialTarget = 90,
+  initialElapsed = 0,
   audio = true,
   onDone,
   onSettingsChange,
 }: {
   initialMode?: 'fixed' | 'variable'
   initialTarget?: number
+  initialElapsed?: number
   audio?: boolean
   onDone: (elapsedSeconds: number) => void
   onSettingsChange?: (mode: 'fixed' | 'variable', target: number) => void
 }) {
-  const [elapsed, setElapsed] = useState(0)
+  const [elapsed, setElapsed] = useState(initialElapsed)
   const [mode, setMode] = useState<'fixed' | 'variable'>(initialMode)
   const [target, setTarget] = useState(initialTarget)
 
@@ -50,7 +52,7 @@ export default function RestTimer({
   targetRef.current = target
 
   useEffect(() => {
-    startRef.current = performance.now()
+    startRef.current = performance.now() - initialElapsed * 1000
     function frame(now: number) {
       const e = (now - startRef.current) / 1000
       setElapsed(e)

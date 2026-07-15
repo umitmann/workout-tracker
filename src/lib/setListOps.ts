@@ -47,6 +47,17 @@ export function applyWeightToExercise(
   return sets.map((s) => (s.exerciseId === exerciseId ? { ...s, weight } : s))
 }
 
+// Reps follow the same explicit bulk-edit rule as weight. Keeping this as a
+// separate action preserves dropsets/pyramids unless the athlete deliberately
+// chooses "apply reps to all".
+export function applyRepsToExercise(
+  sets: LocalSet[],
+  exerciseId: number,
+  reps: number | null,
+): LocalSet[] {
+  return sets.map((s) => (s.exerciseId === exerciseId ? { ...s, reps } : s))
+}
+
 // §4.5: reverts the target set to a prior snapshot (e.g. its value before
 // editing began) — the caller supplies that snapshot since this module holds
 // no history of its own.
@@ -183,11 +194,21 @@ export function mergeIncomingSets(
 // through untouched, mirroring Tile 11's "adjusting to 0 logs nothing" rule.
 export function mergeGuideResults(
   sets: LocalSet[],
-  results: { localId: string; reps: number }[],
+  results: { localId: string; reps: number; difficulty?: number | null; restSeconds?: number }[],
 ): LocalSet[] {
-  const byId = new Map(results.filter((r) => r.reps > 0).map((r) => [r.localId, r.reps]))
+  const byId = new Map(results.filter((r) => r.reps > 0).map((r) => [r.localId, r]))
   if (byId.size === 0) return sets
-  return sets.map((s) => (byId.has(s.localId) ? { ...s, reps: byId.get(s.localId)!, done: true } : s))
+  return sets.map((s) => {
+    const result = byId.get(s.localId)
+    if (!result) return s
+    return {
+      ...s,
+      reps: result.reps,
+      difficulty: result.difficulty === undefined ? s.difficulty : result.difficulty,
+      rest_seconds: result.restSeconds === undefined ? s.rest_seconds : result.restSeconds,
+      done: true,
+    }
+  })
 }
 
 // The main rest timer belongs to the most recently completed guided set. A

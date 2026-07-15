@@ -13,7 +13,7 @@ import LastPerfModal from './LastPerfModal'
 import Modal from '@/components/Modal'
 import DruhTimer from './DruhTimer'
 import RestTimer from './RestTimer'
-import ExerciseGuide, { GuideSet } from './ExerciseGuide'
+import ExerciseGuide, { GuideSet, GuideResult, GuidedRestHandoff } from './ExerciseGuide'
 import Stepper from './Stepper'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 import { useWakeLock } from './useWakeLock'
@@ -27,6 +27,7 @@ import {
   deleteSet as deleteSetOp,
   applyEdit,
   applyWeightToExercise,
+  applyRepsToExercise,
   reorderExercise,
   recordRestForSet,
   requestSetDelete,
@@ -216,6 +217,8 @@ export default function WorkoutLogger({
   const [tempo, setTempo] = useState<TempoConfig>(() => readStored('wt.tempo', { down: 3, rest: 1, up: 2, hold: 1 }))
   const [restMode, setRestMode] = useState<'fixed' | 'variable'>(() => readStored<'fixed' | 'variable'>('wt.restMode', 'fixed'))
   const [restTarget, setRestTarget] = useState(() => readStored('wt.restTarget', 90))
+  const [autoStartRest, setAutoStartRest] = useState(() => readStored('wt.autoStartRest', true))
+  const [guideRestBetweenSets, setGuideRestBetweenSets] = useState(() => readStored('wt.guideRestBetweenSets', true))
   // WP-12 (checklist §19.10/§19.11): distance display unit preference.
   // Persisted via distanceUnit.ts's own read/write helpers (not the generic
   // readStored/writeStored above) so BodyweightCard's report export can
@@ -246,6 +249,8 @@ export default function WorkoutLogger({
   useEffect(() => { writeStored('wt.tempo', tempo) }, [tempo])
   useEffect(() => { writeStored('wt.restMode', restMode) }, [restMode])
   useEffect(() => { writeStored('wt.restTarget', restTarget) }, [restTarget])
+  useEffect(() => { writeStored('wt.autoStartRest', autoStartRest) }, [autoStartRest])
+  useEffect(() => { writeStored('wt.guideRestBetweenSets', guideRestBetweenSets) }, [guideRestBetweenSets])
   useEffect(() => { writeDistanceUnitPref(distanceUnit) }, [distanceUnit])
   const [guidedSetup, setGuidedSetup] = useState<{
     exercise: SlimExercise
@@ -274,6 +279,7 @@ export default function WorkoutLogger({
   // renders outside <RestTimer>) can compute "current elapsed" itself without
   // reaching into that component's state.
   const [restStartedAt, setRestStartedAt] = useState<number | null>(null)
+  const [restInitialElapsed, setRestInitialElapsed] = useState(0)
 
   // D5 (sacred rest): a running rest timer is never reset or re-pointed by an
   // implicit action. This is the entry point ordinary callers (toggleDone,
@@ -284,6 +290,7 @@ export default function WorkoutLogger({
     if (!canStartRestImplicitly(restForSet)) return
     setRestForSet(localId)
     setRestNonce((n) => n + 1)
+    setRestInitialElapsed(0)
     setRestStartedAt(Date.now())
   }
 
@@ -299,10 +306,15 @@ export default function WorkoutLogger({
     return baseSets
   }
 
-  function beginFreshRest(localId: string) {
+  function beginRest(localId: string, initialElapsed = 0) {
     setRestForSet(localId)
     setRestNonce((n) => n + 1)
-    setRestStartedAt(Date.now())
+    setRestInitialElapsed(initialElapsed)
+    setRestStartedAt(Date.now() - initialElapsed * 1000)
+  }
+
+  function beginFreshRest(localId: string) {
+    beginRest(localId, 0)
   }
 
   // The explicit Start rest control always restarts. If another timer was
@@ -329,7 +341,8 @@ export default function WorkoutLogger({
   // is committed until the review is confirmed.
   const [guideReview, setGuideReview] = useState<{
     exerciseName: string
-    results: { localId: string; reps: number; weight: number | null; goalReps: number }[]
+    results: (GuideResult & { weight: number | null; goalReps: number })[]
+    activeRest?: GuidedRestHandoff
   } | null>(null)
 
   // Sheets & modals
@@ -529,7 +542,7 @@ export default function WorkoutLogger({
     const nextSets = addSetOp(localSets, newSet)
     setLocalSets(nextSets)
     // Completing a set (plain add) auto-starts rest for it.
-    if (startsRestOnComplete(selectedExercise.category)) startRestFor(newSet.localId)
+    if (autoStartRest && startsRestOnComplete(selectedExercise.category)) startRestFor(newSet.localId)
     // Tile 10a: re-seed from the just-logged set instead of blanking — straight
     // sets are Add, Add, Add with no re-entry ("always goes back to 12.5").
     setWeight(newSet.weight != null ? String(newSet.weight) : '')
@@ -553,9 +566,9 @@ export default function WorkoutLogger({
     })
   }
 
-  // §15.6/§15.7: inline edits and deletes are local-only — they mark the
-  // queue dirty so the "unsaved changes" indicator lights up, but only a
-  // subsequent Save/Done (or the next autosaved add) actually persists them.
+  // Destructive list operations such as delete/paste remain locally staged so
+  // they can be reviewed before Save. Value edits autosave at their call sites
+  // because a second Save tap made completed-set adjustments easy to lose.
   function markDirty() {
     saveQueueRef.current.markDirty(String(workout.id))
     setSaveState(saveQueueRef.current.getState(String(workout.id)))
@@ -594,7 +607,7 @@ export default function WorkoutLogger({
     setLocalSets(nextSets)
     setSavedOnce(true)
     persist(nextSets)
-    if (becameDone && startsRestOnComplete(category)) startRestFor(localId)
+    if (becameDone && autoStartRest && startsRestOnComplete(category)) startRestFor(localId)
   }
 
   // Tile 10c: tapping a difficulty chip persists immediately (same save path
@@ -663,7 +676,7 @@ export default function WorkoutLogger({
     setSavedOnce(true)
     setEditingId(null)
     persist(nextSets)
-    if (startsRestOnComplete(s.exerciseCategory)) startRestFor(s.localId)
+    if (autoStartRest && startsRestOnComplete(s.exerciseCategory)) startRestFor(s.localId)
   }
 
   function applyEditedWeightToExercise(s: LocalSet) {
@@ -673,7 +686,17 @@ export default function WorkoutLogger({
       editWeight ? Number(editWeight) : null,
     )
     setLocalSets(nextSets)
-    markDirty()
+    persist(nextSets)
+  }
+
+  function applyEditedRepsToExercise(s: LocalSet) {
+    const nextSets = applyRepsToExercise(
+      localSets,
+      s.exerciseId,
+      editReps ? Number(editReps) : null,
+    )
+    setLocalSets(nextSets)
+    persist(nextSets)
   }
 
   function guidedFromEdit(s: LocalSet) {
@@ -694,7 +717,7 @@ export default function WorkoutLogger({
   // edits, so this render's set list is the intended base. Completion preserves
   // elapsed rest on its former owner, then starts a fresh main rest for the
   // guided set.
-  function handleGuidedStop(completedReps: number) {
+  function handleGuidedStop(completedReps: number, difficulty: number | null) {
     if (!runningDruh) return
     const targetId = runningDruh.targetLocalId
     const goalWeight = runningDruh.weight
@@ -704,13 +727,13 @@ export default function WorkoutLogger({
       setRunningDruh(null)
       if (completedReps <= 0) return // did nothing → leave the set pending
       let nextSets = localSets.map((s) =>
-        s.localId === targetId ? { ...s, reps: completedReps, weight: goalWeight, done: true } : s,
+        s.localId === targetId ? { ...s, reps: completedReps, weight: goalWeight, difficulty, done: true } : s,
       )
       nextSets = setsAfterRestRestart(nextSets)
       setLocalSets(nextSets)
       setSavedOnce(true)
       persist(nextSets)
-      beginFreshRest(targetId)
+      if (autoStartRest) beginFreshRest(targetId)
       return
     }
 
@@ -730,7 +753,7 @@ export default function WorkoutLogger({
       duration_minutes: null,
       distance: null,
       rest_seconds: null,
-      difficulty: null,
+      difficulty,
       done: true,
     }
     const nextSets = setsAfterRestRestart([...localSets, newSet])
@@ -740,7 +763,7 @@ export default function WorkoutLogger({
     setSelectedExercise(null)
     persist(nextSets)
     // Roll straight into rest for this set
-    beginFreshRest(newSet.localId)
+    if (autoStartRest) beginFreshRest(newSet.localId)
   }
 
   // ── Guide whole exercise ────────────────────────────────────────────────────
@@ -772,6 +795,12 @@ export default function WorkoutLogger({
   function applyGuideWeightToAll(weight: number) {
     setGuideSetup((g) =>
       g ? { ...g, rows: g.rows.map((r) => ({ ...r, weight })) } : g,
+    )
+  }
+
+  function applyGuideRepsToAll(reps: number) {
+    setGuideSetup((setup) =>
+      setup ? { ...setup, rows: setup.rows.map((row) => ({ ...row, reps })) } : setup,
     )
   }
 
@@ -858,19 +887,20 @@ export default function WorkoutLogger({
   // tested merge step, and per Tile 12b's invariant it only ever touches sets
   // whose localId is in the results — every other exercise passes through
   // byte-for-byte untouched, regardless of when this fires.
-  function handleGuideDone(results: { localId: string; reps: number }[]) {
+  function handleGuideDone(results: GuideResult[], activeRest?: GuidedRestHandoff) {
     const exerciseId = guidingExerciseId
     setGuidingExerciseId(null)
-    if (results.length === 0 || exerciseId == null) return // nothing completed — no-op, nothing lost
+    if (exerciseId == null) return
     const exerciseName = grouped[exerciseId]?.name ?? ''
     setGuideReview({
       exerciseName,
+      activeRest,
       results: results.map((r) => {
         // `localSets` still holds the PRE-guide values here (the review's
         // commit hasn't run yet) — that set's `reps` is exactly the goal
         // `guideSetsFor` read when the guide started.
         const s = localSets.find((x) => x.localId === r.localId)
-        return { localId: r.localId, reps: r.reps, weight: s?.weight ?? null, goalReps: s?.reps ?? r.reps }
+        return { ...r, weight: s?.weight ?? null, goalReps: s?.reps ?? Math.max(r.reps, 1) }
       }),
     })
   }
@@ -881,6 +911,21 @@ export default function WorkoutLogger({
     )
   }
 
+  function updateGuideReviewDifficulty(localId: string, difficulty: number) {
+    setGuideReview((review) =>
+      review
+        ? {
+            ...review,
+            results: review.results.map((result) =>
+              result.localId === localId
+                ? { ...result, difficulty: result.difficulty === difficulty ? null : difficulty }
+                : result,
+            ),
+          }
+        : review,
+    )
+  }
+
   // Commits the (possibly-adjusted) end-of-guide review — the ONLY place the
   // guide's results are actually written back to `localSets`. Runs from a
   // fresh render's onClick, so `localSets` here is always current.
@@ -888,12 +933,15 @@ export default function WorkoutLogger({
     if (!guideReview) return
     const restOwner = lastCompletedGuideSetId(guideReview.results)
     let nextSets = mergeGuideResults(localSets, guideReview.results)
-    if (restOwner) nextSets = setsAfterRestRestart(nextSets)
+    if (restOwner && autoStartRest) nextSets = setsAfterRestRestart(nextSets)
     setLocalSets(nextSets)
     setSavedOnce(true)
     persist(nextSets)
     setGuideReview(null)
-    if (restOwner) beginFreshRest(restOwner)
+    if (restOwner && autoStartRest) {
+      const handoff = guideReview.activeRest?.localId === restOwner ? guideReview.activeRest : undefined
+      beginRest(restOwner, handoff?.elapsedSeconds ?? 0)
+    }
   }
 
   // ── Rest timer ─────────────────────────────────────────────────────────────
@@ -910,6 +958,7 @@ export default function WorkoutLogger({
     const target = restForSet
     setRestForSet(null)
     setRestStartedAt(null)
+    setRestInitialElapsed(0)
     if (!target) return // rest with no set to attach to
     logRestElapsed(target, elapsedSeconds)
   }
@@ -938,9 +987,14 @@ export default function WorkoutLogger({
       target,
       isCardio,
     )
-    setLocalSets((prev) => applyEdit(prev, localId, fields))
+    const nextSets = applyEdit(localSets, localId, fields)
+    setLocalSets(nextSets)
     setEditingId(null)
-    markDirty()
+    // Completed-set edits are autosaved in both active and history sessions:
+    // requiring a second, visually unrelated Save tap was the reported reload
+    // data-loss path. History's pre-edit snapshot still makes Back → Discard
+    // reversible because that path persists the restoration.
+    persist(nextSets)
   }
 
   async function handleInfoClick(exerciseId: number) {
@@ -1608,6 +1662,7 @@ export default function WorkoutLogger({
                 key={`${restForSet}:${restNonce}`}
                 initialMode={restMode}
                 initialTarget={activeRestTarget}
+                initialElapsed={restInitialElapsed}
                 onDone={finishRest}
                 onSettingsChange={(m, t) => { setRestMode(m); setRestTarget(t) }}
               />
@@ -1627,6 +1682,15 @@ export default function WorkoutLogger({
           ) : (
             <div className="flex items-center gap-2 text-xs flex-wrap">
               <span className="font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Rest</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={autoStartRest}
+                onClick={() => setAutoStartRest((enabled) => !enabled)}
+                className={`rounded-full border px-3 py-1.5 font-bold uppercase tracking-wide transition-colors ${autoStartRest ? 'border-orange-400 bg-orange-50 text-orange-600 dark:bg-orange-950/20 dark:text-orange-400' : 'border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400'}`}
+              >
+                Auto {autoStartRest ? 'on' : 'off'}
+              </button>
               <button
                 onClick={() => setRestMode((m) => (m === 'fixed' ? 'variable' : 'fixed'))}
                 className="rounded-full border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
@@ -1708,7 +1772,8 @@ export default function WorkoutLogger({
               <button
                 onClick={() => openGuideSetup(exerciseId)}
                 title="Guide whole exercise (all sets, with rests)"
-                className="flex items-center gap-1 h-8 px-2.5 rounded-full border border-orange-400 text-orange-500 hover:bg-orange-500 hover:text-white transition-colors text-xs font-bold leading-none"
+                aria-label="Guide whole exercise"
+                className="flex min-h-11 items-center gap-1 rounded-full border border-orange-400 px-3 text-xs font-bold leading-none text-orange-500 transition-colors hover:bg-orange-500 hover:text-white"
               >
                 ▶ All
               </button>
@@ -1820,6 +1885,14 @@ export default function WorkoutLogger({
                       )}
                       {s.exerciseCategory !== 'cardio' && (
                         <button
+                          onMouseDown={(e) => { e.preventDefault(); applyEditedRepsToExercise(s) }}
+                          className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-bold text-zinc-600 transition-colors hover:border-orange-400 hover:text-orange-500 dark:border-zinc-700 dark:text-zinc-400"
+                        >
+                          Apply reps to all sets
+                        </button>
+                      )}
+                      {s.exerciseCategory !== 'cardio' && (
+                        <button
                           onMouseDown={(e) => { e.preventDefault(); guidedFromEdit(s) }}
                           title="Guided set (adjust tempo, reps, weight)"
                           aria-label="Start guided set"
@@ -1835,7 +1908,7 @@ export default function WorkoutLogger({
                       >
                         ✓ Complete
                       </button>
-                      <button aria-label="Close set editor" onClick={() => setEditingId(null)} className="text-zinc-300 dark:text-zinc-700 hover:text-red-500 transition-colors text-sm shrink-0">✕</button>
+                      <button aria-label="Save and close set editor" onClick={() => saveEditSet(s.localId)} className="text-zinc-300 dark:text-zinc-700 hover:text-orange-500 transition-colors text-sm shrink-0">✓</button>
                     </div>
                   </div>
                   {s.exerciseCategory !== 'cardio' && (
@@ -2403,6 +2476,19 @@ export default function WorkoutLogger({
               </div>
             </div>
 
+            <label className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
+              <span>
+                <span className="block text-sm font-bold text-zinc-800 dark:text-zinc-200">Rest after each set</span>
+                <span className="block text-xs text-zinc-500">Use the same counter and target as the home rest timer.</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={guideRestBetweenSets}
+                onChange={(event) => setGuideRestBetweenSets(event.target.checked)}
+                className="size-5 accent-orange-500"
+              />
+            </label>
+
             <div className="flex flex-col gap-2">
               <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Per-set goals</span>
               {guideSetup.rows.map((r, i) => (
@@ -2433,6 +2519,12 @@ export default function WorkoutLogger({
                 >
                   Apply set 1 weight to all
                 </button>
+                <button
+                  onClick={() => applyGuideRepsToAll(guideSetup.rows[0]?.reps ?? 1)}
+                  className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-bold text-zinc-600 transition-colors hover:border-orange-400 hover:text-orange-500 dark:border-zinc-700 dark:text-zinc-400"
+                >
+                  Apply set 1 reps to all
+                </button>
               </div>
             </div>
 
@@ -2461,6 +2553,7 @@ export default function WorkoutLogger({
           tempo={tempo}
           sets={guideSetsFor(guidingExerciseId)}
           restSeconds={resolveRestTarget(ptRest[guidingExerciseId], restTarget)}
+          restBetweenSets={guideRestBetweenSets}
           onDone={handleGuideDone}
         />
       )}
@@ -2470,7 +2563,7 @@ export default function WorkoutLogger({
       {guideReview && (
         <Modal
           title={`Review: ${guideReview.exerciseName}`}
-          onClose={() => setGuideReview(null)}
+          onClose={() => { /* Explicit choice required: log or leave pending. */ }}
           backdropClassName="fixed inset-0 bg-black/70 flex items-center justify-center z-[75] px-4"
           panelClassName="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl max-h-[85vh] overflow-y-auto outline-none"
         >
@@ -2484,7 +2577,7 @@ export default function WorkoutLogger({
             </div>
             <div className="flex flex-col gap-2">
               {guideReview.results.map((r, i) => (
-                <div key={r.localId} className="grid grid-cols-[4rem_minmax(0,1fr)] items-center gap-3">
+                <div key={r.localId} className="grid grid-cols-[4rem_minmax(0,1fr)] items-center gap-3 rounded-xl border border-zinc-100 p-2 dark:border-zinc-800">
                   <span className="w-16 shrink-0 text-xs font-bold text-zinc-400">
                     Set {i + 1}{r.weight ? ` · ${r.weight}kg` : ''}
                   </span>
@@ -2496,15 +2589,39 @@ export default function WorkoutLogger({
                     max={Math.max(r.goalReps, r.reps, 50)}
                     onChange={(v) => updateGuideReviewReps(r.localId, v)}
                   />
+                  <span className="text-[0.65rem] font-bold uppercase tracking-wide text-zinc-400">Difficulty</span>
+                  <div className="flex gap-1.5">
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        aria-label={`Set ${i + 1} difficulty ${value} of 5`}
+                        aria-pressed={r.difficulty === value}
+                        onClick={() => updateGuideReviewDifficulty(r.localId, value)}
+                        className={`grid size-8 place-items-center rounded-full border text-xs font-bold ${r.difficulty === value ? 'border-orange-500 bg-orange-500 text-white' : 'border-zinc-300 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400'}`}
+                      >
+                        {value}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
-            <button
-              onClick={commitGuideReview}
-              className="w-full rounded-xl bg-orange-500 hover:bg-orange-600 py-2.5 text-sm font-bold text-white transition-colors"
-            >
-              Log these sets
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setGuideReview(null)}
+                className="flex-1 rounded-xl border border-zinc-300 py-2.5 text-sm font-bold text-zinc-600 dark:border-zinc-700 dark:text-zinc-300"
+              >
+                Leave pending
+              </button>
+              <button
+                onClick={commitGuideReview}
+                className="flex-1 rounded-xl bg-orange-500 py-2.5 text-sm font-bold text-white hover:bg-orange-600"
+              >
+                Log these sets
+              </button>
+            </div>
           </>
         </Modal>
       )}

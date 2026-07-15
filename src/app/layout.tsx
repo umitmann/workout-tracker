@@ -16,11 +16,27 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Workout Tracker",
   description: "Log workouts, track sets and rest, and follow guided tempo training.",
+  applicationName: "Workout Tracker",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "Workout",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  formatDetection: { telephone: false },
 };
 
 // themeColor moved out of `metadata` into `viewport` per Next 16 (see
 // node_modules/next/dist/docs/01-app/03-api-reference/04-functions/generate-viewport.md).
 export const viewport: Viewport = {
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f7f6f2" },
     { media: "(prefers-color-scheme: dark)", color: "#0d100e" },

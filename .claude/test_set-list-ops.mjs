@@ -17,6 +17,7 @@ const {
   commitPending,
   resolveEditFields,
   applyWeightToExercise,
+  applyRepsToExercise,
 } = await import('../src/lib/setListOps.ts')
 
 function set(overrides = {}) {
@@ -97,6 +98,21 @@ test('applyWeightToExercise can clear weights and never mutates the source drops
   const next = applyWeightToExercise(sets, 1, null)
 
   assert.deepEqual(next.map((s) => s.weight), [null, null])
+  assert.deepEqual(sets, snapshot)
+})
+
+test('applyRepsToExercise explicitly applies one rep target to every set of that exercise', () => {
+  const sets = [
+    set({ localId: 'a1', exerciseId: 1, weight: 80, reps: 8, done: true }),
+    set({ localId: 'a2', exerciseId: 1, weight: 70, reps: 10, done: false }),
+    set({ localId: 'b1', exerciseId: 2, weight: 25, reps: 12, done: true }),
+  ]
+  const snapshot = structuredClone(sets)
+  const next = applyRepsToExercise(sets, 1, 6)
+
+  assert.deepEqual(next.map((s) => s.reps), [6, 6, 12])
+  assert.deepEqual(next.map((s) => s.weight), [80, 70, 25])
+  assert.deepEqual(next.map((s) => s.done), [true, false, true])
   assert.deepEqual(sets, snapshot)
 })
 
