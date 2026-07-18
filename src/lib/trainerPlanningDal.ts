@@ -6,7 +6,7 @@ import { isCalendarDate } from './personalTrainerAccess'
 import { getServerAuthContext } from './serverAuth'
 import { listTrainerRelationshipAudit } from './trainerRelationshipDal'
 import type { TrainerRelationshipSummary } from './trainerRelationshipTypes'
-import { isTraineeAgendaPlan } from './trainerPlanningTypes'
+import { isUpcomingTraineeAgendaPlan } from './trainerPlanningTypes'
 import type {
   AttributedWorkoutPlan,
   WorkoutPlanDetail,
@@ -202,8 +202,7 @@ export async function listAttributedWorkoutPlanDetails(
   limit = 12,
 ): Promise<AttributedWorkoutPlan[]> {
   const summaries = (await listMyWorkoutPlans(from, to))
-    .filter(isTraineeAgendaPlan)
-    .filter((plan) => plan.status !== 'cancelled')
+    .filter(isUpcomingTraineeAgendaPlan)
     .slice(0, Math.max(0, Math.min(limit, 30)))
   const [attribution, details] = await Promise.all([
     planAttribution(relationships),
@@ -211,6 +210,7 @@ export async function listAttributedWorkoutPlanDetails(
   ])
   return details
     .filter((plan): plan is WorkoutPlanDetail => plan != null)
+    .filter(isUpcomingTraineeAgendaPlan)
     .map((plan) => ({
       ...plan,
       assigned_by_name: plan.trainer_assigned

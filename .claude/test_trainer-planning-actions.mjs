@@ -7,7 +7,10 @@ const {
   cancelWorkoutPlanCore,
   startWorkoutPlanCore,
 } = await import('../src/app/actions/trainerPlanningCores.ts')
-const { isTraineeAgendaPlan } = await import('../src/lib/trainerPlanningTypes.ts')
+const {
+  isTraineeAgendaPlan,
+  isUpcomingTraineeAgendaPlan,
+} = await import('../src/lib/trainerPlanningTypes.ts')
 
 const RELATIONSHIP_ID = '6e57b73e-e7bf-4c5f-9f8e-c0b536f51b81'
 const ROUTINE_ID = '19ee3335-95b5-4d78-a7b6-cf09a994dc01'
@@ -138,4 +141,13 @@ test('dual-role users see only their trainee-owned plans in the personal agenda'
   assert.equal(isTraineeAgendaPlan({ trainer_assigned: false, assigned_by_me: true }), true)
   assert.equal(isTraineeAgendaPlan({ trainer_assigned: true, assigned_by_me: false }), true)
   assert.equal(isTraineeAgendaPlan({ trainer_assigned: true, assigned_by_me: true }), false)
+})
+
+test('the upcoming agenda keeps scheduled/started plans but removes completed history', () => {
+  const base = { trainer_assigned: true, assigned_by_me: false }
+  assert.equal(isUpcomingTraineeAgendaPlan({ ...base, status: 'scheduled' }), true)
+  assert.equal(isUpcomingTraineeAgendaPlan({ ...base, status: 'started' }), true)
+  assert.equal(isUpcomingTraineeAgendaPlan({ ...base, status: 'completed' }), false)
+  assert.equal(isUpcomingTraineeAgendaPlan({ ...base, status: 'cancelled' }), false)
+  assert.equal(isUpcomingTraineeAgendaPlan({ ...base, status: 'scheduled', assigned_by_me: true }), false)
 })

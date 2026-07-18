@@ -77,16 +77,14 @@ test.describe('immutable plan start in the real logger', () => {
       await test.step('atomic start opens the existing logger with the prescribed exercise', async () => {
         await expect(trainee.page).toHaveURL(/\/workout\/\d+$/)
         await expect(trainee.page.getByText(exerciseMarker, { exact: false }).first()).toBeVisible()
+      })
 
-        // Keep the disposable fixture tidy at the workout layer. The started
-        // plan/audit row remains intentionally immutable and is removed only
-        // by resetting this dedicated test project.
-        await trainee.page.getByRole('button', { name: /back/i }).first().click()
-        const leave = trainee.page.getByRole('dialog', { name: /leave workout/i })
-        await leave.getByRole('button', { name: /delete workout/i }).click()
-        const confirm = trainee.page.getByRole('dialog', { name: /delete this workout/i })
-        await confirm.getByRole('button', { name: /^delete$/i }).click()
+      await test.step('completion removes the retained plan from the upcoming schedule', async () => {
+        await trainee.page.getByRole('button', { name: /^done$/i }).click()
         await expect(trainee.page).toHaveURL(/\/dashboard(?:\?|$)/)
+        await expect(trainee.page.getByRole('button', {
+          name: `Open workout plan on ${scheduledDate}: ${uniqueTitle}`,
+        })).toHaveCount(0)
       })
     } finally {
       await Promise.all([trainer.context.close(), trainee.context.close()])

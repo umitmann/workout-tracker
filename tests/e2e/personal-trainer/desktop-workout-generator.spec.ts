@@ -10,7 +10,7 @@ test.describe('desktop 3D workout generator', () => {
     const page = await context.newPage()
     try {
       await signIn(page, 'exerciseClient')
-      await page.goto('/workouts/new?preview=workout-lab')
+      await page.goto('/workouts/new')
 
       const toggle = page.getByRole('button', { name: 'Open 3D generator' })
       await expect(toggle).toBeVisible()
@@ -58,7 +58,7 @@ test.describe('desktop 3D workout generator', () => {
     const page = await context.newPage()
     try {
       await signIn(page, 'exerciseClient')
-      await page.goto('/workouts/new?preview=workout-lab')
+      await page.goto('/workouts/new')
       await page.getByRole('button', { name: 'Open 3D generator' }).click()
       await expect(page.getByTestId('desktop-workout-generator')).toBeVisible()
 

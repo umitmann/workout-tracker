@@ -25,6 +25,13 @@ export function isTraineeAgendaPlan(
   return !plan.trainer_assigned || !plan.assigned_by_me
 }
 
+/** Upcoming means actionable: not a cancelled plan and not retained history. */
+export function isUpcomingTraineeAgendaPlan(
+  plan: Pick<WorkoutPlanSummary, 'trainer_assigned' | 'assigned_by_me' | 'status'>,
+): boolean {
+  return isTraineeAgendaPlan(plan) && (plan.status === 'scheduled' || plan.status === 'started')
+}
+
 export type WorkoutPlanExercise = {
   exercise_id: number
   exercise_name: string

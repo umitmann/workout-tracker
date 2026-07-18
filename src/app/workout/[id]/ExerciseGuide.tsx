@@ -3,12 +3,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { TempoConfig, TempoPhase, secondsLeft } from '@/lib/tempo'
 import {
+  activeElapsedSeconds,
+  guidedCountdownVoiceAnnouncement,
+  guidedPhaseVoiceAnnouncement,
   guidedRestAudioCue,
   guidedStateAt,
   stopEarlyReps,
   READY_SECONDS,
   readySecondsLeft,
+  resumedStartTime,
 } from '@/lib/guidedTimer'
+import { cancelGuidedSpeech, speakGuided } from '@/lib/guidedSpeech'
 
 export type GuideSet = { localId: string; goalReps: number; weight: number | null }
 export type GuideResult = {
@@ -70,6 +75,7 @@ export default function ExerciseGuide({
   const [view, setView] = useState(() => guidedStateAt(tempo, sets[0]?.goalReps ?? 1, 0))
   const [restLeft, setRestLeft] = useState(restSeconds)
   const [readyLeft, setReadyLeft] = useState(READY_SECONDS)
+  const [paused, setPaused] = useState(false)
   const [difficultyBySet, setDifficultyBySet] = useState<Record<string, number | null>>({})
 
   const resultsRef = useRef<GuideResult[]>([])
@@ -77,6 +83,9 @@ export default function ExerciseGuide({
   const idxRef = useRef(0)
   const startRef = useRef(0)
   const rafRef = useRef<number | null>(null)
+  const frameRef = useRef<(now: number) => void>(() => {})
+  const pausedRef = useRef(false)
+  const pausedElapsedRef = useRef(0)
   const ctxRef = useRef<AudioContext | null>(null)
   const audioRef = useRef(audio)
   const lastPhaseRef = useRef('')
@@ -93,10 +102,12 @@ export default function ExerciseGuide({
       ctxRef.current.resume?.().catch(() => {})
     }
     startRef.current = performance.now()
+    frameRef.current = loop
     rafRef.current = requestAnimationFrame(loop)
     return () => {
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
       ctxRef.current?.close().catch(() => {})
+      cancelGuidedSpeech()
     }
     // The guide is a run snapshot: changing its inputs remounts it upstream.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -109,7 +120,7 @@ export default function ExerciseGuide({
   }
 
   function restElapsedSeconds() {
-    return Math.max(0, Math.round((performance.now() - startRef.current) / 1000))
+    return Math.round(elapsedNow())
   }
 
   function recordRest(elapsedSeconds: number) {
@@ -119,14 +130,18 @@ export default function ExerciseGuide({
   }
 
   function loop(now: number) {
-    const elapsed = (now - startRef.current) / 1000
+    if (pausedRef.current || doneRef.current) return
+    const elapsed = activeElapsedSeconds(startRef.current, now)
 
     if (modeRef.current === 'ready') {
       const left = readySecondsLeft(elapsed)
       setReadyLeft(left)
       if (left !== readyTickRef.current) {
         readyTickRef.current = left
-        if (left >= 1 && audioRef.current && ctxRef.current) tone(ctxRef.current, 500, 90, 0.2)
+        if (left >= 1 && audioRef.current) {
+          if (ctxRef.current) tone(ctxRef.current, 500, 90, 0.2)
+          speakGuided(String(left))
+        }
       }
       if (elapsed >= READY_SECONDS) { beginSet(); return }
     } else if (modeRef.current === 'set') {
@@ -137,11 +152,14 @@ export default function ExerciseGuide({
         lastPhaseRef.current = phaseKey
         lastTickRef.current = state.secondsLeft
         if (audioRef.current && ctxRef.current) tone(ctxRef.current, PHASE_TONE[state.phase], 140)
+        if (audioRef.current) speakGuided(guidedPhaseVoiceAnnouncement(state.phase, state.secondsLeft), true)
         if (audioRef.current && typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(45)
       } else if (state.secondsLeft !== lastTickRef.current) {
         if (state.secondsLeft >= 1 && state.secondsLeft <= 3 && audioRef.current && ctxRef.current) {
           tone(ctxRef.current, 700 + (3 - state.secondsLeft) * 120, 70, 0.18)
         }
+        const announcement = guidedCountdownVoiceAnnouncement(state.secondsLeft)
+        if (announcement && audioRef.current) speakGuided(announcement, true)
         lastTickRef.current = state.secondsLeft
       }
       setView(state)
@@ -157,6 +175,11 @@ export default function ExerciseGuide({
           if (cue === 'halfway') tone(ctxRef.current, 520, 180, 0.25)
           if (cue === 'countdown') tone(ctxRef.current, 700 + (3 - wholeSecondsLeft) * 120, 90, 0.22)
           if (cue === 'complete') tone(ctxRef.current, 660, 250, 0.3)
+        }
+        if (cue && audioRef.current) {
+          if (cue === 'halfway') speakGuided('Halfway')
+          if (cue === 'countdown') speakGuided(String(wholeSecondsLeft), true)
+          if (cue === 'complete') speakGuided('Rest complete', true)
         }
       }
       if (elapsed >= restSeconds) {
@@ -204,8 +227,7 @@ export default function ExerciseGuide({
   function stopSet() {
     if (doneRef.current || modeRef.current !== 'set') return
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
-    const elapsed = (performance.now() - startRef.current) / 1000
-    completeSet(stopEarlyReps(tempo, sets[idxRef.current].goalReps, elapsed))
+    completeSet(stopEarlyReps(tempo, sets[idxRef.current].goalReps, elapsedNow()))
   }
 
   function skipRest() {
@@ -230,6 +252,40 @@ export default function ExerciseGuide({
     if (result) upsertResult({ ...result, difficulty: nextValue })
   }
 
+  function elapsedNow() {
+    return pausedRef.current
+      ? pausedElapsedRef.current
+      : activeElapsedSeconds(startRef.current, performance.now())
+  }
+
+  function togglePause() {
+    if (doneRef.current) return
+    if (!pausedRef.current) {
+      pausedElapsedRef.current = activeElapsedSeconds(startRef.current, performance.now())
+      pausedRef.current = true
+      setPaused(true)
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+      cancelGuidedSpeech()
+      return
+    }
+
+    startRef.current = resumedStartTime(performance.now(), pausedElapsedRef.current)
+    pausedRef.current = false
+    setPaused(false)
+    if (modeRef.current === 'ready') readyTickRef.current = -1
+    if (modeRef.current === 'set') lastPhaseRef.current = ''
+    if (modeRef.current === 'rest') lastRestCueSecondRef.current = -1
+    rafRef.current = requestAnimationFrame(frameRef.current)
+  }
+
+  function toggleAudio() {
+    setAudio((current) => {
+      if (current) cancelGuidedSpeech()
+      return !current
+    })
+  }
+
   // Back/Exit never silently commits or discards. It captures an in-progress
   // set (including 0 reps), hands off an in-progress rest, and opens the
   // editable review in the logger.
@@ -238,10 +294,9 @@ export default function ExerciseGuide({
     const current = sets[idxRef.current]
     let activeRest: GuidedRestHandoff | undefined
     if (current && modeRef.current === 'set') {
-      const elapsed = (performance.now() - startRef.current) / 1000
       upsertResult({
         localId: current.localId,
-        reps: stopEarlyReps(tempo, current.goalReps, elapsed),
+        reps: stopEarlyReps(tempo, current.goalReps, elapsedNow()),
         difficulty: difficultyBySet[current.localId] ?? null,
       })
     } else if (current && modeRef.current === 'ready' && !resultsRef.current.some((result) => result.localId === current.localId)) {
@@ -258,6 +313,7 @@ export default function ExerciseGuide({
     if (doneRef.current) return
     doneRef.current = true
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
+    cancelGuidedSpeech()
     onDone([...resultsRef.current], activeRest)
   }
 
@@ -268,18 +324,23 @@ export default function ExerciseGuide({
   return (
     <div className={`fixed inset-0 z-[80] flex flex-col ${bg} text-white transition-colors duration-150`}>
       <div className="flex items-center justify-between px-4 pt-[max(1.5rem,env(safe-area-inset-top))] sm:px-6">
-        <p className="truncate text-sm font-bold uppercase tracking-widest text-white/80">
+        <p className="min-w-0 flex-1 truncate text-sm font-bold uppercase tracking-widest text-white/80">
           {exerciseName} · Set {setNum}/{sets.length}
         </p>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setAudio((value) => !value)} className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold transition-colors hover:bg-white/25" aria-label={audio ? 'Turn audio off' : 'Turn audio on'}>
+        <div className="flex shrink-0 items-center gap-2">
+          <button type="button" onClick={togglePause} className="grid min-h-11 min-w-11 place-items-center rounded-full bg-white/15 px-3 text-xs font-bold transition-colors hover:bg-white/25" aria-label={paused ? 'Resume guidance' : 'Pause guidance'} aria-pressed={paused}>
+            {paused ? '▶' : '⏸'}
+          </button>
+          <button onClick={toggleAudio} className="grid min-h-11 min-w-11 place-items-center rounded-full bg-white/15 px-3 text-xs font-bold transition-colors hover:bg-white/25" aria-label={audio ? 'Turn audio off' : 'Turn audio on'}>
             {audio ? '🔊' : '🔇'}
           </button>
-          <button onClick={exitForReview} className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors hover:bg-white/25">
+          <button onClick={exitForReview} className="min-h-11 rounded-full bg-white/15 px-3 text-xs font-bold uppercase tracking-wide transition-colors hover:bg-white/25">
             Review &amp; exit
           </button>
         </div>
       </div>
+
+      {paused && <p role="status" className="mx-auto mt-4 rounded-full bg-black/25 px-4 py-2 text-sm font-black tracking-[0.25em]">PAUSED</p>}
 
       {mode === 'ready' ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">

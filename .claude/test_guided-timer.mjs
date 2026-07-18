@@ -14,6 +14,11 @@ const {
   guidedRestAudioCue,
   READY_SECONDS,
   readySecondsLeft,
+  activeElapsedSeconds,
+  resumedStartTime,
+  guidedMovementVoiceCue,
+  guidedPhaseVoiceAnnouncement,
+  guidedCountdownVoiceAnnouncement,
 } = await import('../src/lib/guidedTimer.ts')
 const { restViewAt, formatClock, startsRestOnComplete, shouldStickRestBar } = await import('../src/lib/restTimer.ts')
 
@@ -117,6 +122,35 @@ test('guided rest counts the final three seconds and signals completion', () => 
 
 test('very short rests prioritize countdown over a halfway cue', () => {
   assert.equal(guidedRestAudioCue(4, 2), 'countdown')
+})
+
+// ─── Spoken guidance + resumable clock ─────────────────────────────────────
+
+test('spoken movement cues use the requested up, down, hold, and lower vocabulary', () => {
+  assert.equal(guidedMovementVoiceCue('up'), 'Up')
+  assert.equal(guidedMovementVoiceCue('down'), 'Down. Lower')
+  assert.equal(guidedMovementVoiceCue('rest'), 'Hold')
+  assert.equal(guidedMovementVoiceCue('hold'), 'Hold')
+})
+
+test('phase speech combines the movement with a final-three voice countdown', () => {
+  assert.equal(guidedPhaseVoiceAnnouncement('down', 3), 'Down. Lower. 3')
+  assert.equal(guidedPhaseVoiceAnnouncement('up', 1), 'Up. 1')
+  assert.equal(guidedPhaseVoiceAnnouncement('hold', 5), 'Hold')
+  assert.equal(guidedCountdownVoiceAnnouncement(3), '3')
+  assert.equal(guidedCountdownVoiceAnnouncement(1), '1')
+  assert.equal(guidedCountdownVoiceAnnouncement(0), null)
+  assert.equal(guidedCountdownVoiceAnnouncement(4), null)
+})
+
+test('pause/resume clock preserves elapsed guidance time without counting the pause', () => {
+  assert.equal(activeElapsedSeconds(10_000, 12_500), 2.5)
+  assert.equal(activeElapsedSeconds(12_500, 10_000), 0)
+
+  const elapsedAtPause = activeElapsedSeconds(10_000, 12_500)
+  const restartedAt = resumedStartTime(22_500, elapsedAtPause)
+  assert.equal(restartedAt, 20_000)
+  assert.equal(activeElapsedSeconds(restartedAt, 23_500), 3.5)
 })
 
 // ─── Rest timer ──────────────────────────────────────────────────────────────

@@ -48,6 +48,36 @@ export function isTickSecond(sec: number): boolean {
   return sec >= 1 && sec <= 3
 }
 
+// Monotonic clock helpers shared by both guided experiences. A paused session
+// stores elapsed time and reconstructs its start timestamp on resume, so time
+// spent paused can never advance a rep, ready countdown, or rest countdown.
+export function activeElapsedSeconds(startedAtMs: number, nowMs: number): number {
+  return Math.max(0, (nowMs - startedAtMs) / 1000)
+}
+
+export function resumedStartTime(nowMs: number, elapsedSeconds: number): number {
+  return nowMs - Math.max(0, elapsedSeconds) * 1000
+}
+
+// Speech uses literal movement words rather than relying on differently
+// pitched beeps. "Down. Lower" makes the eccentric instruction explicit while
+// retaining both terms athletes commonly configure/read in the tempo UI.
+export function guidedMovementVoiceCue(phase: TempoPhase): string {
+  if (phase === 'down') return 'Down. Lower'
+  if (phase === 'up') return 'Up'
+  return 'Hold'
+}
+
+export function guidedCountdownVoiceAnnouncement(seconds: number): string | null {
+  return isTickSecond(seconds) ? String(seconds) : null
+}
+
+export function guidedPhaseVoiceAnnouncement(phase: TempoPhase, seconds: number): string {
+  const movement = guidedMovementVoiceCue(phase)
+  const countdown = guidedCountdownVoiceAnnouncement(seconds)
+  return countdown ? `${movement}. ${countdown}` : movement
+}
+
 export type GuidedRestAudioCue = 'halfway' | 'countdown' | 'complete' | null
 
 // Pure cue schedule for the between-set guided rest. The component de-dupes

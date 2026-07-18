@@ -49,6 +49,52 @@ async function restSecondsRemaining(page: Page): Promise<number> {
   return Number(match[1]) * 60 + Number(match[2])
 }
 
+async function installSpeechRecorder(page: Page) {
+  const install = () => {
+    const spoken: string[] = []
+    class RecordedUtterance {
+      text: string
+      lang = ''
+      rate = 1
+      pitch = 1
+      volume = 1
+
+      constructor(text: string) {
+        this.text = text
+      }
+    }
+    Object.defineProperty(window, '__guidedSpeech', {
+      configurable: true,
+      value: spoken,
+    })
+    Object.defineProperty(window, 'SpeechSynthesisUtterance', {
+      configurable: true,
+      value: RecordedUtterance,
+    })
+    Object.defineProperty(window, 'speechSynthesis', {
+      configurable: true,
+      value: {
+        speak(utterance: { text: string }) { spoken.push(utterance.text) },
+        cancel() {},
+        pause() {},
+        resume() {},
+        getVoices() { return [] },
+        pending: false,
+        speaking: false,
+        paused: false,
+        onvoiceschanged: null,
+        addEventListener() {},
+        removeEventListener() {},
+        dispatchEvent() { return true },
+      },
+    })
+  }
+  // Install into the current signed-in document for client-side navigations,
+  // and into every later document in case a Server Action causes a full load.
+  await page.addInitScript(install)
+  await page.evaluate(install)
+}
+
 test.describe('active workout guided behavior', () => {
   test.skip(!ptE2eEnabled(), 'Set PT_E2E_ENABLED=true with disposable local fixtures.')
 
@@ -168,6 +214,58 @@ test.describe('active workout guided behavior', () => {
 
       await expect(session.page.getByRole('paragraph').filter({ hasText: /^1$/ })).toBeVisible()
       await expect(session.page.getByTitle('Difficulty 4 of 5')).toBeVisible()
+      await deleteWorkout(session.page)
+    } finally {
+      await session.context.close()
+    }
+  })
+
+  test('speaks movement/countdown cues and pause freezes guidance until play resumes', async ({ browser }) => {
+    const session = await newSignedInContext(browser, 'exerciseClient')
+    try {
+      await installSpeechRecorder(session.page)
+      await startWorkoutWithExercise(session.page)
+      await addStrengthSet(session.page, '60', '1')
+      await session.page.getByText('60 kg', { exact: true }).click()
+      await session.page.getByRole('button', { name: /start guided set/i }).click()
+      const setup = session.page.getByRole('dialog', { name: /guided set:/i })
+      for (const [label, value] of [
+        ['Goal reps', '1'],
+        ['Down', '1'],
+        ['Rest', '1'],
+        ['Up', '1'],
+        ['Hold', '1'],
+      ] as const) {
+        await enterStepper(session.page, setup, label, value)
+      }
+      await setup.getByRole('button', { name: /^start$/i }).click()
+      await session.page.getByRole('button', { name: /start now/i }).click()
+
+      await expect(session.page.getByText('LOWER', { exact: true })).toBeVisible()
+      const countdown = session.page.getByTestId('guided-countdown')
+      const frozenValue = await countdown.textContent()
+      await session.page.getByRole('button', { name: /^pause guidance$/i }).click()
+      await expect(session.page.getByText('PAUSED', { exact: true })).toBeVisible()
+      const speechCountAtPause = await session.page.evaluate(
+        () => ((window as unknown as { __guidedSpeech: string[] }).__guidedSpeech).length,
+      )
+      await session.page.waitForTimeout(1_300)
+      await expect(countdown).toHaveText(frozenValue ?? '')
+      await expect.poll(() => session.page.evaluate(
+        () => ((window as unknown as { __guidedSpeech: string[] }).__guidedSpeech).length,
+      )).toBe(speechCountAtPause)
+
+      await session.page.getByRole('button', { name: /^resume guidance$/i }).click()
+      await expect(session.page.getByText('PAUSED', { exact: true })).toHaveCount(0)
+      await expect(session.page.getByRole('button', { name: /audio on/i })).toBeHidden({ timeout: 8_000 })
+
+      const spoken = await session.page.evaluate(
+        () => (window as unknown as { __guidedSpeech: string[] }).__guidedSpeech.join(' | '),
+      )
+      expect(spoken).toMatch(/Down\. Lower/i)
+      expect(spoken).toMatch(/Hold/i)
+      expect(spoken).toMatch(/Up/i)
+      expect(spoken).toMatch(/\b1\b/)
       await deleteWorkout(session.page)
     } finally {
       await session.context.close()

@@ -14,11 +14,26 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 
 const { stopEarlyReps, completedRepsAt } = await import('../src/lib/guidedTimer.ts')
 const { mergeGuideResults, lastCompletedGuideSetId } = await import('../src/lib/setListOps.ts')
 
 const T = { down: 3, rest: 1, up: 2, hold: 1 } // repDuration = 7
+
+test('single-set and whole-exercise guidance both wire speech and pause/play controls', async () => {
+  const [single, whole] = await Promise.all([
+    readFile(new URL('../src/app/workout/[id]/DruhTimer.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/workout/[id]/ExerciseGuide.tsx', import.meta.url), 'utf8'),
+  ])
+  for (const source of [single, whole]) {
+    assert.match(source, /speakGuided/)
+    assert.match(source, /cancelGuidedSpeech/)
+    assert.match(source, /resumedStartTime/)
+    assert.match(source, /Pause guidance/)
+    assert.match(source, /Resume guidance/)
+  }
+})
 
 function set(overrides = {}) {
   return {

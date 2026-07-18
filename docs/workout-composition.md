@@ -4,7 +4,7 @@
 
 The guide is an optional layer over the existing template editor. It composes one unsaved session, adds only the exercise and prescription the athlete explicitly accepts, and never saves, schedules, starts, removes, or replaces existing work on its own.
 
-The guide and both muscle-anatomy planners are preview-only while unfinished. They are absent from the normal editor and become visible for an authenticated user only when the editor URL contains the exact query parameter `?preview=workout-lab`. This is a product-visibility flag, not an authorization control.
+The questionnaire guide and mobile anatomy planner are preview-only while unfinished. They are absent from the normal editor and become visible for an authenticated user only when the editor URL contains the exact query parameter `?preview=workout-lab`. This is a product-visibility flag, not an authorization control. The established 3D planner is available in production from the normal editor at desktop widths (1,024px and wider), remains opt-in behind “Open 3D generator,” and still falls back to the classic editor below that breakpoint.
 
 The current editor does not load a complete training week. The guide therefore shows an evidence-informed weekly direction but does not claim that one draft proves adequate weekly frequency or volume. The pure engine can analyze multiple sessions when that data is supplied in a future planner integration.
 

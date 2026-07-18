@@ -475,7 +475,7 @@ export default function TemplateEditor({
           {template ? 'Edit template' : 'New template'}
         </h1>
         <div className="ml-auto flex items-center gap-2">
-          {workoutLabPreview && <button
+          <button
             type="button"
             onClick={toggleGeneratorMode}
             disabled={!desktopEligible}
@@ -483,7 +483,7 @@ export default function TemplateEditor({
             className="hidden lg:inline-flex rounded-full border border-orange-400 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-orange-600 transition-colors hover:bg-orange-50 disabled:opacity-40 dark:text-orange-400 dark:hover:bg-orange-950/20"
           >
             {generatorMode === 'desktop' ? 'Use classic editor' : 'Open 3D generator'}
-          </button>}
+          </button>
           {items.length > 0 && (
             <button
               onClick={handleCopy}
@@ -510,7 +510,7 @@ export default function TemplateEditor({
         </div>
       </header>
 
-      {workoutLabPreview && generatorMode === 'desktop' && desktopEligible ? (
+      {generatorMode === 'desktop' && desktopEligible ? (
         <DesktopWorkoutGenerator
           exercises={exercises}
           items={items}
@@ -526,7 +526,7 @@ export default function TemplateEditor({
           onSave={handleSave}
           onStart={handleStartNow}
           onUseClassic={() => setGeneratorMode('classic')}
-          onOpenGuide={() => setShowCompositionGuide(true)}
+          onOpenGuide={workoutLabPreview ? () => setShowCompositionGuide(true) : undefined}
         />
       ) : (
       <main className="max-w-lg mx-auto px-6 py-6 flex flex-col gap-6">

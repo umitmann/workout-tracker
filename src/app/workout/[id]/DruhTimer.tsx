@@ -2,7 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { TempoConfig, TempoPhase, TEMPO_PHASE_CUE, repDuration, formatTempo } from '@/lib/tempo'
-import { guidedStateAt, stopEarlyReps, isTickSecond, READY_SECONDS, readySecondsLeft } from '@/lib/guidedTimer'
+import {
+  activeElapsedSeconds,
+  guidedCountdownVoiceAnnouncement,
+  guidedPhaseVoiceAnnouncement,
+  guidedStateAt,
+  stopEarlyReps,
+  isTickSecond,
+  READY_SECONDS,
+  readySecondsLeft,
+  resumedStartTime,
+} from '@/lib/guidedTimer'
+import { cancelGuidedSpeech, speakGuided } from '@/lib/guidedSpeech'
 
 // Full-bleed background colour per phase so the phase is readable peripherally,
 // across the room, and through sweat/glare. Paired with the verb (never colour
@@ -57,6 +68,7 @@ export default function DruhTimer({
   const [rep, setRep] = useState(initial.rep)
   const [phase, setPhase] = useState<TempoPhase>(initial.phase)
   const [secs, setSecs] = useState(initial.secondsLeft)
+  const [paused, setPaused] = useState(false)
   // Tile 11: an early Stop & log surfaces the computed rep count for
   // confirm/adjust rather than saving it silently (the count over-counts if
   // the lifter paused mid-set). null = not confirming (still running).
@@ -65,7 +77,10 @@ export default function DruhTimer({
   const [confirmDifficulty, setConfirmDifficulty] = useState<number | null>(null)
 
   const rafRef = useRef<number | null>(null)
+  const frameRef = useRef<(now: number) => void>(() => {})
   const startRef = useRef<number>(0)
+  const pausedRef = useRef(false)
+  const pausedElapsedRef = useRef(0)
   const readyRef = useRef(true)
   const readyTickRef = useRef(-1)
   const lastPhaseRef = useRef<string>('')
@@ -86,7 +101,8 @@ export default function DruhTimer({
     startRef.current = performance.now()
 
     function frame(now: number) {
-      const elapsed = (now - startRef.current) / 1000
+      if (pausedRef.current || doneRef.current) return
+      const elapsed = activeElapsedSeconds(startRef.current, now)
 
       // GET READY lead-in before the first rep
       if (readyRef.current) {
@@ -94,7 +110,10 @@ export default function DruhTimer({
         setReady(left)
         if (left !== readyTickRef.current) {
           readyTickRef.current = left
-          if (left >= 1 && audioRef.current && ctxRef.current) tone(ctxRef.current, 500, 90, 0.2)
+          if (left >= 1 && audioRef.current) {
+            if (ctxRef.current) tone(ctxRef.current, 500, 90, 0.2)
+            speakGuided(String(left))
+          }
         }
         if (elapsed >= READY_SECONDS) {
           readyRef.current = false
@@ -119,12 +138,15 @@ export default function DruhTimer({
         lastPhaseRef.current = phaseKey
         lastTickRef.current = left // seed so we don't also tick this same second
         if (audioRef.current && ctxRef.current) tone(ctxRef.current, PHASE_TONE[s.phase], 140)
+        if (audioRef.current) speakGuided(guidedPhaseVoiceAnnouncement(s.phase, left), true)
         if (audioRef.current && typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(45)
       } else if (left !== lastTickRef.current) {
         // Per-second tick on the final 3 seconds of a phase ("get ready")
         if (isTickSecond(left) && audioRef.current && ctxRef.current) {
           tone(ctxRef.current, 700 + (3 - left) * 120, 70, 0.18)
         }
+        const announcement = guidedCountdownVoiceAnnouncement(left)
+        if (announcement && audioRef.current) speakGuided(announcement, true)
         lastTickRef.current = left
       }
 
@@ -134,10 +156,12 @@ export default function DruhTimer({
       rafRef.current = requestAnimationFrame(frame)
     }
 
+    frameRef.current = frame
     rafRef.current = requestAnimationFrame(frame)
     return () => {
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
       ctxRef.current?.close().catch(() => {})
+      cancelGuidedSpeech()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -146,20 +170,54 @@ export default function DruhTimer({
     if (doneRef.current) return
     doneRef.current = true
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
+    cancelGuidedSpeech()
     onStop(completedReps, confirmDifficulty)
+  }
+
+  function elapsedNow() {
+    return pausedRef.current
+      ? pausedElapsedRef.current
+      : activeElapsedSeconds(startRef.current, performance.now())
+  }
+
+  function togglePause() {
+    if (doneRef.current || confirmReps != null) return
+    if (!pausedRef.current) {
+      pausedElapsedRef.current = activeElapsedSeconds(startRef.current, performance.now())
+      pausedRef.current = true
+      setPaused(true)
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+      cancelGuidedSpeech()
+      return
+    }
+
+    startRef.current = resumedStartTime(performance.now(), pausedElapsedRef.current)
+    pausedRef.current = false
+    setPaused(false)
+    if (readyRef.current) readyTickRef.current = -1
+    else lastPhaseRef.current = ''
+    rafRef.current = requestAnimationFrame(frameRef.current)
+  }
+
+  function toggleAudio() {
+    setAudio((current) => {
+      if (current) cancelGuidedSpeech()
+      return !current
+    })
   }
 
   // Tile 11: pause the run and surface the computed count for confirm/adjust
   // instead of logging it silently — the lifter adjusts ± and saves.
   function handleStopEarly() {
     if (doneRef.current || confirmReps != null) return
-    const elapsed = (performance.now() - startRef.current) / 1000
-    pauseForConfirmation(stopEarlyReps(tempo, goalReps, elapsed))
+    pauseForConfirmation(stopEarlyReps(tempo, goalReps, elapsedNow()))
   }
 
   function pauseForConfirmation(repsCompleted: number) {
     if (doneRef.current || confirmReps != null) return
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
+    cancelGuidedSpeech()
     setConfirmReps(repsCompleted)
   }
 
@@ -175,9 +233,14 @@ export default function DruhTimer({
   }
 
   function skipReady() {
+    const wasPaused = pausedRef.current
+    pausedRef.current = false
+    setPaused(false)
     readyRef.current = false
     setReady(0)
     startRef.current = performance.now()
+    lastPhaseRef.current = ''
+    if (wasPaused) rafRef.current = requestAnimationFrame(frameRef.current)
   }
 
   const inReady = ready > 0
@@ -192,13 +255,28 @@ export default function DruhTimer({
         <p className="text-sm font-bold uppercase tracking-widest text-white/80">
           Rep {Math.min(rep, goalReps)} / {goalReps}
         </p>
-        <button
-          onClick={() => setAudio((a) => !a)}
-          className="text-xs font-bold uppercase tracking-wide px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 transition-colors"
-        >
-          {audio ? '🔊 Audio on' : '🔇 Audio off'}
-        </button>
+        <div className="flex items-center gap-2">
+          {!inConfirm && (
+            <button
+              type="button"
+              onClick={togglePause}
+              aria-label={paused ? 'Resume guidance' : 'Pause guidance'}
+              aria-pressed={paused}
+              className="min-h-11 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors hover:bg-white/25"
+            >
+              {paused ? '▶ Play' : '⏸ Pause'}
+            </button>
+          )}
+          <button
+            onClick={toggleAudio}
+            className="min-h-11 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors hover:bg-white/25"
+          >
+            {audio ? '🔊 Audio on' : '🔇 Audio off'}
+          </button>
+        </div>
       </div>
+
+      {paused && !inConfirm && <p role="status" className="mx-auto mt-4 rounded-full bg-black/25 px-4 py-2 text-sm font-black tracking-[0.25em]">PAUSED</p>}
 
       {inConfirm ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
@@ -252,7 +330,7 @@ export default function DruhTimer({
           <p className={`text-7xl leading-none drop-shadow ${phase === 'down' ? 'translate-y-1' : phase === 'up' ? '-translate-y-1' : ''} transition-transform`}>{cue.icon}</p>
           <p className="text-6xl sm:text-7xl font-black tracking-tight leading-none drop-shadow">{cue.verb}</p>
           <p className="text-lg font-semibold text-white/80">{cue.sub}</p>
-          <p className="mt-5 text-[8rem] leading-none font-black tabular-nums drop-shadow">{secs}</p>
+          <p data-testid="guided-countdown" className="mt-5 text-[8rem] leading-none font-black tabular-nums drop-shadow">{secs}</p>
           <p className="mt-3 text-sm font-bold uppercase tracking-[0.3em] text-white/70">Tempo {formatTempo(tempo)}</p>
         </div>
       )}
