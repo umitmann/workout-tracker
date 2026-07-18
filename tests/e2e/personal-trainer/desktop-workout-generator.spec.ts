@@ -20,6 +20,9 @@ test.describe('desktop 3D workout generator', () => {
       const generator = page.getByTestId('desktop-workout-generator')
       await expect(generator).toBeVisible()
       await expect(generator.getByLabel(/Interactive 3D muscle map/)).toBeVisible()
+      await expect(generator.locator('[data-anatomy-model="segmented-path-v2"]')).toBeVisible()
+      await expect(generator.getByRole('link', { name: 'BodyParts3D' })).toHaveAttribute('href', 'https://dbarchive.biosciencedbc.jp/en/bodyparts3d/')
+      await expect(generator.getByText('Surface atlas · path model')).toBeVisible({ timeout: 20_000 })
       await expect(generator.getByRole('button', { name: 'Front view' })).toBeVisible()
       await expect(generator.getByRole('button', { name: 'Back view' })).toBeVisible()
 

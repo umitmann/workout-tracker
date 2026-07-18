@@ -19,6 +19,13 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: '/models/bodyparts3d-muscles.b37dea4a.glb',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+        ],
+      },
+      {
         source: '/sw.js',
         headers: [
           { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
