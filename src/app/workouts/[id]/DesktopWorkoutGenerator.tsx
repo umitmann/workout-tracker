@@ -3,7 +3,7 @@
 import { useDeferredValue, useMemo, useState } from 'react'
 import type { SlimExercise } from '@/app/workout/[id]/ExercisePickerSheet'
 import { MUSCLE_GROUPS, musclesForGroup } from '@/lib/muscleGroups'
-import { calculateMuscleLoad } from '@/lib/muscleLoad'
+import { calculateDetailedMuscleLoad, calculateMuscleLoad } from '@/lib/muscleLoad'
 import MuscleBody3D from './MuscleBody3D'
 import type { TemplateExercise, TemplateExerciseUpdate } from './TemplateEditor'
 
@@ -66,13 +66,28 @@ export default function DesktopWorkoutGenerator({
     () => calculateMuscleLoad(items, exercises),
     [exercises, items],
   )
+  const detailedMuscleLoad = useMemo(
+    () => calculateDetailedMuscleLoad(items, exercises),
+    [exercises, items],
+  )
   const loadByMuscle = useMemo(
     () => Object.fromEntries(muscleLoad.muscles.map((entry) => [entry.muscle, entry.percentage])),
     [muscleLoad.muscles],
   )
+  const loadByDetailedMuscle = useMemo(
+    () => Object.fromEntries(detailedMuscleLoad.muscles.map((entry) => [entry.muscle, entry.percentage])),
+    [detailedMuscleLoad.muscles],
+  )
   const previewMuscles = useMemo(() => {
     const exercise = hoveredExerciseId == null ? null : exerciseById.get(hoveredExerciseId)
     return [...new Set([...(exercise?.muscles ?? []), ...(exercise?.muscles_secondary ?? [])])]
+  }, [exerciseById, hoveredExerciseId])
+  const previewDetailedMuscles = useMemo(() => {
+    const exercise = hoveredExerciseId == null ? null : exerciseById.get(hoveredExerciseId)
+    return [...new Set([
+      ...(exercise?.muscles_detailed ?? []),
+      ...(exercise?.muscles_secondary_detailed ?? []),
+    ])]
   }, [exerciseById, hoveredExerciseId])
 
   const filteredExercises = useMemo(() => {
@@ -99,8 +114,8 @@ export default function DesktopWorkoutGenerator({
   }
 
   return (
-    <main className="mx-auto w-full max-w-[1800px] px-6 py-6 2xl:px-10" data-testid="desktop-workout-generator">
-      <div className="mb-5 flex items-end gap-5">
+    <main className="mx-auto flex min-h-0 w-full max-w-[1800px] flex-1 flex-col overflow-hidden px-6 py-4 2xl:px-10" data-testid="desktop-workout-generator">
+      <div className="mb-4 flex shrink-0 items-end gap-5">
         <label className="min-w-0 flex-1">
           <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500">Workout name</span>
           <input
@@ -116,10 +131,10 @@ export default function DesktopWorkoutGenerator({
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">programmed sets</p>
         </div>
       </div>
-      {error && <p role="alert" className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-300">{error}</p>}
+      {error && <p role="alert" className="mb-4 shrink-0 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-300">{error}</p>}
 
-      <div className="grid grid-cols-[minmax(220px,0.78fr)_minmax(360px,1.25fr)_minmax(260px,0.9fr)] gap-3 xl:gap-5">
-        <section aria-label="Exercise library" className="flex min-h-0 min-w-0 flex-col rounded-[28px] border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(220px,0.78fr)_minmax(360px,1.25fr)_minmax(260px,0.9fr)] gap-3 overflow-hidden xl:gap-5">
+        <section aria-label="Exercise library" className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[28px] border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="mb-4">
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-orange-500">1 · Select</p>
             <h2 className="mt-1 text-xl font-black text-zinc-950 dark:text-white">Exercise library</h2>
@@ -154,7 +169,13 @@ export default function DesktopWorkoutGenerator({
               Clear {activeMuscle ? titleCase(activeMuscle) : 'muscle group'} filter
             </button>
           )}
-          <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 [scrollbar-gutter:stable]">
+          <div
+            aria-label="Exercise results"
+            data-testid="exercise-library-scroll"
+            role="region"
+            tabIndex={0}
+            className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1 outline-none [scrollbar-gutter:stable] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400"
+          >
             {filteredExercises.slice(0, CATALOG_WINDOW).map((exercise) => {
               const selectedCount = items.filter((item) => item.exerciseId === exercise.id).length
               return (
@@ -191,8 +212,8 @@ export default function DesktopWorkoutGenerator({
           {filteredExercises.length > CATALOG_WINDOW && <p className="mt-3 text-center text-[11px] text-zinc-500">Showing the first {CATALOG_WINDOW} of {filteredExercises.length}. Search to narrow the list.</p>}
         </section>
 
-        <section aria-label="Muscle exposure map" className="min-w-0">
-          <div className="mb-3 flex items-end justify-between px-1">
+        <section aria-label="Muscle exposure map" className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+          <div className="mb-3 flex shrink-0 items-end justify-between px-1">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-orange-500">2 · See the load</p>
               <h2 className="mt-1 text-xl font-black text-zinc-950 dark:text-white">Programmed muscle exposure</h2>
@@ -203,8 +224,21 @@ export default function DesktopWorkoutGenerator({
               <span className="size-2 rounded-full bg-red-500" /> Highest
             </div>
           </div>
-          <MuscleBody3D loadByMuscle={loadByMuscle} previewMuscles={previewMuscles} selectedMuscle={activeMuscle} onSelectMuscle={selectMuscle} />
-          <div className="mt-3 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+          <MuscleBody3D
+            className="min-h-[260px] flex-1"
+            loadByMuscle={loadByMuscle}
+            loadByDetailedMuscle={loadByDetailedMuscle}
+            previewMuscles={previewMuscles}
+            previewDetailedMuscles={previewDetailedMuscles}
+            selectedMuscle={activeMuscle}
+            onSelectMuscle={selectMuscle}
+          />
+          <div
+            aria-label="Muscle exposure controls"
+            role="region"
+            tabIndex={0}
+            className="mt-3 max-h-[180px] shrink-0 overflow-y-auto overscroll-contain rounded-2xl border border-zinc-200 bg-white p-3 outline-none [scrollbar-gutter:stable] focus-visible:ring-2 focus-visible:ring-orange-400 dark:border-zinc-800 dark:bg-zinc-900"
+          >
             <div className="mb-2 flex items-center justify-between gap-3">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Keyboard muscle map</p>
               <p className="text-[10px] text-zinc-500">Primary set = 1.0 · Secondary set = 0.5</p>
@@ -233,7 +267,7 @@ export default function DesktopWorkoutGenerator({
           </div>
         </section>
 
-        <section aria-label="Selected workout" className="flex min-h-0 min-w-0 flex-col rounded-[28px] border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <section aria-label="Selected workout" className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[28px] border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="mb-4 flex items-start justify-between">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-orange-500">3 · Program</p>
@@ -246,10 +280,28 @@ export default function DesktopWorkoutGenerator({
               Guide my workout <span aria-hidden="true">→</span>
             </button>
           )}
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 [scrollbar-gutter:stable]">
+          <div
+            aria-label="Selected workout exercises"
+            data-testid="selected-workout-scroll"
+            role="region"
+            tabIndex={0}
+            className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 outline-none [scrollbar-gutter:stable] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400"
+          >
             {items.length === 0 && <div className="rounded-2xl border-2 border-dashed border-zinc-200 px-5 py-12 text-center dark:border-zinc-700"><p className="text-sm font-bold text-zinc-700 dark:text-zinc-300">Build from the library</p><p className="mt-1 text-xs leading-5 text-zinc-500">Exercises appear here with their set targets.</p></div>}
             {items.map((item, index) => (
-              <article key={item.localId} className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 dark:border-zinc-700 dark:bg-zinc-950/60">
+              <article
+                key={item.localId}
+                data-preview-source="selected-workout"
+                onMouseEnter={() => setHoveredExerciseId(item.exerciseId)}
+                onMouseLeave={() => setHoveredExerciseId((current) => current === item.exerciseId ? null : current)}
+                onFocus={() => setHoveredExerciseId(item.exerciseId)}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                    setHoveredExerciseId((current) => current === item.exerciseId ? null : current)
+                  }
+                }}
+                className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 transition hover:border-orange-300 hover:bg-orange-50/50 focus-within:border-orange-400 focus-within:ring-2 focus-within:ring-orange-100 dark:border-zinc-700 dark:bg-zinc-950/60 dark:hover:border-orange-800 dark:hover:bg-orange-950/10 dark:focus-within:ring-orange-950/40"
+              >
                 <div className="flex items-start gap-2">
                   <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-zinc-900 text-[10px] font-black text-white dark:bg-white dark:text-zinc-950">{index + 1}</span>
                   <div className="min-w-0 flex-1"><h3 className="truncate text-sm font-bold text-zinc-900 dark:text-white">{item.exerciseName}</h3><p className="mt-0.5 text-[10px] capitalize text-zinc-500">{item.exerciseCategory ?? 'Exercise'}</p></div>

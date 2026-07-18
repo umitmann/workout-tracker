@@ -96,6 +96,8 @@ export type AvailableExercise = {
   equipment: string | null
   muscles: string[] | null
   muscles_secondary: string[] | null
+  muscles_detailed: string[] | null
+  muscles_secondary_detailed: string[] | null
   creator_id?: string | null
   visibility?: 'platform' | 'public' | 'clients'
   video_url?: string | null
@@ -105,8 +107,20 @@ export async function getAllExercises(): Promise<AvailableExercise[]> {
   const { supabase, user } = await getAuthContext()
   if (!user) return []
 
+  const detailed = await supabase.rpc('list_available_exercises_v3')
+  if (!detailed.error) return (detailed.data ?? []) as AvailableExercise[]
+  if (!isMissingFunctionError(detailed.error)) {
+    return (requireQueryData(detailed, 'list available exercises') ?? []) as AvailableExercise[]
+  }
+
   const enriched = await supabase.rpc('list_available_exercises_v2')
-  if (!enriched.error) return (enriched.data ?? []) as AvailableExercise[]
+  if (!enriched.error) {
+    return (enriched.data ?? []).map((exercise: Omit<AvailableExercise, 'muscles_detailed' | 'muscles_secondary_detailed'>) => ({
+      ...exercise,
+      muscles_detailed: null,
+      muscles_secondary_detailed: null,
+    }))
+  }
   if (!isMissingFunctionError(enriched.error)) {
     return (requireQueryData(enriched, 'list available exercises') ?? []) as AvailableExercise[]
   }
@@ -115,9 +129,11 @@ export async function getAllExercises(): Promise<AvailableExercise[]> {
   // secondary-muscle RPC is being applied through the Supabase SQL Editor.
   const scoped = await supabase.rpc('list_available_exercises')
   if (!scoped.error) {
-    return (scoped.data ?? []).map((exercise: Omit<AvailableExercise, 'muscles_secondary'>) => ({
+    return (scoped.data ?? []).map((exercise: Omit<AvailableExercise, 'muscles_secondary' | 'muscles_detailed' | 'muscles_secondary_detailed'>) => ({
       ...exercise,
       muscles_secondary: null,
+      muscles_detailed: null,
+      muscles_secondary_detailed: null,
     }))
   }
   if (!isMissingFunctionError(scoped.error)) {
@@ -131,7 +147,11 @@ export async function getAllExercises(): Promise<AvailableExercise[]> {
     .select('id, name, category, equipment, muscles, muscles_secondary')
     .order('name', { ascending: true })
 
-  return (requireQueryData(legacy, 'list exercises') ?? []) as AvailableExercise[]
+  return (requireQueryData(legacy, 'list exercises') ?? []).map((exercise) => ({
+    ...exercise,
+    muscles_detailed: null,
+    muscles_secondary_detailed: null,
+  })) as AvailableExercise[]
 }
 
 export async function getExercise(id: number) {
@@ -154,11 +174,15 @@ export async function getExerciseDetails(id: number) {
 
   const result = await supabase
     .from('exercises')
-    .select('id, name, category, equipment, muscles, muscles_secondary, images, instructions, video_url, creator_id, visibility')
+    .select('id, name, category, equipment, muscles, muscles_secondary, muscles_detailed, muscles_secondary_detailed, images, instructions, video_url, creator_id, visibility')
     .eq('id', id)
     .single()
 
-  if (isMissingColumnError(result.error, 'video_url')) {
+  if (
+    isMissingColumnError(result.error, 'video_url')
+    || isMissingColumnError(result.error, 'muscles_detailed')
+    || isMissingColumnError(result.error, 'muscles_secondary_detailed')
+  ) {
     const legacy = await supabase
       .from('exercises')
       .select('id, name, category, equipment, muscles, muscles_secondary, images, instructions')

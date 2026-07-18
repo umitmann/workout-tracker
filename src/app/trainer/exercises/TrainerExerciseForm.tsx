@@ -4,12 +4,19 @@ import { useActionState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { saveTrainerExerciseAction } from '@/app/actions/trainerExercises'
 import type { TrainerExercise } from '@/lib/trainerExerciseTypes'
+import { DETAILED_MUSCLES } from '@/lib/detailedMuscles'
 
 const inputClass = 'min-h-12 w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white'
 
 function ErrorText({ messages }: { messages?: string[] }) {
   if (!messages?.length) return null
   return <p className="mt-1 text-xs font-medium text-red-700 dark:text-red-300">{messages.join(' ')}</p>
+}
+
+const detailedLabelByKey = new Map(DETAILED_MUSCLES.map((muscle) => [muscle.key, muscle.label]))
+
+function detailedLabels(values: string[] | null | undefined): string {
+  return (values ?? []).map((value) => detailedLabelByKey.get(value) ?? value).join(', ')
 }
 
 export default function TrainerExerciseForm({
@@ -61,10 +68,52 @@ export default function TrainerExerciseForm({
         </div>
         <div>
           <label htmlFor={`exercise-secondary-${exercise?.id ?? 'new'}`} className="text-sm font-bold text-zinc-900 dark:text-white">Secondary muscles</label>
-          <input id={`exercise-secondary-${exercise?.id ?? 'new'}`} name="secondaryMuscles" defaultValue={exercise?.muscles_secondary?.join(', ') ?? ''} placeholder="core" className={`${inputClass} mt-2`} aria-invalid={Boolean(field?.secondaryMuscles)} />
+          <input id={`exercise-secondary-${exercise?.id ?? 'new'}`} name="secondaryMuscles" defaultValue={exercise?.muscles_secondary?.join(', ') ?? ''} placeholder="abdominals" className={`${inputClass} mt-2`} aria-invalid={Boolean(field?.secondaryMuscles)} />
           <ErrorText messages={field?.secondaryMuscles} />
         </div>
       </div>
+
+      <details className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-700">
+        <summary className="cursor-pointer text-sm font-bold text-zinc-900 dark:text-white">
+          Anatomical detail <span className="font-normal text-zinc-500">optional</span>
+        </summary>
+        <p className="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+          Refine the broad groups for the 3D planner. Leave these empty to derive safe defaults from the exercise name and broad groups.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor={`exercise-primary-detail-${exercise?.id ?? 'new'}`} className="text-sm font-bold text-zinc-900 dark:text-white">Primary anatomy</label>
+            <input
+              id={`exercise-primary-detail-${exercise?.id ?? 'new'}`}
+              name="primaryDetailedMuscles"
+              list={`detailed-muscle-options-${exercise?.id ?? 'new'}`}
+              defaultValue={detailedLabels(exercise?.muscles_detailed)}
+              placeholder="Rectus femoris, Vastus lateralis"
+              className={`${inputClass} mt-2`}
+              aria-describedby={`exercise-primary-detail-hint-${exercise?.id ?? 'new'}`}
+              aria-invalid={Boolean(field?.primaryDetailedMuscles)}
+            />
+            <p id={`exercise-primary-detail-hint-${exercise?.id ?? 'new'}`} className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Use comma-separated anatomical names matching the primary groups.</p>
+            <ErrorText messages={field?.primaryDetailedMuscles} />
+          </div>
+          <div>
+            <label htmlFor={`exercise-secondary-detail-${exercise?.id ?? 'new'}`} className="text-sm font-bold text-zinc-900 dark:text-white">Secondary anatomy</label>
+            <input
+              id={`exercise-secondary-detail-${exercise?.id ?? 'new'}`}
+              name="secondaryDetailedMuscles"
+              list={`detailed-muscle-options-${exercise?.id ?? 'new'}`}
+              defaultValue={detailedLabels(exercise?.muscles_secondary_detailed)}
+              placeholder="Gluteus maximus — compartment 1"
+              className={`${inputClass} mt-2`}
+              aria-invalid={Boolean(field?.secondaryDetailedMuscles)}
+            />
+            <ErrorText messages={field?.secondaryDetailedMuscles} />
+          </div>
+        </div>
+        <datalist id={`detailed-muscle-options-${exercise?.id ?? 'new'}`}>
+          {DETAILED_MUSCLES.map((muscle) => <option key={muscle.key} value={muscle.label} />)}
+        </datalist>
+      </details>
 
       <div>
         <label htmlFor={`exercise-instructions-${exercise?.id ?? 'new'}`} className="text-sm font-bold text-zinc-900 dark:text-white">Instructions</label>

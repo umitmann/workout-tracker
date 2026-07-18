@@ -11,6 +11,8 @@ export type ExerciseMuscleMetadata = {
   id: number
   muscles: readonly string[] | null
   muscles_secondary?: readonly string[] | null
+  muscles_detailed?: readonly string[] | null
+  muscles_secondary_detailed?: readonly string[] | null
 }
 
 export type MuscleExposure = {
@@ -41,9 +43,11 @@ export function effectiveProgrammedSets(item: ProgrammedExercise): number {
   return Math.max(0, Math.floor(item.sets))
 }
 
-export function calculateMuscleLoad(
+function calculateLoadForFields(
   items: readonly ProgrammedExercise[],
   exercises: readonly ExerciseMuscleMetadata[],
+  primaryField: 'muscles' | 'muscles_detailed',
+  secondaryField: 'muscles_secondary' | 'muscles_secondary_detailed',
 ): MuscleLoadResult {
   const exerciseById = new Map(exercises.map((exercise) => [exercise.id, exercise]))
   const accumulators = new Map<
@@ -82,9 +86,9 @@ export function calculateMuscleLoad(
       continue
     }
 
-    const primary = normalizeMuscles(exercise.muscles)
+    const primary = normalizeMuscles(exercise[primaryField])
     const primarySet = new Set(primary)
-    const secondary = normalizeMuscles(exercise.muscles_secondary).filter(
+    const secondary = normalizeMuscles(exercise[secondaryField]).filter(
       (muscle) => !primarySet.has(muscle),
     )
     if (primary.length === 0 && secondary.length === 0) {
@@ -114,4 +118,23 @@ export function calculateMuscleLoad(
     totalProgrammedSets,
     unclassifiedExerciseIds: [...new Set(unclassifiedExerciseIds)],
   }
+}
+
+export function calculateMuscleLoad(
+  items: readonly ProgrammedExercise[],
+  exercises: readonly ExerciseMuscleMetadata[],
+): MuscleLoadResult {
+  return calculateLoadForFields(items, exercises, 'muscles', 'muscles_secondary')
+}
+
+export function calculateDetailedMuscleLoad(
+  items: readonly ProgrammedExercise[],
+  exercises: readonly ExerciseMuscleMetadata[],
+): MuscleLoadResult {
+  return calculateLoadForFields(
+    items,
+    exercises,
+    'muscles_detailed',
+    'muscles_secondary_detailed',
+  )
 }

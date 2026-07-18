@@ -15,12 +15,15 @@ import { createMusclePathGeometry } from '@/lib/musclePathGeometry'
 
 type MaterialRecord = {
   muscle: string
+  detailedMuscle: string | null
   material: THREE.MeshStandardMaterial
 }
 
 type Appearance = {
   loadByMuscle: Readonly<Record<string, number>>
+  loadByDetailedMuscle: Readonly<Record<string, number>>
   previewMuscles: readonly string[]
+  previewDetailedMuscles: readonly string[]
   selectedMuscle: string | null
   hoveredMuscle: string | null
 }
@@ -28,13 +31,19 @@ type Appearance = {
 const Y_AXIS = new THREE.Vector3(0, 1, 0)
 
 export default function MuscleBody3D({
+  className = '',
   loadByMuscle,
+  loadByDetailedMuscle,
   previewMuscles,
+  previewDetailedMuscles,
   selectedMuscle,
   onSelectMuscle,
 }: {
+  className?: string
   loadByMuscle: Readonly<Record<string, number>>
+  loadByDetailedMuscle: Readonly<Record<string, number>>
   previewMuscles: readonly string[]
+  previewDetailedMuscles: readonly string[]
   selectedMuscle: string | null
   onSelectMuscle: (muscle: string) => void
 }) {
@@ -50,7 +59,14 @@ export default function MuscleBody3D({
   const [hoveredMuscle, setHoveredMuscle] = useState<string | null>(null)
   const [unsupported, setUnsupported] = useState(false)
   const [modelStatus, setModelStatus] = useState<'loading' | 'ready' | 'fallback'>('loading')
-  const appearanceRef = useRef<Appearance>({ loadByMuscle, previewMuscles, selectedMuscle, hoveredMuscle })
+  const appearanceRef = useRef<Appearance>({
+    loadByMuscle,
+    loadByDetailedMuscle,
+    previewMuscles,
+    previewDetailedMuscles,
+    selectedMuscle,
+    hoveredMuscle,
+  })
 
   useEffect(() => {
     onSelectRef.current = onSelectMuscle
@@ -197,17 +213,18 @@ export default function MuscleBody3D({
       figure.add(new THREE.LineLoop(ribGeometry, ribMaterial))
     }
 
-    const materialByMuscle = new Map<string, THREE.MeshStandardMaterial>()
-    function getMuscleMaterial(muscle: string) {
-      const existing = materialByMuscle.get(muscle)
-      if (existing) return existing
+    const materialBySurface = new Map<string, MaterialRecord>()
+    function getMuscleMaterial(muscle: string, detailedMuscle: string | null = null) {
+      const key = detailedMuscle ? `detailed:${detailedMuscle}` : `broad:${muscle}`
+      const existing = materialBySurface.get(key)
+      if (existing) return existing.material
       const material = new THREE.MeshStandardMaterial({
         color: 0x5b3738,
         emissive: 0x000000,
         roughness: 0.68,
         metalness: 0.02,
       })
-      materialByMuscle.set(muscle, material)
+      materialBySurface.set(key, { muscle, detailedMuscle, material })
       materials.add(material)
       return material
     }
@@ -225,7 +242,7 @@ export default function MuscleBody3D({
       fallbackMeshes.push(mesh)
     }
     muscleMeshesRef.current = [...fallbackMeshes]
-    materialRecordsRef.current = [...materialByMuscle].map(([muscle, material]) => ({ muscle, material }))
+    materialRecordsRef.current = [...materialBySurface.values()]
 
     let frame = 0
     const render = () => {
@@ -235,13 +252,24 @@ export default function MuscleBody3D({
     renderRef.current = render
 
     const applyAppearance = () => {
-      const { loadByMuscle: loads, previewMuscles: previews, selectedMuscle: selected, hoveredMuscle: hovered } = appearanceRef.current
+      const {
+        loadByMuscle: loads,
+        loadByDetailedMuscle: detailedLoads,
+        previewMuscles: previews,
+        previewDetailedMuscles: detailedPreviews,
+        selectedMuscle: selected,
+        hoveredMuscle: hovered,
+      } = appearanceRef.current
       const preview = new Set(previews)
-      for (const { muscle, material } of materialRecordsRef.current) {
-        const percentage = loads[muscle] ?? 0
+      const detailedPreview = new Set(detailedPreviews)
+      for (const { muscle, detailedMuscle, material } of materialRecordsRef.current) {
+        const percentage = detailedMuscle && detailedLoads[detailedMuscle] != null
+          ? detailedLoads[detailedMuscle]
+          : loads[muscle] ?? 0
         const active = selected === muscle
         const isHovered = hovered === muscle
         const previewed = preview.has(muscle)
+          || (detailedMuscle != null && detailedPreview.has(detailedMuscle))
         const color = new THREE.Color(percentage > 0 ? 0xfbbf24 : 0x5b3738)
         if (percentage > 0) color.lerp(new THREE.Color(0xef4444), percentage / 100)
         if (previewed && percentage === 0) color.set(0xf59e0b)
@@ -255,7 +283,7 @@ export default function MuscleBody3D({
     applyAppearance()
 
     let disposed = false
-    const muscleByNode = new Map(ANATOMY_MODEL_MESHES.map((definition) => [definition.nodeName, definition.muscle]))
+    const anatomyByNode = new Map(ANATOMY_MODEL_MESHES.map((definition) => [definition.nodeName, definition]))
     const modelLoader = new GLTFLoader()
     modelLoader.setMeshoptDecoder(MeshoptDecoder)
     modelLoader.load(
@@ -270,12 +298,17 @@ export default function MuscleBody3D({
           loadedGeometries.add(object.geometry)
           const originalMaterials = Array.isArray(object.material) ? object.material : [object.material]
           originalMaterials.forEach((material) => sourceMaterials.add(material))
+          const definition = anatomyByNode.get(object.name)
           const muscle = typeof object.userData.muscle === 'string'
             ? object.userData.muscle
-            : muscleByNode.get(object.name)
+            : definition?.muscle
           if (!muscle) return
-          object.material = getMuscleMaterial(muscle)
+          const detailedMuscle = typeof object.userData.detailedMuscle === 'string'
+            ? object.userData.detailedMuscle
+            : definition?.detailedMuscle ?? null
+          object.material = getMuscleMaterial(muscle, detailedMuscle)
           object.userData.muscle = muscle
+          object.userData.detailedMuscle = detailedMuscle
           object.renderOrder = 2
           detailedMeshes.push(object)
           loadedMuscles.add(muscle)
@@ -291,7 +324,7 @@ export default function MuscleBody3D({
         })
         figure.add(gltf.scene)
         muscleMeshesRef.current = [...detailedMeshes, ...fallbackMeshes.filter((mesh) => mesh.visible)]
-        materialRecordsRef.current = [...materialByMuscle].map(([muscle, material]) => ({ muscle, material }))
+        materialRecordsRef.current = [...materialBySurface.values()]
         setModelStatus('ready')
         applyAppearance()
       },
@@ -382,9 +415,23 @@ export default function MuscleBody3D({
   }, [])
 
   useEffect(() => {
-    appearanceRef.current = { loadByMuscle, previewMuscles, selectedMuscle, hoveredMuscle }
+    appearanceRef.current = {
+      loadByMuscle,
+      loadByDetailedMuscle,
+      previewMuscles,
+      previewDetailedMuscles,
+      selectedMuscle,
+      hoveredMuscle,
+    }
     applyAppearanceRef.current()
-  }, [hoveredMuscle, loadByMuscle, previewMuscles, selectedMuscle])
+  }, [
+    hoveredMuscle,
+    loadByDetailedMuscle,
+    loadByMuscle,
+    previewDetailedMuscles,
+    previewMuscles,
+    selectedMuscle,
+  ])
 
   function showView(side: 'front' | 'back' | 'reset') {
     const camera = cameraRef.current
@@ -400,8 +447,10 @@ export default function MuscleBody3D({
 
   return (
     <div
-      className="relative h-[600px] overflow-hidden rounded-[28px] border border-white/10 bg-zinc-950 shadow-2xl shadow-orange-950/20"
+      className={`relative overflow-hidden rounded-[28px] border border-white/10 bg-zinc-950 shadow-2xl shadow-orange-950/20 ${className}`}
       data-anatomy-model="segmented-path-v2"
+      data-preview-muscles={previewMuscles.join(',')}
+      data-preview-detailed-muscles={previewDetailedMuscles.join(',')}
     >
       <div ref={hostRef} className="absolute inset-0">
         <canvas

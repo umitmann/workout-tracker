@@ -990,6 +990,53 @@ desktop Playwright suite ran against it.
 
 ---
 
+## Phase 20 — detailed OpenSim-grounded exercise muscles
+
+**Ready for SQL Editor application** from
+[`20260718001000_detailed_exercise_muscles.sql`](../supabase/migrations/20260718001000_detailed_exercise_muscles.sql).
+
+This additive migration keeps `exercises.muscles` and
+`exercises.muscles_secondary` unchanged. It adds the corresponding detailed
+arrays, a private canonical taxonomy, deterministic name-aware backfill, and a
+trigger that classifies future catalog imports. The taxonomy inventories all
+40 side-neutral compartments in `RajagopalLaiUhlrich2023.osim` (80 actuators
+after left/right expansion), all 50 Stanford VA upper-extremity compartments,
+and 14 clearly labelled non-OpenSim extensions for neck, trunk, and scapular
+groups that a general workout catalog needs.
+
+The public API changes are versioned: `list_available_exercises_v3()` adds the
+two detailed arrays and `save_trainer_exercise_v2(...)` validates optional PT
+refinements. Existing v1/v2 RPCs stay available for rolling deployment. The
+website tries the new contracts first and falls back only on an actual
+missing-function response.
+
+### Supabase SQL Editor procedure
+
+1. Confirm Phase 19 has been applied and its final result row was all `true`.
+2. Open the Phase 20 migration link above. Copy the **entire file** into one
+   new Supabase SQL Editor query and run the whole query once.
+3. The final result row must show `true` for:
+   `detailed_exercise_columns_created`,
+   `complete_opensim_lower_inventory`,
+   `complete_opensim_upper_inventory`,
+   `detailed_muscle_coverage_complete`,
+   `taxonomy_base_access_denied`,
+   `detailed_muscle_rpc_permissions_scoped`, and
+   `detailed_muscle_constraint_validated`.
+4. Record `stored_exercise_count`, `stored_workout_count`, and
+   `stored_set_count`. Workout and set counts must match the values before the
+   migration; this file never updates those tables.
+5. Run `notify pgrst, 'reload schema';` once after the successful result so
+   PostgREST sees v3/v2 immediately. During any cache delay, the deployed app
+   retains the existing catalog and mobile behavior through its fallbacks.
+
+The complete chain through Phase 20 was replayed from an empty local Supabase
+database. The new constraint was validated against the backfilled exercise
+catalog, and the migration's final verification query passed without changing
+workout or set history.
+
+---
+
 ## Executable clean-room baseline — repository recovery support
 
 **Added and clean-reset verified** on 2026-07-14 in

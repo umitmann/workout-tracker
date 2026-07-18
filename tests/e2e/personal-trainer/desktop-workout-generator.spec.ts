@@ -41,6 +41,14 @@ test.describe('desktop 3D workout generator', () => {
       await expect(quadriceps).toContainText('5 eq')
       await expect(generator.getByText('5', { exact: true }).first()).toBeVisible()
 
+      const selectedExercise = generator.locator('article[data-preview-source="selected-workout"]', { hasText: 'QA Snapshot Squat 47391' })
+      await selectedExercise.hover()
+      await expect(generator.locator('[data-anatomy-model="segmented-path-v2"]')).toHaveAttribute('data-preview-muscles', /quadriceps/)
+      await expect(generator.locator('[data-anatomy-model="segmented-path-v2"]')).toHaveAttribute('data-preview-detailed-muscles', /rectus_femoris/)
+      await selectedExercise.getByRole('spinbutton', { name: 'QA Snapshot Squat 47391 reps' }).focus()
+      await expect(generator.locator('[data-anatomy-model="segmented-path-v2"]')).toHaveAttribute('data-preview-muscles', /quadriceps/)
+      await expect(generator.locator('[data-anatomy-model="segmented-path-v2"]')).toHaveAttribute('data-preview-detailed-muscles', /vastus_lateralis/)
+
       await quadriceps.click()
       await expect(quadriceps).toHaveAttribute('aria-pressed', 'true')
       await expect(generator.getByRole('button', { name: 'Add QA Snapshot Squat 47391' })).toBeVisible()
@@ -69,7 +77,7 @@ test.describe('desktop 3D workout generator', () => {
       expect(results.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? ''))).toEqual([])
 
       for (const width of [1024, 1280, 1440, 1920]) {
-        await page.setViewportSize({ width, height: 900 })
+        await page.setViewportSize({ width, height: 720 })
         await expect(page.getByTestId('desktop-workout-generator')).toBeVisible()
         const layout = await page.evaluate(() => ({
           clientWidth: document.documentElement.clientWidth,
@@ -77,6 +85,25 @@ test.describe('desktop 3D workout generator', () => {
         }))
         expect(layout.scrollWidth, `desktop generator overflow at ${width}px`).toBeLessThanOrEqual(layout.clientWidth + 1)
       }
+
+      const pickerScroll = page.getByTestId('exercise-library-scroll')
+      const musclePanel = page.getByLabel('Muscle exposure map')
+      const workoutPanel = page.getByLabel('Selected workout', { exact: true })
+      const before = await Promise.all([musclePanel.boundingBox(), workoutPanel.boundingBox()])
+      const pickerMetrics = await pickerScroll.evaluate((element) => {
+        element.scrollTop = element.scrollHeight
+        return { scrollTop: element.scrollTop, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight }
+      })
+      expect(pickerMetrics.scrollHeight).toBeGreaterThan(pickerMetrics.clientHeight)
+      expect(pickerMetrics.scrollTop).toBeGreaterThan(0)
+      const after = await Promise.all([musclePanel.boundingBox(), workoutPanel.boundingBox()])
+      expect(after).toEqual(before)
+      for (const box of after) {
+        expect(box).not.toBeNull()
+        expect(box!.y).toBeGreaterThanOrEqual(0)
+        expect(box!.y + box!.height).toBeLessThanOrEqual(721)
+      }
+      expect(await page.evaluate(() => window.scrollY)).toBe(0)
 
       await page.setViewportSize({ width: 390, height: 844 })
       await expect(page.getByTestId('desktop-workout-generator')).toHaveCount(0)

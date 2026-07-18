@@ -12,6 +12,8 @@ export type SlimExercise = {
   equipment: string | null
   muscles: string[] | null
   muscles_secondary?: string[] | null
+  muscles_detailed?: string[] | null
+  muscles_secondary_detailed?: string[] | null
 }
 
 type PerfMode = 'last' | 'best' | 'best60'

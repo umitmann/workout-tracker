@@ -14,6 +14,8 @@ function form(overrides = {}) {
     equipment: 'dumbbell',
     primaryMuscles: 'quadriceps,glutes',
     secondaryMuscles: 'core',
+    primaryDetailedMuscles: 'rectus femoris,vastus lateralis',
+    secondaryDetailedMuscles: '',
     instructions: 'Brace.\nSquat with control.',
     videoUrl: 'https://youtu.be/dQw4w9WgXcQ',
     visibility: 'clients',
@@ -44,19 +46,35 @@ test('save core authenticates, validates, and sends only canonical bounded value
     exerciseId: 42,
   })
   assert.deepEqual(client.calls, [{
-    name: 'save_trainer_exercise',
+    name: 'save_trainer_exercise_v2',
     args: {
       p_exercise_id: null,
       p_name: 'Tempo Goblet Squat',
       p_category: 'strength',
       p_equipment: 'dumbbell',
       p_muscles: ['quadriceps', 'glutes'],
-      p_muscles_secondary: ['core'],
+      p_muscles_secondary: ['abdominals'],
+      p_muscles_detailed: ['rectus_femoris', 'vastus_lateralis'],
+      p_muscles_secondary_detailed: [],
       p_instructions: ['Brace.', 'Squat with control.'],
       p_video_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       p_visibility: 'clients',
     },
   }])
+})
+
+test('save core falls back only when the detailed RPC is not migrated yet', async () => {
+  const client = fakeClient({
+    rpc: async (name) => name === 'save_trainer_exercise_v2'
+      ? { data: null, error: { code: 'PGRST202' } }
+      : { data: 42, error: null },
+  })
+  const result = await saveTrainerExerciseCore(client, form())
+  assert.equal(result.success, true)
+  assert.deepEqual(client.calls.map((call) => call.name), [
+    'save_trainer_exercise_v2',
+    'save_trainer_exercise',
+  ])
 })
 
 test('save core does not call the database for invalid or signed-out input', async () => {

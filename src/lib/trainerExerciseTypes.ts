@@ -10,6 +10,8 @@ export type TrainerExercise = {
   equipment: string | null
   muscles: string[] | null
   muscles_secondary: string[] | null
+  muscles_detailed: string[] | null
+  muscles_secondary_detailed: string[] | null
   instructions: string[] | null
   video_url: string | null
   visibility: TrainerExerciseVisibility

@@ -65,6 +65,8 @@ test.describe('trainer-authored exercise journey', () => {
       await createForm.getByLabel('Category').fill('strength')
       await createForm.getByLabel('Equipment').fill('dumbbell')
       await createForm.getByLabel('Primary muscles').fill('quadriceps, glutes')
+      await createForm.getByText('Anatomical detail').click()
+      await createForm.getByLabel('Primary anatomy').fill('Rectus femoris, Vastus lateralis')
       await createForm.getByLabel('Instructions').fill('Brace before descending.\nDrive through the whole foot.')
       await createForm.getByLabel('YouTube explanation').fill('https://youtu.be/dQw4w9WgXcQ')
       await createForm.getByLabel('My active clients').check()

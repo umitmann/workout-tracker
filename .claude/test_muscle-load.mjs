@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  calculateDetailedMuscleLoad,
   calculateMuscleLoad,
   effectiveProgrammedSets,
   PRIMARY_MUSCLE_FACTOR,
@@ -121,4 +122,22 @@ test('load calculation does not mutate editor state or catalog metadata', () => 
   calculateMuscleLoad(items, catalog)
   assert.deepEqual(items, itemSnapshot)
   assert.deepEqual(catalog, catalogSnapshot)
+})
+
+test('detailed load scores anatomical compartments independently from broad groups', () => {
+  const result = calculateDetailedMuscleLoad(
+    [{ exerciseId: 1, sets: 4 }],
+    [{
+      id: 1,
+      muscles: ['quadriceps'],
+      muscles_secondary: ['glutes'],
+      muscles_detailed: ['rectus_femoris', 'vastus_lateralis'],
+      muscles_secondary_detailed: ['gluteus_maximus_compartment_1'],
+    }],
+  )
+
+  assert.equal(result.byMuscle.rectus_femoris.score, 4)
+  assert.equal(result.byMuscle.vastus_lateralis.score, 4)
+  assert.equal(result.byMuscle.gluteus_maximus_compartment_1.score, 2)
+  assert.equal(result.byMuscle.quadriceps, undefined)
 })

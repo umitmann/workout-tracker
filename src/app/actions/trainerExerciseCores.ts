@@ -1,5 +1,6 @@
 import { parseTrainerExerciseForm } from '@/lib/trainerExerciseValidation'
 import type { TrainerExerciseActionState } from '@/lib/trainerExerciseTypes'
+import { isMissingFunctionError } from '@/lib/schemaCompatibility'
 
 type ActionUser = { id: string }
 type ActionError = { message?: string; code?: string | null }
@@ -58,17 +59,32 @@ export async function saveTrainerExerciseCore(
   }
 
   const input = parsed.data
-  const { data, error } = await supabase.rpc('save_trainer_exercise', {
+  const detailedResult = await supabase.rpc('save_trainer_exercise_v2', {
     p_exercise_id: input.exerciseId,
     p_name: input.name,
     p_category: input.category,
     p_equipment: input.equipment,
     p_muscles: input.primaryMuscles,
     p_muscles_secondary: input.secondaryMuscles,
+    p_muscles_detailed: input.primaryDetailedMuscles,
+    p_muscles_secondary_detailed: input.secondaryDetailedMuscles,
     p_instructions: input.instructions,
     p_video_url: input.videoUrl,
     p_visibility: input.visibility,
   })
+  const { data, error } = detailedResult.error && isMissingFunctionError(detailedResult.error)
+    ? await supabase.rpc('save_trainer_exercise', {
+      p_exercise_id: input.exerciseId,
+      p_name: input.name,
+      p_category: input.category,
+      p_equipment: input.equipment,
+      p_muscles: input.primaryMuscles,
+      p_muscles_secondary: input.secondaryMuscles,
+      p_instructions: input.instructions,
+      p_video_url: input.videoUrl,
+      p_visibility: input.visibility,
+    })
+    : detailedResult
   if (error) return saveFailure(error.code)
 
   const exerciseId = Number(data)

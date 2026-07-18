@@ -1,9 +1,35 @@
 export type AnatomyModelMesh = {
   nodeName: string
   muscle: string
+  detailedMuscle: string
   side: 'left' | 'right'
   sourcePartId: string
   anatomicalName: string
+}
+
+const SURFACE_DETAILED_MUSCLE: Readonly<Record<string, string>> = {
+  ascending_trapezius: 'trapezius_lower',
+  transverse_trapezius: 'trapezius_middle',
+  descending_trapezius: 'trapezius_upper',
+  anterior_deltoid: 'deltoid_anterior',
+  lateral_deltoid: 'deltoid_middle',
+  posterior_deltoid: 'deltoid_posterior',
+  clavicular_pectoralis_major: 'pectoralis_major_clavicular',
+  sternocostal_pectoralis_major: 'pectoralis_major_sternal',
+  abdominal_pectoralis_major: 'pectoralis_major_ribs',
+  short_head_biceps_brachii: 'biceps_brachii_short_head',
+  long_head_biceps_brachii: 'biceps_brachii_long_head',
+  medial_head_triceps_brachii: 'triceps_brachii_medial_head',
+  lateral_head_triceps_brachii: 'triceps_brachii_lateral_head',
+  long_head_triceps_brachii: 'triceps_brachii_long_head',
+  gluteus_maximus: 'gluteus_maximus_compartment_1',
+  gluteus_medius: 'gluteus_medius_compartment_1',
+  gluteus_minimus: 'gluteus_minimus_compartment_1',
+  adductor_magnus: 'adductor_magnus_middle',
+  long_head_biceps_femoris: 'biceps_femoris_long_head',
+  short_head_biceps_femoris: 'biceps_femoris_short_head',
+  medial_gastrocnemius: 'gastrocnemius_medial_head',
+  lateral_gastrocnemius: 'gastrocnemius_lateral_head',
 }
 
 const pair = (
@@ -15,6 +41,7 @@ const pair = (
   {
     nodeName: `muscle__${muscle.replaceAll(' ', '_')}__right_${compartment}`,
     muscle,
+    detailedMuscle: SURFACE_DETAILED_MUSCLE[compartment] ?? compartment,
     side: 'right',
     sourcePartId: rightSourcePartId,
     anatomicalName: `Right ${compartment.replaceAll('_', ' ')}`,
@@ -22,6 +49,7 @@ const pair = (
   {
     nodeName: `muscle__${muscle.replaceAll(' ', '_')}__left_${compartment}`,
     muscle,
+    detailedMuscle: SURFACE_DETAILED_MUSCLE[compartment] ?? compartment,
     side: 'left',
     sourcePartId: leftSourcePartId,
     anatomicalName: `Left ${compartment.replaceAll('_', ' ')}`,

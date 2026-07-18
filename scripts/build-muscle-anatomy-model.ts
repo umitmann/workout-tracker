@@ -74,6 +74,7 @@ async function main() {
       mesh.name = meshIndex === 0 ? definition.nodeName : `${definition.nodeName}_part_${meshIndex + 1}`
       mesh.userData = {
         muscle: definition.muscle,
+        detailedMuscle: definition.detailedMuscle,
         anatomicalName: definition.anatomicalName,
         sourcePartId: definition.sourcePartId,
         side: definition.side,

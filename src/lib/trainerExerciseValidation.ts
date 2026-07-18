@@ -1,3 +1,5 @@
+import { DETAILED_MUSCLES, canonicalBroadMuscle } from './detailedMuscles'
+
 export const TRAINER_EXERCISE_VISIBILITIES = ['public', 'clients'] as const
 
 export type TrainerExerciseVisibility = (typeof TRAINER_EXERCISE_VISIBILITIES)[number]
@@ -9,6 +11,8 @@ export type TrainerExerciseInput = {
   equipment: string | null
   primaryMuscles: string[]
   secondaryMuscles: string[]
+  primaryDetailedMuscles: string[]
+  secondaryDetailedMuscles: string[]
   instructions: string[]
   videoUrl: string | null
   visibility: TrainerExerciseVisibility
@@ -21,6 +25,8 @@ export type TrainerExerciseField =
   | 'equipment'
   | 'primaryMuscles'
   | 'secondaryMuscles'
+  | 'primaryDetailedMuscles'
+  | 'secondaryDetailedMuscles'
   | 'instructions'
   | 'videoUrl'
   | 'visibility'
@@ -58,6 +64,36 @@ function uniqueList(value: string, lowerCase = true): string[] {
     values.push(normalized)
   }
   return values
+}
+
+function broadMuscleList(value: string): string[] {
+  return [...new Set(uniqueList(value).map(canonicalBroadMuscle))]
+}
+
+const DETAILED_MUSCLE_BY_INPUT = new Map(
+  DETAILED_MUSCLES.flatMap((muscle) => [
+    [muscle.key.toLowerCase(), muscle] as const,
+    [muscle.label.toLowerCase(), muscle] as const,
+  ]),
+)
+
+function detailedList(value: string): { values: string[]; invalid: string[] } {
+  const values: string[] = []
+  const invalid: string[] = []
+  const seen = new Set<string>()
+  for (const raw of value.split(',')) {
+    const normalized = raw.trim().replace(/\s+/g, ' ').toLowerCase()
+    if (!normalized) continue
+    const muscle = DETAILED_MUSCLE_BY_INPUT.get(normalized)
+    if (!muscle) {
+      invalid.push(raw.trim())
+      continue
+    }
+    if (seen.has(muscle.key)) continue
+    seen.add(muscle.key)
+    values.push(muscle.key)
+  }
+  return { values, invalid }
 }
 
 export function parseYouTubeUrl(value: string): {
@@ -110,8 +146,10 @@ export function parseTrainerExerciseForm(formData: FormData): TrainerExerciseVal
   const name = text(formData.get('name')).replace(/\s+/g, ' ')
   const category = text(formData.get('category')).toLowerCase().replace(/\s+/g, ' ')
   const equipment = text(formData.get('equipment')).replace(/\s+/g, ' ')
-  const primaryMuscles = uniqueList(text(formData.get('primaryMuscles')))
-  const secondaryMuscles = uniqueList(text(formData.get('secondaryMuscles')))
+  const primaryMuscles = broadMuscleList(text(formData.get('primaryMuscles')))
+  const secondaryMuscles = broadMuscleList(text(formData.get('secondaryMuscles')))
+  const primaryDetailed = detailedList(text(formData.get('primaryDetailedMuscles')))
+  const secondaryDetailed = detailedList(text(formData.get('secondaryDetailedMuscles')))
   const instructions = text(formData.get('instructions'))
     .split(/\r?\n/)
     .map((step) => step.trim().replace(/\s+/g, ' '))
@@ -140,6 +178,23 @@ export function parseTrainerExerciseForm(formData: FormData): TrainerExerciseVal
       addError(errors, field, 'Use at most 20 entries of 60 characters each.')
     }
   }
+  for (const [field, parsed, broadMuscles] of [
+    ['primaryDetailedMuscles', primaryDetailed, primaryMuscles],
+    ['secondaryDetailedMuscles', secondaryDetailed, secondaryMuscles],
+  ] as const) {
+    const broad = new Set(broadMuscles)
+    const mismatched = parsed.values.filter((key) => {
+      const muscle = DETAILED_MUSCLE_BY_INPUT.get(key)
+      return !muscle || !broad.has(muscle.broadMuscle)
+    })
+    if (parsed.invalid.length > 0 || mismatched.length > 0 || parsed.values.length > 50) {
+      addError(
+        errors,
+        field,
+        'Use recognized anatomy details that belong to the selected broad muscle groups.',
+      )
+    }
+  }
   if (
     instructions.length > 30
     || instructions.some((step) => step.length > 1000)
@@ -164,6 +219,8 @@ export function parseTrainerExerciseForm(formData: FormData): TrainerExerciseVal
       equipment: equipment || null,
       primaryMuscles,
       secondaryMuscles,
+      primaryDetailedMuscles: primaryDetailed.values,
+      secondaryDetailedMuscles: secondaryDetailed.values,
       instructions,
       videoUrl: parsedVideo?.canonicalUrl ?? null,
       visibility: visibility as TrainerExerciseVisibility,

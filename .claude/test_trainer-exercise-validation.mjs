@@ -46,6 +46,8 @@ test('trainer exercise form normalizes bounded arrays and optional values', () =
   form.set('equipment', ' Dumbbell ')
   form.set('primaryMuscles', 'Quadriceps, glutes, quadriceps')
   form.set('secondaryMuscles', 'core')
+  form.set('primaryDetailedMuscles', 'Rectus femoris, vastus lateralis')
+  form.set('secondaryDetailedMuscles', '')
   form.set('instructions', 'Brace before descending.\n\nKeep the knees tracking over toes.')
   form.set('videoUrl', 'https://youtu.be/dQw4w9WgXcQ')
   form.set('visibility', 'clients')
@@ -58,12 +60,31 @@ test('trainer exercise form normalizes bounded arrays and optional values', () =
       category: 'strength',
       equipment: 'Dumbbell',
       primaryMuscles: ['quadriceps', 'glutes'],
-      secondaryMuscles: ['core'],
+      secondaryMuscles: ['abdominals'],
+      primaryDetailedMuscles: ['rectus_femoris', 'vastus_lateralis'],
+      secondaryDetailedMuscles: [],
       instructions: ['Brace before descending.', 'Keep the knees tracking over toes.'],
       videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       visibility: 'clients',
     },
   })
+})
+
+test('trainer detailed muscles must be recognized and match their broad group', () => {
+  const form = new FormData()
+  form.set('name', 'Custom curl')
+  form.set('category', 'strength')
+  form.set('primaryMuscles', 'biceps')
+  form.set('secondaryMuscles', 'forearms')
+  form.set('primaryDetailedMuscles', 'Vastus lateralis, made up muscle')
+  form.set('secondaryDetailedMuscles', 'Brachioradialis')
+  form.set('visibility', 'clients')
+
+  const result = parseTrainerExerciseForm(form)
+  assert.equal(result.success, false)
+  if (result.success) return
+  assert.ok(result.fieldErrors.primaryDetailedMuscles)
+  assert.equal(result.fieldErrors.secondaryDetailedMuscles, undefined)
 })
 
 test('trainer exercise form rejects invalid visibility, video, and oversized content', () => {

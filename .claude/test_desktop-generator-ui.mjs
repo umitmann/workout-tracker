@@ -27,6 +27,38 @@ test('desktop planner provides one connected select-map-program workflow', async
   assert.match(desktop, /Fine-tune advanced targets/)
 })
 
+test('desktop workspace keeps all three columns visible with independent scroll regions', async () => {
+  const [editor, desktop, body] = await Promise.all([
+    readFile(editorUrl, 'utf8'),
+    readFile(desktopUrl, 'utf8'),
+    readFile(bodyUrl, 'utf8'),
+  ])
+  assert.match(editor, /desktopWorkspaceActive/)
+  assert.match(editor, /flex h-\[100dvh\] flex-col overflow-hidden/)
+  assert.match(desktop, /min-h-0[^"]*flex-1[^"]*overflow-hidden/)
+  assert.match(desktop, /data-testid="exercise-library-scroll"/)
+  assert.match(desktop, /data-testid="selected-workout-scroll"/)
+  assert.match(desktop, /aria-label="Muscle exposure controls"/)
+  assert.match(desktop, /overscroll-contain/)
+  assert.match(body, /className\?: string/)
+  assert.doesNotMatch(body, /h-\[600px\]/)
+})
+
+test('picker and selected-workout cards share the same muscle-preview state', async () => {
+  const [desktop, body] = await Promise.all([
+    readFile(desktopUrl, 'utf8'),
+    readFile(bodyUrl, 'utf8'),
+  ])
+  assert.match(desktop, /onMouseEnter=\{\(\) => setHoveredExerciseId\(exercise\.id\)\}/)
+  assert.match(desktop, /onMouseEnter=\{\(\) => setHoveredExerciseId\(item\.exerciseId\)\}/)
+  assert.match(desktop, /data-preview-source="selected-workout"/)
+  assert.match(body, /data-preview-muscles=\{previewMuscles\.join\(','\)\}/)
+  assert.match(desktop, /calculateDetailedMuscleLoad/)
+  assert.match(desktop, /previewDetailedMuscles/)
+  assert.match(body, /loadByDetailedMuscle/)
+  assert.match(body, /previewDetailedMuscles/)
+})
+
 test('3D body has accessible camera controls, WebGL fallback, and disposes resources', async () => {
   const body = await readFile(bodyUrl, 'utf8')
   for (const label of ['Front view', 'Back view', 'Reset view']) {

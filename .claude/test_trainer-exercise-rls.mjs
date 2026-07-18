@@ -43,12 +43,54 @@ function saveArgs(name, visibility, video = null) {
   }
 }
 
+function detailedSaveArgs(name, visibility, details = ['rectus_femoris', 'vastus_lateralis']) {
+  return {
+    ...saveArgs(name, visibility),
+    p_muscles_detailed: details,
+    p_muscles_secondary_detailed: ['gluteus_maximus_compartment_1'],
+  }
+}
+
 test('anonymous callers cannot discover or create trainer exercises', { skip: !enabled }, async () => {
   const anonymous = client()
   const list = await anonymous.rpc('list_available_exercises')
   assert.ok(list.error)
   const save = await anonymous.rpc('save_trainer_exercise', saveArgs('Anonymous forbidden', 'public'))
   assert.ok(save.error)
+  assert.ok((await anonymous.rpc('list_available_exercises_v3')).error)
+  assert.ok((await anonymous.rpc('save_trainer_exercise_v2', detailedSaveArgs('Anonymous detailed forbidden', 'public'))).error)
+})
+
+test('detailed exercise metadata is scoped, validated, and returned by the v3 directory', { skip: !enabled }, async () => {
+  const trainer = client(required('PT_EXERCISE_RLS_TRAINER_ACCESS_TOKEN'))
+  const trainee = client(required('PT_EXERCISE_RLS_CLIENT_ACCESS_TOKEN'))
+  const outsider = client(required('PT_EXERCISE_RLS_OUTSIDER_ACCESS_TOKEN'))
+
+  const invalid = await trainer.rpc('save_trainer_exercise_v2', detailedSaveArgs(
+    'Mismatched detailed exercise',
+    'clients',
+    ['biceps_brachii_long_head'],
+  ))
+  assert.equal(invalid.error?.code, '22023')
+
+  const name = 'RLS Detailed Squat 99031'
+  const created = await trainer.rpc('save_trainer_exercise_v2', detailedSaveArgs(name, 'clients'))
+  assert.equal(created.error, null)
+  assert.equal(typeof created.data, 'number')
+
+  const trainerList = await trainer.rpc('list_available_exercises_v3')
+  const traineeList = await trainee.rpc('list_available_exercises_v3')
+  const outsiderList = await outsider.rpc('list_available_exercises_v3')
+  for (const result of [trainerList, traineeList, outsiderList]) assert.equal(result.error, null)
+
+  const stored = trainerList.data.find((row) => row.id === created.data)
+  assert.deepEqual(stored.muscles_detailed, ['rectus_femoris', 'vastus_lateralis'])
+  assert.deepEqual(stored.muscles_secondary_detailed, ['gluteus_maximus_compartment_1'])
+  assert.ok(traineeList.data.some((row) => row.id === created.data))
+  assert.ok(!outsiderList.data.some((row) => row.id === created.data))
+
+  const taxonomyProbe = await trainer.schema('private').from('exercise_muscle_taxonomy').select('*')
+  assert.ok(taxonomyProbe.error, 'taxonomy base rows must not be exposed through the API')
 })
 
 test('custom exercise scope, write authorization, and historical entitlement hold end to end', { skip: !enabled }, async () => {

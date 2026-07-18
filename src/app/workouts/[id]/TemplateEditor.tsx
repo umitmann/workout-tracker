@@ -27,7 +27,7 @@ import MobileMusclePlanner from './MobileMusclePlanner'
 const DesktopWorkoutGenerator = dynamic(() => import('./DesktopWorkoutGenerator'), {
   ssr: false,
   loading: () => (
-    <div className="mx-auto grid min-h-[720px] w-full max-w-[1800px] place-items-center px-6 text-sm font-semibold text-zinc-500">
+    <div className="mx-auto grid min-h-0 w-full max-w-[1800px] flex-1 place-items-center px-6 text-sm font-semibold text-zinc-500">
       Loading 3D workout generator…
     </div>
   ),
@@ -461,10 +461,12 @@ export default function TemplateEditor({
     })
   }
 
+  const desktopWorkspaceActive = generatorMode === 'desktop' && desktopEligible
+
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black">
+    <div className={`${desktopWorkspaceActive ? 'flex h-[100dvh] flex-col overflow-hidden' : 'min-h-screen'} bg-zinc-50 dark:bg-black`}>
       {/* Header */}
-      <header className="flex flex-wrap items-center justify-between gap-y-3 px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-y-3 px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
         <button
           onClick={() => router.push('/workouts')}
           className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"
@@ -510,7 +512,7 @@ export default function TemplateEditor({
         </div>
       </header>
 
-      {generatorMode === 'desktop' && desktopEligible ? (
+      {desktopWorkspaceActive ? (
         <DesktopWorkoutGenerator
           exercises={exercises}
           items={items}
