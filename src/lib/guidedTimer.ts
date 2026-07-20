@@ -59,23 +59,26 @@ export function resumedStartTime(nowMs: number, elapsedSeconds: number): number 
   return nowMs - Math.max(0, elapsedSeconds) * 1000
 }
 
-// Speech uses literal movement words rather than relying on differently
-// pitched beeps. "Down. Lower" makes the eccentric instruction explicit while
-// retaining both terms athletes commonly configure/read in the tempo UI.
+// Spoken guidance is intentionally sparse: movement transitions plus an
+// explicit rep label. Whole-second countdowns remain visual/nonverbal so a
+// long phase never talks over the athlete on every second.
 export function guidedMovementVoiceCue(phase: TempoPhase): string {
-  if (phase === 'down') return 'Down. Lower'
+  if (phase === 'down') return 'Lower'
   if (phase === 'up') return 'Up'
   return 'Hold'
 }
 
-export function guidedCountdownVoiceAnnouncement(seconds: number): string | null {
-  return isTickSecond(seconds) ? String(seconds) : null
+export function guidedRepVoiceAnnouncement(rep: number): string {
+  return `Rep ${Math.max(1, Math.floor(rep))}`
 }
 
-export function guidedPhaseVoiceAnnouncement(phase: TempoPhase, seconds: number): string {
+export function guidedPhaseVoiceAnnouncement(
+  phase: TempoPhase,
+  rep: number,
+  announceRep: boolean,
+): string {
   const movement = guidedMovementVoiceCue(phase)
-  const countdown = guidedCountdownVoiceAnnouncement(seconds)
-  return countdown ? `${movement}. ${countdown}` : movement
+  return announceRep ? `${guidedRepVoiceAnnouncement(rep)}. ${movement}` : movement
 }
 
 export type GuidedRestAudioCue = 'halfway' | 'countdown' | 'complete' | null

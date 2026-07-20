@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 import { TempoConfig, TempoPhase, TEMPO_PHASE_CUE, repDuration, formatTempo } from '@/lib/tempo'
 import {
   activeElapsedSeconds,
-  guidedCountdownVoiceAnnouncement,
   guidedPhaseVoiceAnnouncement,
   guidedStateAt,
   stopEarlyReps,
@@ -51,12 +50,14 @@ export default function DruhTimer({
   tempo,
   goalReps,
   audioDefault = true,
+  onAudioChange,
   onStop,
   onCancel,
 }: {
   tempo: TempoConfig
   goalReps: number
   audioDefault?: boolean
+  onAudioChange?: (enabled: boolean) => void
   onStop: (completedReps: number, difficulty: number | null) => void
   onCancel: () => void
 }) {
@@ -84,6 +85,7 @@ export default function DruhTimer({
   const readyRef = useRef(true)
   const readyTickRef = useRef(-1)
   const lastPhaseRef = useRef<string>('')
+  const lastSpokenRepRef = useRef(0)
   const lastTickRef = useRef<number>(-1)
   const audioRef = useRef(audio)
   const ctxRef = useRef<AudioContext | null>(null)
@@ -112,7 +114,6 @@ export default function DruhTimer({
           readyTickRef.current = left
           if (left >= 1 && audioRef.current) {
             if (ctxRef.current) tone(ctxRef.current, 500, 90, 0.2)
-            speakGuided(String(left))
           }
         }
         if (elapsed >= READY_SECONDS) {
@@ -138,15 +139,17 @@ export default function DruhTimer({
         lastPhaseRef.current = phaseKey
         lastTickRef.current = left // seed so we don't also tick this same second
         if (audioRef.current && ctxRef.current) tone(ctxRef.current, PHASE_TONE[s.phase], 140)
-        if (audioRef.current) speakGuided(guidedPhaseVoiceAnnouncement(s.phase, left), true)
+        if (audioRef.current) {
+          const announceRep = lastSpokenRepRef.current !== s.rep
+          speakGuided(guidedPhaseVoiceAnnouncement(s.phase, s.rep, announceRep), true)
+          if (announceRep) lastSpokenRepRef.current = s.rep
+        }
         if (audioRef.current && typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(45)
       } else if (left !== lastTickRef.current) {
-        // Per-second tick on the final 3 seconds of a phase ("get ready")
+        // The final three seconds can still tick, but are never spoken.
         if (isTickSecond(left) && audioRef.current && ctxRef.current) {
           tone(ctxRef.current, 700 + (3 - left) * 120, 70, 0.18)
         }
-        const announcement = guidedCountdownVoiceAnnouncement(left)
-        if (announcement && audioRef.current) speakGuided(announcement, true)
         lastTickRef.current = left
       }
 
@@ -201,10 +204,15 @@ export default function DruhTimer({
   }
 
   function toggleAudio() {
-    setAudio((current) => {
-      if (current) cancelGuidedSpeech()
-      return !current
-    })
+    const next = !audioRef.current
+    audioRef.current = next
+    setAudio(next)
+    onAudioChange?.(next)
+    if (!next) cancelGuidedSpeech()
+    else {
+      lastPhaseRef.current = ''
+      lastSpokenRepRef.current = 0
+    }
   }
 
   // Tile 11: pause the run and surface the computed count for confirm/adjust
@@ -268,10 +276,13 @@ export default function DruhTimer({
             </button>
           )}
           <button
+            type="button"
             onClick={toggleAudio}
+            aria-label={audio ? 'Turn voice off' : 'Turn voice on'}
+            aria-pressed={audio}
             className="min-h-11 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors hover:bg-white/25"
           >
-            {audio ? '🔊 Audio on' : '🔇 Audio off'}
+            {audio ? '🔊 Voice on' : '🔇 Voice off'}
           </button>
         </div>
       </div>

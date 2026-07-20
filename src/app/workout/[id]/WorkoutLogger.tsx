@@ -219,6 +219,7 @@ export default function WorkoutLogger({
   const [restTarget, setRestTarget] = useState(() => readStored('wt.restTarget', 90))
   const [autoStartRest, setAutoStartRest] = useState(() => readStored('wt.autoStartRest', true))
   const [guideRestBetweenSets, setGuideRestBetweenSets] = useState(() => readStored('wt.guideRestBetweenSets', true))
+  const [guideAudioEnabled, setGuideAudioEnabled] = useState(() => readStored('wt.guideAudioEnabled', true))
   // WP-12 (checklist §19.10/§19.11): distance display unit preference.
   // Persisted via distanceUnit.ts's own read/write helpers (not the generic
   // readStored/writeStored above) so BodyweightCard's report export can
@@ -251,6 +252,7 @@ export default function WorkoutLogger({
   useEffect(() => { writeStored('wt.restTarget', restTarget) }, [restTarget])
   useEffect(() => { writeStored('wt.autoStartRest', autoStartRest) }, [autoStartRest])
   useEffect(() => { writeStored('wt.guideRestBetweenSets', guideRestBetweenSets) }, [guideRestBetweenSets])
+  useEffect(() => { writeStored('wt.guideAudioEnabled', guideAudioEnabled) }, [guideAudioEnabled])
   useEffect(() => { writeDistanceUnitPref(distanceUnit) }, [distanceUnit])
   const [guidedSetup, setGuidedSetup] = useState<{
     exercise: SlimExercise
@@ -2386,6 +2388,18 @@ export default function WorkoutLogger({
                 <Stepper label="Hold" sublabel="top" value={tempo.hold} min={0} max={10} onChange={(v) => setTempo((t) => ({ ...t, hold: v }))} />
               </div>
             </div>
+            <label className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
+              <span>
+                <span className="block text-sm font-bold text-zinc-800 dark:text-zinc-200">Voice cues</span>
+                <span className="block text-xs text-zinc-500">Speak movement cues and rep numbers. Seconds stay silent.</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={guideAudioEnabled}
+                onChange={(event) => setGuideAudioEnabled(event.target.checked)}
+                className="size-5 accent-orange-500"
+              />
+            </label>
             <div className="flex gap-2">
               <button
                 onClick={() => setGuidedSetup(null)}
@@ -2409,6 +2423,8 @@ export default function WorkoutLogger({
         <DruhTimer
           tempo={tempo}
           goalReps={runningDruh.goalReps}
+          audioDefault={guideAudioEnabled}
+          onAudioChange={setGuideAudioEnabled}
           onStop={handleGuidedStop}
           onCancel={() => setRunningDruh(null)}
         />
@@ -2489,6 +2505,19 @@ export default function WorkoutLogger({
               />
             </label>
 
+            <label className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
+              <span>
+                <span className="block text-sm font-bold text-zinc-800 dark:text-zinc-200">Voice cues</span>
+                <span className="block text-xs text-zinc-500">Speak movement cues and rep numbers. Seconds stay silent.</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={guideAudioEnabled}
+                onChange={(event) => setGuideAudioEnabled(event.target.checked)}
+                className="size-5 accent-orange-500"
+              />
+            </label>
+
             <div className="flex flex-col gap-2">
               <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Per-set goals</span>
               {guideSetup.rows.map((r, i) => (
@@ -2554,6 +2583,8 @@ export default function WorkoutLogger({
           sets={guideSetsFor(guidingExerciseId)}
           restSeconds={resolveRestTarget(ptRest[guidingExerciseId], restTarget)}
           restBetweenSets={guideRestBetweenSets}
+          audioDefault={guideAudioEnabled}
+          onAudioChange={setGuideAudioEnabled}
           onDone={handleGuideDone}
         />
       )}

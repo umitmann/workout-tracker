@@ -18,7 +18,7 @@ const {
   resumedStartTime,
   guidedMovementVoiceCue,
   guidedPhaseVoiceAnnouncement,
-  guidedCountdownVoiceAnnouncement,
+  guidedRepVoiceAnnouncement,
 } = await import('../src/lib/guidedTimer.ts')
 const { restViewAt, formatClock, startsRestOnComplete, shouldStickRestBar } = await import('../src/lib/restTimer.ts')
 
@@ -128,19 +128,26 @@ test('very short rests prioritize countdown over a halfway cue', () => {
 
 test('spoken movement cues use the requested up, down, hold, and lower vocabulary', () => {
   assert.equal(guidedMovementVoiceCue('up'), 'Up')
-  assert.equal(guidedMovementVoiceCue('down'), 'Down. Lower')
+  assert.equal(guidedMovementVoiceCue('down'), 'Lower')
   assert.equal(guidedMovementVoiceCue('rest'), 'Hold')
   assert.equal(guidedMovementVoiceCue('hold'), 'Hold')
 })
 
-test('phase speech combines the movement with a final-three voice countdown', () => {
-  assert.equal(guidedPhaseVoiceAnnouncement('down', 3), 'Down. Lower. 3')
-  assert.equal(guidedPhaseVoiceAnnouncement('up', 1), 'Up. 1')
-  assert.equal(guidedPhaseVoiceAnnouncement('hold', 5), 'Hold')
-  assert.equal(guidedCountdownVoiceAnnouncement(3), '3')
-  assert.equal(guidedCountdownVoiceAnnouncement(1), '1')
-  assert.equal(guidedCountdownVoiceAnnouncement(0), null)
-  assert.equal(guidedCountdownVoiceAnnouncement(4), null)
+test('spoken guidance announces movement and reps, never phase seconds', () => {
+  assert.equal(guidedRepVoiceAnnouncement(1), 'Rep 1')
+  assert.equal(guidedRepVoiceAnnouncement(12), 'Rep 12')
+  assert.equal(guidedPhaseVoiceAnnouncement('down', 1, true), 'Rep 1. Lower')
+  assert.equal(guidedPhaseVoiceAnnouncement('up', 1, false), 'Up')
+  assert.equal(guidedPhaseVoiceAnnouncement('hold', 1, false), 'Hold')
+
+  for (const spoken of [
+    guidedPhaseVoiceAnnouncement('down', 1, true),
+    guidedPhaseVoiceAnnouncement('rest', 1, false),
+    guidedPhaseVoiceAnnouncement('up', 1, false),
+    guidedPhaseVoiceAnnouncement('hold', 1, false),
+  ]) {
+    assert.doesNotMatch(spoken, /(?:^|\. )(?:1|2|3)$/)
+  }
 })
 
 test('pause/resume clock preserves elapsed guidance time without counting the pause', () => {

@@ -220,7 +220,7 @@ test.describe('active workout guided behavior', () => {
     }
   })
 
-  test('speaks movement/countdown cues and pause freezes guidance until play resumes', async ({ browser }) => {
+  test('voice is optional before and during guidance and never speaks elapsed seconds', async ({ browser }) => {
     const session = await newSignedInContext(browser, 'exerciseClient')
     try {
       await installSpeechRecorder(session.page)
@@ -238,11 +238,20 @@ test.describe('active workout guided behavior', () => {
       ] as const) {
         await enterStepper(session.page, setup, label, value)
       }
+      const setupVoice = setup.getByRole('checkbox', { name: /voice cues/i })
+      await expect(setupVoice).toBeChecked()
+      await setupVoice.uncheck()
       await setup.getByRole('button', { name: /^start$/i }).click()
       await session.page.getByRole('button', { name: /start now/i }).click()
 
       await expect(session.page.getByText('LOWER', { exact: true })).toBeVisible()
       const countdown = session.page.getByTestId('guided-countdown')
+      await session.page.waitForTimeout(1_100)
+      await expect.poll(() => session.page.evaluate(
+        () => ((window as unknown as { __guidedSpeech: string[] }).__guidedSpeech).length,
+      )).toBe(0)
+
+      await session.page.getByRole('button', { name: /turn voice on/i }).click()
       const frozenValue = await countdown.textContent()
       await session.page.getByRole('button', { name: /^pause guidance$/i }).click()
       await expect(session.page.getByText('PAUSED', { exact: true })).toBeVisible()
@@ -257,15 +266,58 @@ test.describe('active workout guided behavior', () => {
 
       await session.page.getByRole('button', { name: /^resume guidance$/i }).click()
       await expect(session.page.getByText('PAUSED', { exact: true })).toHaveCount(0)
-      await expect(session.page.getByRole('button', { name: /audio on/i })).toBeHidden({ timeout: 8_000 })
+      await expect(session.page.getByRole('button', { name: /turn voice off/i })).toBeHidden({ timeout: 8_000 })
 
       const spoken = await session.page.evaluate(
-        () => (window as unknown as { __guidedSpeech: string[] }).__guidedSpeech.join(' | '),
+        () => (window as unknown as { __guidedSpeech: string[] }).__guidedSpeech,
       )
-      expect(spoken).toMatch(/Down\. Lower/i)
-      expect(spoken).toMatch(/Hold/i)
-      expect(spoken).toMatch(/Up/i)
-      expect(spoken).toMatch(/\b1\b/)
+      expect(spoken.join(' | ')).toMatch(/Rep 1/i)
+      expect(spoken.join(' | ')).toMatch(/Hold|Up|Lower/i)
+      expect(spoken.some((phrase) => /^\d+$/.test(phrase))).toBe(false)
+      expect(spoken.some((phrase) => /\. (?:1|2|3)$/.test(phrase))).toBe(false)
+      await deleteWorkout(session.page)
+    } finally {
+      await session.context.close()
+    }
+  })
+
+  test('whole-exercise guidance follows the same sparse voice contract', async ({ browser }) => {
+    const session = await newSignedInContext(browser, 'exerciseClient')
+    try {
+      await installSpeechRecorder(session.page)
+      await startWorkoutWithExercise(session.page)
+      await addStrengthSet(session.page, '60', '1')
+      await session.page.getByRole('button', { name: /guide whole exercise/i }).click()
+      const setup = session.page.getByRole('dialog', { name: /guide exercise:/i })
+      for (const [label, value] of [
+        ['Down', '1'],
+        ['Rest', '1'],
+        ['Up', '1'],
+        ['Hold', '1'],
+      ] as const) {
+        await enterStepper(session.page, setup, label, value)
+      }
+      await setup.getByRole('checkbox', { name: /voice cues/i }).uncheck()
+      await setup.getByRole('button', { name: /start guide/i }).click()
+      await session.page.getByRole('button', { name: /start now/i }).click()
+
+      await session.page.waitForTimeout(1_100)
+      await expect.poll(() => session.page.evaluate(
+        () => ((window as unknown as { __guidedSpeech: string[] }).__guidedSpeech).length,
+      )).toBe(0)
+      await session.page.getByRole('button', { name: /turn voice on/i }).click()
+
+      const review = session.page.getByRole('dialog', { name: /review:/i })
+      await expect(review).toBeVisible({ timeout: 8_000 })
+      const spoken = await session.page.evaluate(
+        () => (window as unknown as { __guidedSpeech: string[] }).__guidedSpeech,
+      )
+      expect(spoken.join(' | ')).toMatch(/Rep 1/i)
+      expect(spoken.join(' | ')).toMatch(/Hold|Up|Lower/i)
+      expect(spoken.some((phrase) => /^\d+$/.test(phrase))).toBe(false)
+      expect(spoken.some((phrase) => /\. (?:1|2|3)$/.test(phrase))).toBe(false)
+
+      await review.getByRole('button', { name: /leave pending/i }).click()
       await deleteWorkout(session.page)
     } finally {
       await session.context.close()
@@ -397,7 +449,7 @@ test.describe('active workout guided behavior', () => {
         await enterStepper(session.page, setup, label, value)
       }
       await setup.getByRole('button', { name: /^start$/i }).click()
-      const guidedAudio = session.page.getByRole('button', { name: /audio on/i })
+      const guidedAudio = session.page.getByRole('button', { name: /turn voice off/i })
       await expect(guidedAudio).toBeVisible()
       await session.page.getByRole('button', { name: /start now/i }).click()
 
