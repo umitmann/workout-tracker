@@ -4,15 +4,21 @@ import { useEffect, useRef, useState } from 'react'
 import { TempoConfig, TempoPhase, TEMPO_PHASE_CUE, repDuration, formatTempo } from '@/lib/tempo'
 import {
   activeElapsedSeconds,
-  guidedPhaseVoiceAnnouncement,
   guidedStateAt,
   stopEarlyReps,
-  isTickSecond,
   READY_SECONDS,
   readySecondsLeft,
   resumedStartTime,
 } from '@/lib/guidedTimer'
 import { cancelGuidedSpeech, speakGuided } from '@/lib/guidedSpeech'
+import {
+  GuidedVoiceSettings,
+  guidedPhaseAnnouncement,
+  guidedReadyAnnouncement,
+  speechOptionsForGuidedVoice,
+} from '@/lib/guidedVoice'
+import GuidedVoiceSettingsFields from './GuidedVoiceSettings'
+import Modal from '@/components/Modal'
 
 // Full-bleed background colour per phase so the phase is readable peripherally,
 // across the room, and through sweat/glare. Paired with the verb (never colour
@@ -47,24 +53,35 @@ function tone(ctx: AudioContext, freq: number, ms: number, volume = 0.25) {
 }
 
 export default function DruhTimer({
+  exerciseName,
   tempo,
   goalReps,
-  audioDefault = true,
-  onAudioChange,
+  weight = null,
+  setNumber = 1,
+  voiceSettingsDefault,
+  onVoiceSettingsChange,
+  techniqueCue = '',
+  onTechniqueCueChange,
   onStop,
   onCancel,
 }: {
+  exerciseName: string
   tempo: TempoConfig
   goalReps: number
-  audioDefault?: boolean
-  onAudioChange?: (enabled: boolean) => void
+  weight?: number | null
+  setNumber?: number
+  voiceSettingsDefault: GuidedVoiceSettings
+  onVoiceSettingsChange?: (settings: GuidedVoiceSettings) => void
+  techniqueCue?: string
+  onTechniqueCueChange?: (cue: string) => void
   onStop: (completedReps: number, difficulty: number | null) => void
   onCancel: () => void
 }) {
   // Wake lock is now owned by WorkoutLogger at the session level (ADR-0007) —
   // no per-timer lock here.
   const initial = guidedStateAt(tempo, goalReps, 0)
-  const [audio, setAudio] = useState(audioDefault)
+  const [voiceSettings, setVoiceSettings] = useState(voiceSettingsDefault)
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false)
   const [ready, setReady] = useState(READY_SECONDS) // >0 = GET READY lead-in
   const [rep, setRep] = useState(initial.rep)
   const [phase, setPhase] = useState<TempoPhase>(initial.phase)
@@ -83,15 +100,13 @@ export default function DruhTimer({
   const pausedRef = useRef(false)
   const pausedElapsedRef = useRef(0)
   const readyRef = useRef(true)
-  const readyTickRef = useRef(-1)
   const lastPhaseRef = useRef<string>('')
   const lastSpokenRepRef = useRef(0)
-  const lastTickRef = useRef<number>(-1)
-  const audioRef = useRef(audio)
+  const voiceSettingsRef = useRef(voiceSettings)
   const ctxRef = useRef<AudioContext | null>(null)
   const doneRef = useRef(false)
 
-  audioRef.current = audio
+  voiceSettingsRef.current = voiceSettings
   const repDur = repDuration(tempo)
 
   useEffect(() => {
@@ -101,6 +116,18 @@ export default function DruhTimer({
       ctxRef.current.resume?.().catch(() => {})
     }
     startRef.current = performance.now()
+    const readyAnnouncement = guidedReadyAnnouncement({
+      enabled: voiceSettingsRef.current.enabled,
+      mode: voiceSettingsRef.current.coachingMode,
+      exerciseName,
+      setNumber,
+      goalReps,
+      weight,
+      techniqueCue,
+    })
+    if (readyAnnouncement) {
+      speakGuided(readyAnnouncement, true, speechOptionsForGuidedVoice(voiceSettingsRef.current))
+    }
 
     function frame(now: number) {
       if (pausedRef.current || doneRef.current) return
@@ -110,12 +137,6 @@ export default function DruhTimer({
       if (readyRef.current) {
         const left = readySecondsLeft(elapsed)
         setReady(left)
-        if (left !== readyTickRef.current) {
-          readyTickRef.current = left
-          if (left >= 1 && audioRef.current) {
-            if (ctxRef.current) tone(ctxRef.current, 500, 90, 0.2)
-          }
-        }
         if (elapsed >= READY_SECONDS) {
           readyRef.current = false
           startRef.current = performance.now()
@@ -137,20 +158,21 @@ export default function DruhTimer({
       // Transition tone + haptic on phase change
       if (phaseKey !== lastPhaseRef.current) {
         lastPhaseRef.current = phaseKey
-        lastTickRef.current = left // seed so we don't also tick this same second
-        if (audioRef.current && ctxRef.current) tone(ctxRef.current, PHASE_TONE[s.phase], 140)
-        if (audioRef.current) {
+        const currentSettings = voiceSettingsRef.current
+        if (currentSettings.rhythmCues && ctxRef.current) tone(ctxRef.current, PHASE_TONE[s.phase], 140)
+        if (currentSettings.enabled) {
           const announceRep = lastSpokenRepRef.current !== s.rep
-          speakGuided(guidedPhaseVoiceAnnouncement(s.phase, s.rep, announceRep), true)
-          if (announceRep) lastSpokenRepRef.current = s.rep
+          const announcement = guidedPhaseAnnouncement({
+            mode: currentSettings.coachingMode,
+            phase: s.phase,
+            rep: s.rep,
+            goalReps,
+            announceRep,
+          })
+          if (announcement) speakGuided(announcement, true, speechOptionsForGuidedVoice(currentSettings))
+          if (announceRep && announcement) lastSpokenRepRef.current = s.rep
         }
-        if (audioRef.current && typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(45)
-      } else if (left !== lastTickRef.current) {
-        // The final three seconds can still tick, but are never spoken.
-        if (isTickSecond(left) && audioRef.current && ctxRef.current) {
-          tone(ctxRef.current, 700 + (3 - left) * 120, 70, 0.18)
-        }
-        lastTickRef.current = left
+        if (currentSettings.rhythmCues && typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(45)
       }
 
       setRep(s.rep)
@@ -198,18 +220,44 @@ export default function DruhTimer({
     startRef.current = resumedStartTime(performance.now(), pausedElapsedRef.current)
     pausedRef.current = false
     setPaused(false)
-    if (readyRef.current) readyTickRef.current = -1
-    else lastPhaseRef.current = ''
+    if (!readyRef.current) lastPhaseRef.current = ''
     rafRef.current = requestAnimationFrame(frameRef.current)
   }
 
-  function toggleAudio() {
-    const next = !audioRef.current
-    audioRef.current = next
-    setAudio(next)
-    onAudioChange?.(next)
-    if (!next) cancelGuidedSpeech()
-    else {
+  function changeVoiceSettings(next: GuidedVoiceSettings) {
+    voiceSettingsRef.current = next
+    setVoiceSettings(next)
+    onVoiceSettingsChange?.(next)
+    cancelGuidedSpeech()
+    lastPhaseRef.current = ''
+    lastSpokenRepRef.current = 0
+  }
+
+  function toggleVoice() {
+    const next = { ...voiceSettingsRef.current, enabled: !voiceSettingsRef.current.enabled }
+    changeVoiceSettings(next)
+    if (next.enabled && readyRef.current) {
+      const announcement = guidedReadyAnnouncement({
+        enabled: next.enabled,
+        mode: next.coachingMode,
+        exerciseName,
+        setNumber,
+        goalReps,
+        weight,
+        techniqueCue,
+      })
+      if (announcement) speakGuided(announcement, true, speechOptionsForGuidedVoice(next))
+    }
+  }
+
+  function openVoiceSettings() {
+    if (!pausedRef.current && confirmReps == null) togglePause()
+    setShowVoiceSettings(true)
+  }
+
+  function closeVoiceSettings() {
+    setShowVoiceSettings(false)
+    if (voiceSettingsRef.current.enabled) {
       lastPhaseRef.current = ''
       lastSpokenRepRef.current = 0
     }
@@ -258,7 +306,7 @@ export default function DruhTimer({
 
   return (
     <div className={`fixed inset-0 z-[80] flex flex-col ${bg} transition-colors duration-150 text-white`}>
-      {/* Top bar: exercise progress + audio toggle */}
+      {/* Top bar: exercise progress + live guidance controls */}
       <div className="flex items-center justify-between px-6 pt-6">
         <p className="text-sm font-bold uppercase tracking-widest text-white/80">
           Rep {Math.min(rep, goalReps)} / {goalReps}
@@ -277,17 +325,49 @@ export default function DruhTimer({
           )}
           <button
             type="button"
-            onClick={toggleAudio}
-            aria-label={audio ? 'Turn voice off' : 'Turn voice on'}
-            aria-pressed={audio}
-            className="min-h-11 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors hover:bg-white/25"
+            onClick={toggleVoice}
+            aria-label={voiceSettings.enabled ? 'Turn voice off' : 'Turn voice on'}
+            aria-pressed={voiceSettings.enabled}
+            className="grid min-h-11 min-w-11 place-items-center rounded-full bg-white/15 px-3 text-xs font-bold transition-colors hover:bg-white/25"
           >
-            {audio ? '🔊 Voice on' : '🔇 Voice off'}
+            {voiceSettings.enabled ? '🔊' : '🔇'}
+          </button>
+          <button
+            type="button"
+            onClick={openVoiceSettings}
+            aria-label="Voice settings"
+            aria-expanded={showVoiceSettings}
+            className="grid min-h-11 min-w-11 place-items-center rounded-full bg-white/15 px-3 text-base transition-colors hover:bg-white/25"
+          >
+            ⚙
           </button>
         </div>
       </div>
 
       {paused && !inConfirm && <p role="status" className="mx-auto mt-4 rounded-full bg-black/25 px-4 py-2 text-sm font-black tracking-[0.25em]">PAUSED</p>}
+
+      {showVoiceSettings && (
+        <Modal
+          title="Voice settings"
+          onClose={closeVoiceSettings}
+          backdropClassName="fixed inset-0 z-[90] flex items-start justify-center bg-black/60 px-3 pt-[max(5rem,env(safe-area-inset-top))]"
+          panelClassName="max-h-[calc(100dvh-6rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-white/20 bg-zinc-900/95 p-3 text-white shadow-2xl outline-none backdrop-blur"
+        >
+          <>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-sm font-black">Guidance settings</p>
+              <button type="button" onClick={closeVoiceSettings} className="min-h-11 rounded-xl bg-white/10 px-4 text-sm font-bold hover:bg-white/20">Done</button>
+            </div>
+            <GuidedVoiceSettingsFields
+              settings={voiceSettings}
+              onChange={changeVoiceSettings}
+              techniqueCue={techniqueCue}
+              onTechniqueCueChange={onTechniqueCueChange}
+              appearance="overlay"
+            />
+          </>
+        </Modal>
+      )}
 
       {inConfirm ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">

@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 import { TempoConfig, TempoPhase, secondsLeft } from '@/lib/tempo'
 import {
   activeElapsedSeconds,
-  guidedPhaseVoiceAnnouncement,
   guidedRestAudioCue,
   guidedStateAt,
   stopEarlyReps,
@@ -13,6 +12,15 @@ import {
   resumedStartTime,
 } from '@/lib/guidedTimer'
 import { cancelGuidedSpeech, speakGuided } from '@/lib/guidedSpeech'
+import {
+  GuidedVoiceSettings,
+  guidedPhaseAnnouncement,
+  guidedReadyAnnouncement,
+  guidedRestAnnouncement,
+  speechOptionsForGuidedVoice,
+} from '@/lib/guidedVoice'
+import GuidedVoiceSettingsFields from './GuidedVoiceSettings'
+import Modal from '@/components/Modal'
 
 export type GuideSet = { localId: string; goalReps: number; weight: number | null }
 export type GuideResult = {
@@ -57,8 +65,10 @@ export default function ExerciseGuide({
   sets,
   restSeconds,
   restBetweenSets = true,
-  audioDefault = true,
-  onAudioChange,
+  voiceSettingsDefault,
+  onVoiceSettingsChange,
+  techniqueCue = '',
+  onTechniqueCueChange,
   onDone,
 }: {
   exerciseName: string
@@ -66,11 +76,14 @@ export default function ExerciseGuide({
   sets: GuideSet[]
   restSeconds: number
   restBetweenSets?: boolean
-  audioDefault?: boolean
-  onAudioChange?: (enabled: boolean) => void
+  voiceSettingsDefault: GuidedVoiceSettings
+  onVoiceSettingsChange?: (settings: GuidedVoiceSettings) => void
+  techniqueCue?: string
+  onTechniqueCueChange?: (cue: string) => void
   onDone: (results: GuideResult[], activeRest?: GuidedRestHandoff) => void
 }) {
-  const [audio, setAudio] = useState(audioDefault)
+  const [voiceSettings, setVoiceSettings] = useState(voiceSettingsDefault)
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false)
   const [mode, setMode] = useState<Mode>('ready')
   const [idx, setIdx] = useState(0)
   const [view, setView] = useState(() => guidedStateAt(tempo, sets[0]?.goalReps ?? 1, 0))
@@ -88,14 +101,14 @@ export default function ExerciseGuide({
   const pausedRef = useRef(false)
   const pausedElapsedRef = useRef(0)
   const ctxRef = useRef<AudioContext | null>(null)
-  const audioRef = useRef(audio)
+  const voiceSettingsRef = useRef(voiceSettings)
+  const techniqueCueRef = useRef(techniqueCue)
   const lastPhaseRef = useRef('')
   const lastSpokenRepRef = useRef(0)
-  const lastTickRef = useRef(-1)
-  const readyTickRef = useRef(-1)
   const lastRestCueSecondRef = useRef(-1)
   const doneRef = useRef(false)
-  audioRef.current = audio
+  voiceSettingsRef.current = voiceSettings
+  techniqueCueRef.current = techniqueCue
 
   useEffect(() => {
     if (sets.length === 0) { onDone([]); return }
@@ -104,6 +117,7 @@ export default function ExerciseGuide({
       ctxRef.current.resume?.().catch(() => {})
     }
     startRef.current = performance.now()
+    announceReady(0)
     frameRef.current = loop
     rafRef.current = requestAnimationFrame(loop)
     return () => {
@@ -138,12 +152,6 @@ export default function ExerciseGuide({
     if (modeRef.current === 'ready') {
       const left = readySecondsLeft(elapsed)
       setReadyLeft(left)
-      if (left !== readyTickRef.current) {
-        readyTickRef.current = left
-        if (left >= 1 && audioRef.current) {
-          if (ctxRef.current) tone(ctxRef.current, 500, 90, 0.2)
-        }
-      }
       if (elapsed >= READY_SECONDS) { beginSet(); return }
     } else if (modeRef.current === 'set') {
       const current = sets[idxRef.current]
@@ -151,19 +159,21 @@ export default function ExerciseGuide({
       const phaseKey = `${state.rep}:${state.phase}`
       if (phaseKey !== lastPhaseRef.current) {
         lastPhaseRef.current = phaseKey
-        lastTickRef.current = state.secondsLeft
-        if (audioRef.current && ctxRef.current) tone(ctxRef.current, PHASE_TONE[state.phase], 140)
-        if (audioRef.current) {
+        const currentSettings = voiceSettingsRef.current
+        if (currentSettings.rhythmCues && ctxRef.current) tone(ctxRef.current, PHASE_TONE[state.phase], 140)
+        if (currentSettings.enabled) {
           const announceRep = lastSpokenRepRef.current !== state.rep
-          speakGuided(guidedPhaseVoiceAnnouncement(state.phase, state.rep, announceRep), true)
-          if (announceRep) lastSpokenRepRef.current = state.rep
+          const announcement = guidedPhaseAnnouncement({
+            mode: currentSettings.coachingMode,
+            phase: state.phase,
+            rep: state.rep,
+            goalReps: current.goalReps,
+            announceRep,
+          })
+          if (announcement) speakGuided(announcement, true, speechOptionsForGuidedVoice(currentSettings))
+          if (announceRep && announcement) lastSpokenRepRef.current = state.rep
         }
-        if (audioRef.current && typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(45)
-      } else if (state.secondsLeft !== lastTickRef.current) {
-        if (state.secondsLeft >= 1 && state.secondsLeft <= 3 && audioRef.current && ctxRef.current) {
-          tone(ctxRef.current, 700 + (3 - state.secondsLeft) * 120, 70, 0.18)
-        }
-        lastTickRef.current = state.secondsLeft
+        if (currentSettings.rhythmCues && typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(45)
       }
       setView(state)
       if (state.finished) { completeSet(current.goalReps); return }
@@ -174,15 +184,19 @@ export default function ExerciseGuide({
       if (wholeSecondsLeft !== lastRestCueSecondRef.current) {
         lastRestCueSecondRef.current = wholeSecondsLeft
         const cue = guidedRestAudioCue(restSeconds, wholeSecondsLeft)
-        if (cue && audioRef.current && ctxRef.current) {
+        const currentSettings = voiceSettingsRef.current
+        if (cue && currentSettings.restCues === 'chimes' && ctxRef.current) {
           if (cue === 'halfway') tone(ctxRef.current, 520, 180, 0.25)
-          if (cue === 'countdown') tone(ctxRef.current, 700 + (3 - wholeSecondsLeft) * 120, 90, 0.22)
           if (cue === 'complete') tone(ctxRef.current, 660, 250, 0.3)
+        }
+        if (cue && currentSettings.enabled) {
+          const announcement = guidedRestAnnouncement(currentSettings.restCues, cue)
+          if (announcement) speakGuided(announcement, true, speechOptionsForGuidedVoice(currentSettings))
         }
       }
       if (elapsed >= restSeconds) {
         recordRest(Math.round(restSeconds))
-        toReady()
+        toReady(true)
         return
       }
     }
@@ -194,19 +208,18 @@ export default function ExerciseGuide({
     setMode('set')
     lastPhaseRef.current = ''
     lastSpokenRepRef.current = 0
-    lastTickRef.current = -1
     startRef.current = performance.now()
     rafRef.current = requestAnimationFrame(loop)
   }
 
-  function toReady() {
+  function toReady(afterRest = false) {
     idxRef.current += 1
     setIdx(idxRef.current)
     modeRef.current = 'ready'
     setMode('ready')
-    readyTickRef.current = -1
     setReadyLeft(READY_SECONDS)
     startRef.current = performance.now()
+    announceReady(idxRef.current, voiceSettingsRef.current, !afterRest)
     rafRef.current = requestAnimationFrame(loop)
   }
 
@@ -272,22 +285,52 @@ export default function ExerciseGuide({
     startRef.current = resumedStartTime(performance.now(), pausedElapsedRef.current)
     pausedRef.current = false
     setPaused(false)
-    if (modeRef.current === 'ready') readyTickRef.current = -1
     if (modeRef.current === 'set') lastPhaseRef.current = ''
     if (modeRef.current === 'rest') lastRestCueSecondRef.current = -1
     rafRef.current = requestAnimationFrame(frameRef.current)
   }
 
-  function toggleAudio() {
-    const next = !audioRef.current
-    audioRef.current = next
-    setAudio(next)
-    onAudioChange?.(next)
-    if (!next) cancelGuidedSpeech()
-    else {
-      lastPhaseRef.current = ''
-      lastSpokenRepRef.current = 0
-    }
+  function announceReady(
+    setIndex: number,
+    settings = voiceSettingsRef.current,
+    interrupt = true,
+  ) {
+    const current = sets[setIndex]
+    if (!current) return
+    const announcement = guidedReadyAnnouncement({
+      enabled: settings.enabled,
+      mode: settings.coachingMode,
+      exerciseName,
+      setNumber: setIndex + 1,
+      goalReps: current.goalReps,
+      weight: current.weight,
+      techniqueCue: techniqueCueRef.current,
+    })
+    if (announcement) speakGuided(announcement, interrupt, speechOptionsForGuidedVoice(settings))
+  }
+
+  function changeVoiceSettings(next: GuidedVoiceSettings) {
+    voiceSettingsRef.current = next
+    setVoiceSettings(next)
+    onVoiceSettingsChange?.(next)
+    cancelGuidedSpeech()
+    lastPhaseRef.current = ''
+    lastSpokenRepRef.current = 0
+  }
+
+  function toggleVoice() {
+    const next = { ...voiceSettingsRef.current, enabled: !voiceSettingsRef.current.enabled }
+    changeVoiceSettings(next)
+    if (next.enabled && modeRef.current === 'ready') announceReady(idxRef.current, next)
+  }
+
+  function openVoiceSettings() {
+    if (!pausedRef.current) togglePause()
+    setShowVoiceSettings(true)
+  }
+
+  function closeVoiceSettings() {
+    setShowVoiceSettings(false)
   }
 
   // Back/Exit never silently commits or discards. It captures an in-progress
@@ -335,8 +378,11 @@ export default function ExerciseGuide({
           <button type="button" onClick={togglePause} className="grid min-h-11 min-w-11 place-items-center rounded-full bg-white/15 px-3 text-xs font-bold transition-colors hover:bg-white/25" aria-label={paused ? 'Resume guidance' : 'Pause guidance'} aria-pressed={paused}>
             {paused ? '▶' : '⏸'}
           </button>
-          <button type="button" onClick={toggleAudio} className="grid min-h-11 min-w-11 place-items-center rounded-full bg-white/15 px-3 text-xs font-bold transition-colors hover:bg-white/25" aria-label={audio ? 'Turn voice off' : 'Turn voice on'} aria-pressed={audio}>
-            {audio ? '🔊' : '🔇'}
+          <button type="button" onClick={toggleVoice} className="grid min-h-11 min-w-11 place-items-center rounded-full bg-white/15 px-3 text-xs font-bold transition-colors hover:bg-white/25" aria-label={voiceSettings.enabled ? 'Turn voice off' : 'Turn voice on'} aria-pressed={voiceSettings.enabled}>
+            {voiceSettings.enabled ? '🔊' : '🔇'}
+          </button>
+          <button type="button" onClick={openVoiceSettings} className="grid min-h-11 min-w-11 place-items-center rounded-full bg-white/15 px-3 text-base transition-colors hover:bg-white/25" aria-label="Voice settings" aria-expanded={showVoiceSettings}>
+            ⚙
           </button>
           <button onClick={exitForReview} className="min-h-11 rounded-full bg-white/15 px-3 text-xs font-bold uppercase tracking-wide transition-colors hover:bg-white/25">
             Review &amp; exit
@@ -345,6 +391,30 @@ export default function ExerciseGuide({
       </div>
 
       {paused && <p role="status" className="mx-auto mt-4 rounded-full bg-black/25 px-4 py-2 text-sm font-black tracking-[0.25em]">PAUSED</p>}
+
+      {showVoiceSettings && (
+        <Modal
+          title="Voice settings"
+          onClose={closeVoiceSettings}
+          backdropClassName="fixed inset-0 z-[90] flex items-start justify-center bg-black/60 px-3 pt-[max(5rem,env(safe-area-inset-top))]"
+          panelClassName="max-h-[calc(100dvh-6rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-white/20 bg-zinc-900/95 p-3 text-white shadow-2xl outline-none backdrop-blur"
+        >
+          <>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-sm font-black">Guidance settings</p>
+              <button type="button" onClick={closeVoiceSettings} className="min-h-11 rounded-xl bg-white/10 px-4 text-sm font-bold hover:bg-white/20">Done</button>
+            </div>
+            <GuidedVoiceSettingsFields
+              settings={voiceSettings}
+              onChange={changeVoiceSettings}
+              techniqueCue={techniqueCue}
+              onTechniqueCueChange={onTechniqueCueChange}
+              showRestCues
+              appearance="overlay"
+            />
+          </>
+        </Modal>
+      )}
 
       {mode === 'ready' ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">

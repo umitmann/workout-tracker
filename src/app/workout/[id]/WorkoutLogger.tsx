@@ -14,6 +14,7 @@ import Modal from '@/components/Modal'
 import DruhTimer from './DruhTimer'
 import RestTimer from './RestTimer'
 import ExerciseGuide, { GuideSet, GuideResult, GuidedRestHandoff } from './ExerciseGuide'
+import GuidedVoiceSettingsFields from './GuidedVoiceSettings'
 import Stepper from './Stepper'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 import { useWakeLock } from './useWakeLock'
@@ -44,6 +45,11 @@ import { buildClipboardEntries, clipboardEntriesToLocalSets } from '@/lib/clipbo
 import IconHitTarget from './IconHitTarget'
 import { localDateStr } from '@/lib/localDate'
 import { DistanceUnit, formatDistance, convertKmTo, readDistanceUnitPref, writeDistanceUnitPref } from '@/lib/distanceUnit'
+import {
+  DEFAULT_GUIDED_VOICE_SETTINGS,
+  GuidedVoiceSettings,
+  normalizeGuidedVoiceSettings,
+} from '@/lib/guidedVoice'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -219,7 +225,15 @@ export default function WorkoutLogger({
   const [restTarget, setRestTarget] = useState(() => readStored('wt.restTarget', 90))
   const [autoStartRest, setAutoStartRest] = useState(() => readStored('wt.autoStartRest', true))
   const [guideRestBetweenSets, setGuideRestBetweenSets] = useState(() => readStored('wt.guideRestBetweenSets', true))
-  const [guideAudioEnabled, setGuideAudioEnabled] = useState(() => readStored('wt.guideAudioEnabled', true))
+  const [guideVoiceSettings, setGuideVoiceSettings] = useState<GuidedVoiceSettings>(() =>
+    normalizeGuidedVoiceSettings(readStored('wt.guideVoiceSettings', {
+      ...DEFAULT_GUIDED_VOICE_SETTINGS,
+      enabled: readStored('wt.guideAudioEnabled', true),
+    })),
+  )
+  const [guideTechniqueCues, setGuideTechniqueCues] = useState<Record<number, string>>(() =>
+    readStored('wt.guideTechniqueCues', {}),
+  )
   // WP-12 (checklist §19.10/§19.11): distance display unit preference.
   // Persisted via distanceUnit.ts's own read/write helpers (not the generic
   // readStored/writeStored above) so BodyweightCard's report export can
@@ -252,7 +266,8 @@ export default function WorkoutLogger({
   useEffect(() => { writeStored('wt.restTarget', restTarget) }, [restTarget])
   useEffect(() => { writeStored('wt.autoStartRest', autoStartRest) }, [autoStartRest])
   useEffect(() => { writeStored('wt.guideRestBetweenSets', guideRestBetweenSets) }, [guideRestBetweenSets])
-  useEffect(() => { writeStored('wt.guideAudioEnabled', guideAudioEnabled) }, [guideAudioEnabled])
+  useEffect(() => { writeStored('wt.guideVoiceSettings', guideVoiceSettings) }, [guideVoiceSettings])
+  useEffect(() => { writeStored('wt.guideTechniqueCues', guideTechniqueCues) }, [guideTechniqueCues])
   useEffect(() => { writeDistanceUnitPref(distanceUnit) }, [distanceUnit])
   const [guidedSetup, setGuidedSetup] = useState<{
     exercise: SlimExercise
@@ -627,6 +642,17 @@ export default function WorkoutLogger({
     if (!selectedExercise) return
     applyPtTempo(selectedExercise.id)
     setGuidedSetup({ exercise: selectedExercise, goalReps: reps || '8', weight })
+  }
+
+  function updateGuideTechniqueCue(exerciseId: number, cue: string) {
+    setGuideTechniqueCues((current) => {
+      if (!cue) {
+        const next = { ...current }
+        delete next[exerciseId]
+        return next
+      }
+      return { ...current, [exerciseId]: cue }
+    })
   }
 
   function startGuided() {
@@ -2352,7 +2378,7 @@ export default function WorkoutLogger({
           title={`Guided set: ${guidedSetup.exercise.name}`}
           onClose={() => setGuidedSetup(null)}
           backdropClassName="fixed inset-0 bg-black/70 flex items-center justify-center z-[75] px-4"
-          panelClassName="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl outline-none"
+          panelClassName="w-full max-w-sm max-h-[90dvh] overflow-y-auto bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl outline-none"
         >
           <>
             <div>
@@ -2388,19 +2414,13 @@ export default function WorkoutLogger({
                 <Stepper label="Hold" sublabel="top" value={tempo.hold} min={0} max={10} onChange={(v) => setTempo((t) => ({ ...t, hold: v }))} />
               </div>
             </div>
-            <label className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
-              <span>
-                <span className="block text-sm font-bold text-zinc-800 dark:text-zinc-200">Voice cues</span>
-                <span className="block text-xs text-zinc-500">Speak movement cues and rep numbers. Seconds stay silent.</span>
-              </span>
-              <input
-                type="checkbox"
-                checked={guideAudioEnabled}
-                onChange={(event) => setGuideAudioEnabled(event.target.checked)}
-                className="size-5 accent-orange-500"
-              />
-            </label>
-            <div className="flex gap-2">
+            <GuidedVoiceSettingsFields
+              settings={guideVoiceSettings}
+              onChange={setGuideVoiceSettings}
+              techniqueCue={guideTechniqueCues[guidedSetup.exercise.id] ?? ''}
+              onTechniqueCueChange={(cue) => updateGuideTechniqueCue(guidedSetup.exercise.id, cue)}
+            />
+            <div className="sticky -bottom-6 z-10 -mx-2 flex gap-2 border-t border-zinc-200 bg-white px-2 pb-1 pt-3 dark:border-zinc-700 dark:bg-zinc-900">
               <button
                 onClick={() => setGuidedSetup(null)}
                 className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-2.5 text-sm font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
@@ -2421,10 +2441,14 @@ export default function WorkoutLogger({
       {/* Running DRUH timer */}
       {runningDruh && (
         <DruhTimer
+          exerciseName={runningDruh.exercise.name}
           tempo={tempo}
           goalReps={runningDruh.goalReps}
-          audioDefault={guideAudioEnabled}
-          onAudioChange={setGuideAudioEnabled}
+          weight={runningDruh.weight}
+          voiceSettingsDefault={guideVoiceSettings}
+          onVoiceSettingsChange={setGuideVoiceSettings}
+          techniqueCue={guideTechniqueCues[runningDruh.exercise.id] ?? ''}
+          onTechniqueCueChange={(cue) => updateGuideTechniqueCue(runningDruh.exercise.id, cue)}
           onStop={handleGuidedStop}
           onCancel={() => setRunningDruh(null)}
         />
@@ -2505,18 +2529,13 @@ export default function WorkoutLogger({
               />
             </label>
 
-            <label className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
-              <span>
-                <span className="block text-sm font-bold text-zinc-800 dark:text-zinc-200">Voice cues</span>
-                <span className="block text-xs text-zinc-500">Speak movement cues and rep numbers. Seconds stay silent.</span>
-              </span>
-              <input
-                type="checkbox"
-                checked={guideAudioEnabled}
-                onChange={(event) => setGuideAudioEnabled(event.target.checked)}
-                className="size-5 accent-orange-500"
-              />
-            </label>
+            <GuidedVoiceSettingsFields
+              settings={guideVoiceSettings}
+              onChange={setGuideVoiceSettings}
+              techniqueCue={guideTechniqueCues[guideSetup.exerciseId] ?? ''}
+              onTechniqueCueChange={(cue) => updateGuideTechniqueCue(guideSetup.exerciseId, cue)}
+              showRestCues
+            />
 
             <div className="flex flex-col gap-2">
               <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Per-set goals</span>
@@ -2557,7 +2576,7 @@ export default function WorkoutLogger({
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="sticky -bottom-6 z-10 -mx-2 flex gap-2 border-t border-zinc-200 bg-white px-2 pb-1 pt-3 dark:border-zinc-700 dark:bg-zinc-900">
               <button
                 onClick={() => setGuideSetup(null)}
                 className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-2.5 text-sm font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
@@ -2583,8 +2602,10 @@ export default function WorkoutLogger({
           sets={guideSetsFor(guidingExerciseId)}
           restSeconds={resolveRestTarget(ptRest[guidingExerciseId], restTarget)}
           restBetweenSets={guideRestBetweenSets}
-          audioDefault={guideAudioEnabled}
-          onAudioChange={setGuideAudioEnabled}
+          voiceSettingsDefault={guideVoiceSettings}
+          onVoiceSettingsChange={setGuideVoiceSettings}
+          techniqueCue={guideTechniqueCues[guidingExerciseId] ?? ''}
+          onTechniqueCueChange={(cue) => updateGuideTechniqueCue(guidingExerciseId, cue)}
           onDone={handleGuideDone}
         />
       )}

@@ -113,15 +113,15 @@ test('guided rest announces its halfway point once at the midpoint', () => {
   assert.equal(guidedRestAudioCue(90, 44), null)
 })
 
-test('guided rest counts the final three seconds and signals completion', () => {
-  assert.equal(guidedRestAudioCue(90, 3), 'countdown')
-  assert.equal(guidedRestAudioCue(90, 2), 'countdown')
-  assert.equal(guidedRestAudioCue(90, 1), 'countdown')
+test('guided rest stays silent on individual seconds and signals completion', () => {
+  assert.equal(guidedRestAudioCue(90, 3), null)
+  assert.equal(guidedRestAudioCue(90, 2), null)
+  assert.equal(guidedRestAudioCue(90, 1), null)
   assert.equal(guidedRestAudioCue(90, 0), 'complete')
 })
 
-test('very short rests prioritize countdown over a halfway cue', () => {
-  assert.equal(guidedRestAudioCue(4, 2), 'countdown')
+test('very short rests can still signal their halfway point without counting seconds', () => {
+  assert.equal(guidedRestAudioCue(4, 2), 'halfway')
 })
 
 // ─── Spoken guidance + resumable clock ─────────────────────────────────────

@@ -81,17 +81,15 @@ export function guidedPhaseVoiceAnnouncement(
   return announceRep ? `${guidedRepVoiceAnnouncement(rep)}. ${movement}` : movement
 }
 
-export type GuidedRestAudioCue = 'halfway' | 'countdown' | 'complete' | null
+export type GuidedRestAudioCue = 'halfway' | 'complete' | null
 
-// Pure cue schedule for the between-set guided rest. The component de-dupes
-// whole seconds before calling this, so each returned cue plays once. The
-// final countdown takes precedence for short rests whose midpoint overlaps it.
+// Pure cue schedule for the between-set guided rest. It deliberately has no
+// per-second countdown: only the midpoint and completion can make sound.
 export function guidedRestAudioCue(
   restSeconds: number,
   wholeSecondsLeft: number,
 ): GuidedRestAudioCue {
   if (wholeSecondsLeft <= 0) return 'complete'
-  if (isTickSecond(wholeSecondsLeft)) return 'countdown'
   if (wholeSecondsLeft === Math.ceil(Math.max(0, restSeconds) / 2)) return 'halfway'
   return null
 }

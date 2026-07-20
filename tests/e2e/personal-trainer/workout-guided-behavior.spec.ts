@@ -52,12 +52,18 @@ async function restSecondsRemaining(page: Page): Promise<number> {
 async function installSpeechRecorder(page: Page) {
   const install = () => {
     const spoken: string[] = []
+    const utterances: Array<{ text: string; rate: number; pitch: number; volume: number; voiceURI: string | null }> = []
+    const voices = [
+      { voiceURI: 'voice:clear', name: 'QA Clear', lang: 'en-US', default: true, localService: true },
+      { voiceURI: 'voice:calm', name: 'QA Calm', lang: 'en-GB', default: false, localService: true },
+    ]
     class RecordedUtterance {
       text: string
       lang = ''
       rate = 1
       pitch = 1
       volume = 1
+      voice: (typeof voices)[number] | null = null
 
       constructor(text: string) {
         this.text = text
@@ -67,6 +73,10 @@ async function installSpeechRecorder(page: Page) {
       configurable: true,
       value: spoken,
     })
+    Object.defineProperty(window, '__guidedUtterances', {
+      configurable: true,
+      value: utterances,
+    })
     Object.defineProperty(window, 'SpeechSynthesisUtterance', {
       configurable: true,
       value: RecordedUtterance,
@@ -74,11 +84,20 @@ async function installSpeechRecorder(page: Page) {
     Object.defineProperty(window, 'speechSynthesis', {
       configurable: true,
       value: {
-        speak(utterance: { text: string }) { spoken.push(utterance.text) },
+        speak(utterance: RecordedUtterance) {
+          spoken.push(utterance.text)
+          utterances.push({
+            text: utterance.text,
+            rate: utterance.rate,
+            pitch: utterance.pitch,
+            volume: utterance.volume,
+            voiceURI: utterance.voice?.voiceURI ?? null,
+          })
+        },
         cancel() {},
         pause() {},
         resume() {},
-        getVoices() { return [] },
+        getVoices() { return voices },
         pending: false,
         speaking: false,
         paused: false,
@@ -238,7 +257,7 @@ test.describe('active workout guided behavior', () => {
       ] as const) {
         await enterStepper(session.page, setup, label, value)
       }
-      const setupVoice = setup.getByRole('checkbox', { name: /voice cues/i })
+      const setupVoice = setup.getByRole('checkbox', { name: /voice coaching enabled/i })
       await expect(setupVoice).toBeChecked()
       await setupVoice.uncheck()
       await setup.getByRole('button', { name: /^start$/i }).click()
@@ -297,7 +316,7 @@ test.describe('active workout guided behavior', () => {
       ] as const) {
         await enterStepper(session.page, setup, label, value)
       }
-      await setup.getByRole('checkbox', { name: /voice cues/i }).uncheck()
+      await setup.getByRole('checkbox', { name: /voice coaching enabled/i }).uncheck()
       await setup.getByRole('button', { name: /start guide/i }).click()
       await session.page.getByRole('button', { name: /start now/i }).click()
 
@@ -318,6 +337,82 @@ test.describe('active workout guided behavior', () => {
       expect(spoken.some((phrase) => /\. (?:1|2|3)$/.test(phrase))).toBe(false)
 
       await review.getByRole('button', { name: /leave pending/i }).click()
+      await deleteWorkout(session.page)
+    } finally {
+      await session.context.close()
+    }
+  })
+
+  test('previews and persists voice choices, then changes coaching style safely during a guide', async ({ browser }) => {
+    const session = await newSignedInContext(browser, 'exerciseClient')
+    try {
+      await installSpeechRecorder(session.page)
+      await startWorkoutWithExercise(session.page)
+      await addStrengthSet(session.page, '60', '1')
+      await session.page.getByText('60 kg', { exact: true }).click()
+      await session.page.getByRole('button', { name: /start guided set/i }).click()
+      const setup = session.page.getByRole('dialog', { name: /guided set:/i })
+      for (const [label, value] of [
+        ['Goal reps', '1'],
+        ['Down', '1'],
+        ['Rest', '1'],
+        ['Up', '1'],
+        ['Hold', '1'],
+      ] as const) {
+        await enterStepper(session.page, setup, label, value)
+      }
+
+      await setup.getByRole('combobox', { name: /coaching style/i }).selectOption('supportive')
+      await setup.getByRole('combobox', { name: /voice character/i }).selectOption('energetic')
+      await setup.getByRole('button', { name: /preview voice/i }).click()
+      await expect.poll(() => session.page.evaluate(() => {
+        const entries = (window as unknown as { __guidedUtterances: Array<{ text: string; rate: number }> }).__guidedUtterances
+        return entries.at(-1)
+      })).toMatchObject({ text: 'Rep 3. Lower. Hold. Up.', rate: 1.14 })
+
+      await setup.getByRole('combobox', { name: /voice character/i }).selectOption('device')
+      await setup.getByRole('combobox', { name: /installed voice/i }).selectOption('voice:calm')
+      await setup.getByRole('button', { name: /preview voice/i }).click()
+      await expect.poll(() => session.page.evaluate(() => {
+        const entries = (window as unknown as { __guidedUtterances: Array<{ voiceURI: string | null }> }).__guidedUtterances
+        return entries.at(-1)?.voiceURI
+      })).toBe('voice:calm')
+
+      await setup.getByRole('combobox', { name: /coaching style/i }).selectOption('technique')
+      await setup.getByRole('textbox', { name: /technique cue/i }).fill('Brace before lowering')
+      await setup.getByRole('button', { name: /cancel/i }).click()
+
+      await session.page.getByText('60 kg', { exact: true }).click()
+      await session.page.getByRole('button', { name: /start guided set/i }).click()
+      const reopened = session.page.getByRole('dialog', { name: /guided set:/i })
+      await expect(reopened.getByRole('combobox', { name: /coaching style/i })).toHaveValue('technique')
+      await expect(reopened.getByRole('combobox', { name: /voice character/i })).toHaveValue('device')
+      await expect(reopened.getByRole('combobox', { name: /installed voice/i })).toHaveValue('voice:calm')
+      await expect(reopened.getByRole('textbox', { name: /technique cue/i })).toHaveValue('Brace before lowering')
+      await reopened.getByRole('button', { name: /^start$/i }).click()
+
+      await expect.poll(() => session.page.evaluate(
+        () => (window as unknown as { __guidedSpeech: string[] }).__guidedSpeech.join(' | '),
+      )).toMatch(/QA Snapshot Squat 47391\. Set 1\. 1 reps\. 60 kilograms\. Cue\. Brace before lowering\./i)
+
+      await session.page.getByRole('button', { name: /voice settings/i }).click()
+      const liveSettings = session.page.getByRole('dialog', { name: /^voice settings$/i })
+      await expect(session.page.getByText('PAUSED', { exact: true })).toBeVisible()
+      await liveSettings.getByRole('combobox', { name: /coaching style/i }).selectOption('reps')
+      await liveSettings.getByRole('button', { name: /^done$/i }).click()
+      await session.page.evaluate(() => {
+        ;(window as unknown as { __guidedSpeech: string[] }).__guidedSpeech.length = 0
+      })
+      await session.page.getByRole('button', { name: /^resume guidance$/i }).click()
+      await session.page.getByRole('button', { name: /start now/i }).click()
+      await expect(session.page.getByRole('button', { name: /turn voice off/i })).toBeHidden({ timeout: 8_000 })
+
+      const liveSpoken = await session.page.evaluate(
+        () => (window as unknown as { __guidedSpeech: string[] }).__guidedSpeech,
+      )
+      expect(liveSpoken).toContain('Rep 1')
+      expect(liveSpoken.join(' | ')).not.toMatch(/Lower|Hold|Up/)
+      expect(liveSpoken.some((phrase) => /^\d+$/.test(phrase))).toBe(false)
       await deleteWorkout(session.page)
     } finally {
       await session.context.close()

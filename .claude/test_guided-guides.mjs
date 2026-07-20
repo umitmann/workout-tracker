@@ -33,13 +33,16 @@ test('single-set and whole-exercise guidance both wire optional speech and pause
     assert.match(source, /resumedStartTime/)
     assert.match(source, /Pause guidance/)
     assert.match(source, /Resume guidance/)
-    assert.match(source, /onAudioChange/)
+    assert.match(source, /onVoiceSettingsChange/)
+    assert.match(source, /GuidedVoiceSettingsFields/)
     assert.doesNotMatch(source, /guidedCountdownVoiceAnnouncement/)
     assert.doesNotMatch(source, /speakGuided\(String\(/)
+    assert.doesNotMatch(source, /700 \+ \(3 -/)
   }
-  assert.match(logger, /wt\.guideAudioEnabled/)
-  assert.match(logger, /Voice cues/)
-  assert.match(logger, /audioDefault=\{guideAudioEnabled\}/)
+  assert.match(logger, /wt\.guideVoiceSettings/)
+  assert.match(logger, /wt\.guideTechniqueCues/)
+  assert.match(logger, /voiceSettingsDefault=\{guideVoiceSettings\}/)
+  assert.match(logger, /GuidedVoiceSettingsFields/)
 })
 
 function set(overrides = {}) {
