@@ -11,14 +11,19 @@ import {
   readySecondsLeft,
   resumedStartTime,
 } from '@/lib/guidedTimer'
-import { cancelGuidedSpeech, speakGuided } from '@/lib/guidedSpeech'
 import {
   GuidedVoiceSettings,
   guidedPhaseAnnouncement,
   guidedReadyAnnouncement,
   guidedRestAnnouncement,
-  speechOptionsForGuidedVoice,
 } from '@/lib/guidedVoice'
+import {
+  cancelGuidedCoachAudio,
+  guidedPhaseCoachCues,
+  guidedReadyCoachCues,
+  guidedRestCoachCues,
+  speakGuidedCoach,
+} from '@/lib/guidedCoachAudio'
 import GuidedVoiceSettingsFields from './GuidedVoiceSettings'
 import Modal from '@/components/Modal'
 
@@ -123,7 +128,7 @@ export default function ExerciseGuide({
     return () => {
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
       ctxRef.current?.close().catch(() => {})
-      cancelGuidedSpeech()
+      cancelGuidedCoachAudio()
     }
     // The guide is a run snapshot: changing its inputs remounts it upstream.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,7 +175,15 @@ export default function ExerciseGuide({
             goalReps: current.goalReps,
             announceRep,
           })
-          if (announcement) speakGuided(announcement, true, speechOptionsForGuidedVoice(currentSettings))
+          if (announcement) {
+            speakGuidedCoach(currentSettings, guidedPhaseCoachCues({
+              mode: currentSettings.coachingMode,
+              phase: state.phase,
+              rep: state.rep,
+              goalReps: current.goalReps,
+              announceRep,
+            }), announcement)
+          }
           if (announceRep && announcement) lastSpokenRepRef.current = state.rep
         }
         if (currentSettings.rhythmCues && typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(45)
@@ -191,7 +204,7 @@ export default function ExerciseGuide({
         }
         if (cue && currentSettings.enabled) {
           const announcement = guidedRestAnnouncement(currentSettings.restCues, cue)
-          if (announcement) speakGuided(announcement, true, speechOptionsForGuidedVoice(currentSettings))
+          if (announcement) speakGuidedCoach(currentSettings, guidedRestCoachCues(currentSettings.restCues, cue), announcement)
         }
       }
       if (elapsed >= restSeconds) {
@@ -278,7 +291,7 @@ export default function ExerciseGuide({
       setPaused(true)
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
       rafRef.current = null
-      cancelGuidedSpeech()
+      cancelGuidedCoachAudio()
       return
     }
 
@@ -306,14 +319,14 @@ export default function ExerciseGuide({
       weight: current.weight,
       techniqueCue: techniqueCueRef.current,
     })
-    if (announcement) speakGuided(announcement, interrupt, speechOptionsForGuidedVoice(settings))
+    if (announcement) speakGuidedCoach(settings, guidedReadyCoachCues(), announcement, interrupt)
   }
 
   function changeVoiceSettings(next: GuidedVoiceSettings) {
     voiceSettingsRef.current = next
     setVoiceSettings(next)
     onVoiceSettingsChange?.(next)
-    cancelGuidedSpeech()
+    cancelGuidedCoachAudio()
     lastPhaseRef.current = ''
     lastSpokenRepRef.current = 0
   }
@@ -360,7 +373,7 @@ export default function ExerciseGuide({
     if (doneRef.current) return
     doneRef.current = true
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
-    cancelGuidedSpeech()
+    cancelGuidedCoachAudio()
     onDone([...resultsRef.current], activeRest)
   }
 
@@ -420,6 +433,9 @@ export default function ExerciseGuide({
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
           <p className="text-3xl font-black tracking-widest text-white/90">GET READY</p>
           <p className="text-lg font-semibold text-white/70">Set {setNum} · {sets[idx]?.weight ? `${sets[idx]?.weight}kg × ` : ''}{sets[idx]?.goalReps} reps</p>
+          {voiceSettings.coachingMode === 'technique' && techniqueCue.trim() && (
+            <p className="max-w-md rounded-xl bg-black/20 px-4 py-2 text-sm font-bold text-white/90">Cue: {techniqueCue.trim()}</p>
+          )}
           <p className="text-[clamp(6rem,28vw,9rem)] font-black leading-none tabular-nums drop-shadow">{readyLeft}</p>
         </div>
       ) : mode === 'set' ? (

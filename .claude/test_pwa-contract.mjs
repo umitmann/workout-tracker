@@ -25,3 +25,13 @@ test('service worker never caches authenticated health-data routes', () => {
   assert.match(worker, /\/offline/)
   assert.doesNotMatch(worker, /caches\.put\(request/)
 })
+
+test('coach audio is the only extra runtime cache and full packs are opt-in', () => {
+  const worker = readFileSync('public/sw.js', 'utf8')
+  const shellAssets = worker.match(/const SHELL_ASSETS = \[[\s\S]*?\]/)?.[0] ?? ''
+  assert.match(worker, /\/audio\/coaches\//)
+  assert.match(worker, /CACHE_COACH_PACK/)
+  assert.match(worker, /COACH_PACK_CACHED/)
+  assert.doesNotMatch(shellAssets, /audio\/coaches/)
+  assert.match(worker, /isPrivateOrDynamic/)
+})

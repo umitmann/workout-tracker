@@ -28,8 +28,8 @@ test('single-set and whole-exercise guidance both wire optional speech and pause
     readFile(new URL('../src/app/workout/[id]/WorkoutLogger.tsx', import.meta.url), 'utf8'),
   ])
   for (const source of [single, whole]) {
-    assert.match(source, /speakGuided/)
-    assert.match(source, /cancelGuidedSpeech/)
+    assert.match(source, /speakGuidedCoach/)
+    assert.match(source, /cancelGuidedCoachAudio/)
     assert.match(source, /resumedStartTime/)
     assert.match(source, /Pause guidance/)
     assert.match(source, /Resume guidance/)

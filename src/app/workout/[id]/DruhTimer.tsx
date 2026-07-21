@@ -10,13 +10,17 @@ import {
   readySecondsLeft,
   resumedStartTime,
 } from '@/lib/guidedTimer'
-import { cancelGuidedSpeech, speakGuided } from '@/lib/guidedSpeech'
 import {
   GuidedVoiceSettings,
   guidedPhaseAnnouncement,
   guidedReadyAnnouncement,
-  speechOptionsForGuidedVoice,
 } from '@/lib/guidedVoice'
+import {
+  cancelGuidedCoachAudio,
+  guidedPhaseCoachCues,
+  guidedReadyCoachCues,
+  speakGuidedCoach,
+} from '@/lib/guidedCoachAudio'
 import GuidedVoiceSettingsFields from './GuidedVoiceSettings'
 import Modal from '@/components/Modal'
 
@@ -126,7 +130,7 @@ export default function DruhTimer({
       techniqueCue,
     })
     if (readyAnnouncement) {
-      speakGuided(readyAnnouncement, true, speechOptionsForGuidedVoice(voiceSettingsRef.current))
+      speakGuidedCoach(voiceSettingsRef.current, guidedReadyCoachCues(), readyAnnouncement)
     }
 
     function frame(now: number) {
@@ -169,7 +173,15 @@ export default function DruhTimer({
             goalReps,
             announceRep,
           })
-          if (announcement) speakGuided(announcement, true, speechOptionsForGuidedVoice(currentSettings))
+          if (announcement) {
+            speakGuidedCoach(currentSettings, guidedPhaseCoachCues({
+              mode: currentSettings.coachingMode,
+              phase: s.phase,
+              rep: s.rep,
+              goalReps,
+              announceRep,
+            }), announcement)
+          }
           if (announceRep && announcement) lastSpokenRepRef.current = s.rep
         }
         if (currentSettings.rhythmCues && typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(45)
@@ -186,7 +198,7 @@ export default function DruhTimer({
     return () => {
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
       ctxRef.current?.close().catch(() => {})
-      cancelGuidedSpeech()
+      cancelGuidedCoachAudio()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -195,7 +207,7 @@ export default function DruhTimer({
     if (doneRef.current) return
     doneRef.current = true
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
-    cancelGuidedSpeech()
+    cancelGuidedCoachAudio()
     onStop(completedReps, confirmDifficulty)
   }
 
@@ -213,7 +225,7 @@ export default function DruhTimer({
       setPaused(true)
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
       rafRef.current = null
-      cancelGuidedSpeech()
+      cancelGuidedCoachAudio()
       return
     }
 
@@ -228,7 +240,7 @@ export default function DruhTimer({
     voiceSettingsRef.current = next
     setVoiceSettings(next)
     onVoiceSettingsChange?.(next)
-    cancelGuidedSpeech()
+    cancelGuidedCoachAudio()
     lastPhaseRef.current = ''
     lastSpokenRepRef.current = 0
   }
@@ -246,7 +258,7 @@ export default function DruhTimer({
         weight,
         techniqueCue,
       })
-      if (announcement) speakGuided(announcement, true, speechOptionsForGuidedVoice(next))
+      if (announcement) speakGuidedCoach(next, guidedReadyCoachCues(), announcement)
     }
   }
 
@@ -273,7 +285,7 @@ export default function DruhTimer({
   function pauseForConfirmation(repsCompleted: number) {
     if (doneRef.current || confirmReps != null) return
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
-    cancelGuidedSpeech()
+    cancelGuidedCoachAudio()
     setConfirmReps(repsCompleted)
   }
 
@@ -414,6 +426,9 @@ export default function DruhTimer({
         <div className="flex-1 flex flex-col items-center justify-center gap-2 px-6 text-center">
           <p className="text-3xl font-black tracking-widest text-white/90">GET READY</p>
           <p className="text-lg font-semibold text-white/70">{goalReps} reps · tempo {formatTempo(tempo)}</p>
+          {voiceSettings.coachingMode === 'technique' && techniqueCue.trim() && (
+            <p className="max-w-md rounded-xl bg-black/20 px-4 py-2 text-sm font-bold text-white/90">Cue: {techniqueCue.trim()}</p>
+          )}
           <p className="text-[9rem] leading-none font-black tabular-nums drop-shadow">{ready}</p>
         </div>
       ) : (

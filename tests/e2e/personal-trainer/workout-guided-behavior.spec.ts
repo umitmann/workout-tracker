@@ -53,6 +53,7 @@ async function installSpeechRecorder(page: Page) {
   const install = () => {
     const spoken: string[] = []
     const utterances: Array<{ text: string; rate: number; pitch: number; volume: number; voiceURI: string | null }> = []
+    const coachAudio: Array<{ src: string; playbackRate: number; volume: number }> = []
     const voices = [
       { voiceURI: 'voice:clear', name: 'QA Clear', lang: 'en-US', default: true, localService: true },
       { voiceURI: 'voice:calm', name: 'QA Calm', lang: 'en-GB', default: false, localService: true },
@@ -76,6 +77,42 @@ async function installSpeechRecorder(page: Page) {
     Object.defineProperty(window, '__guidedUtterances', {
       configurable: true,
       value: utterances,
+    })
+    Object.defineProperty(window, '__guidedCoachAudio', {
+      configurable: true,
+      value: coachAudio,
+    })
+    Object.defineProperty(window, '__guidedAudioFail', {
+      configurable: true,
+      writable: true,
+      value: false,
+    })
+    class RecordedAudio extends EventTarget {
+      src: string
+      preload = ''
+      playbackRate = 1
+      volume = 1
+
+      constructor(src = '') {
+        super()
+        this.src = src
+      }
+
+      play() {
+        coachAudio.push({ src: this.src, playbackRate: this.playbackRate, volume: this.volume })
+        queueMicrotask(() => this.dispatchEvent(new Event(
+          (window as unknown as { __guidedAudioFail: boolean }).__guidedAudioFail ? 'error' : 'ended',
+        )))
+        return Promise.resolve()
+      }
+
+      pause() {}
+      load() {}
+      removeAttribute(name: string) { if (name === 'src') this.src = '' }
+    }
+    Object.defineProperty(window, 'Audio', {
+      configurable: true,
+      value: RecordedAudio,
     })
     Object.defineProperty(window, 'SpeechSynthesisUtterance', {
       configurable: true,
@@ -259,6 +296,7 @@ test.describe('active workout guided behavior', () => {
       }
       const setupVoice = setup.getByRole('checkbox', { name: /voice coaching enabled/i })
       await expect(setupVoice).toBeChecked()
+      await setup.getByRole('radio', { name: /device voice/i }).check()
       await setupVoice.uncheck()
       await setup.getByRole('button', { name: /^start$/i }).click()
       await session.page.getByRole('button', { name: /start now/i }).click()
@@ -317,6 +355,7 @@ test.describe('active workout guided behavior', () => {
         await enterStepper(session.page, setup, label, value)
       }
       await setup.getByRole('checkbox', { name: /voice coaching enabled/i }).uncheck()
+      await setup.getByRole('radio', { name: /device voice/i }).check()
       await setup.getByRole('button', { name: /start guide/i }).click()
       await session.page.getByRole('button', { name: /start now/i }).click()
 
@@ -363,14 +402,29 @@ test.describe('active workout guided behavior', () => {
       }
 
       await setup.getByRole('combobox', { name: /coaching style/i }).selectOption('supportive')
-      await setup.getByRole('combobox', { name: /voice character/i }).selectOption('energetic')
+      await setup.getByRole('radio', { name: /kai/i }).check()
+      await setup.getByRole('combobox', { name: /delivery pace/i }).selectOption('energetic')
       await setup.getByRole('button', { name: /preview voice/i }).click()
       await expect.poll(() => session.page.evaluate(() => {
-        const entries = (window as unknown as { __guidedUtterances: Array<{ text: string; rate: number }> }).__guidedUtterances
+        const entries = (window as unknown as { __guidedCoachAudio: Array<{ src: string; playbackRate: number }> }).__guidedCoachAudio
         return entries.at(-1)
-      })).toMatchObject({ text: 'Rep 3. Lower. Hold. Up.', rate: 1.14 })
+      })).toMatchObject({ src: '/audio/coaches/kai/up.mp3', playbackRate: 1.06 })
 
-      await setup.getByRole('combobox', { name: /voice character/i }).selectOption('device')
+      // A missing/corrupt pack falls back to browser speech for the complete
+      // phrase; it never silently drops the rep count or movement command.
+      await session.page.evaluate(() => {
+        ;(window as unknown as { __guidedAudioFail: boolean }).__guidedAudioFail = true
+      })
+      await setup.getByRole('radio', { name: /maya/i }).check()
+      await setup.getByRole('button', { name: /preview voice/i }).click()
+      await expect.poll(() => session.page.evaluate(
+        () => (window as unknown as { __guidedSpeech: string[] }).__guidedSpeech.at(-1),
+      )).toBe('Rep 3. Lower. Hold. Up.')
+      await session.page.evaluate(() => {
+        ;(window as unknown as { __guidedAudioFail: boolean }).__guidedAudioFail = false
+      })
+
+      await setup.getByRole('radio', { name: /device voice/i }).check()
       await setup.getByRole('combobox', { name: /installed voice/i }).selectOption('voice:calm')
       await setup.getByRole('button', { name: /preview voice/i }).click()
       await expect.poll(() => session.page.evaluate(() => {
@@ -386,7 +440,8 @@ test.describe('active workout guided behavior', () => {
       await session.page.getByRole('button', { name: /start guided set/i }).click()
       const reopened = session.page.getByRole('dialog', { name: /guided set:/i })
       await expect(reopened.getByRole('combobox', { name: /coaching style/i })).toHaveValue('technique')
-      await expect(reopened.getByRole('combobox', { name: /voice character/i })).toHaveValue('device')
+      await expect(reopened.getByRole('radio', { name: /device voice/i })).toBeChecked()
+      await expect(reopened.getByRole('combobox', { name: /delivery pace/i })).toHaveValue('energetic')
       await expect(reopened.getByRole('combobox', { name: /installed voice/i })).toHaveValue('voice:calm')
       await expect(reopened.getByRole('textbox', { name: /technique cue/i })).toHaveValue('Brace before lowering')
       await reopened.getByRole('button', { name: /^start$/i }).click()

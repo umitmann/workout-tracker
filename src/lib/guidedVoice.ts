@@ -2,13 +2,15 @@ import type { TempoPhase } from './tempo'
 import type { GuidedSpeechOptions } from './guidedSpeech'
 
 export type GuidedCoachingMode = 'minimal' | 'reps' | 'tempo' | 'supportive' | 'technique' | 'silent'
-export type GuidedVoiceProfile = 'clear' | 'calm' | 'energetic' | 'device'
+export type GuidedDeliveryStyle = 'clear' | 'calm' | 'energetic'
+export type GuidedCoachVoice = 'maya' | 'alex' | 'jordan' | 'kai' | 'system'
 export type GuidedRestCueMode = 'chimes' | 'voice' | 'off'
 
 export type GuidedVoiceSettings = {
   enabled: boolean
   coachingMode: GuidedCoachingMode
-  voiceProfile: GuidedVoiceProfile
+  coachVoice: GuidedCoachVoice
+  deliveryStyle: GuidedDeliveryStyle
   voiceURI: string | null
   rhythmCues: boolean
   restCues: GuidedRestCueMode
@@ -17,7 +19,8 @@ export type GuidedVoiceSettings = {
 export const DEFAULT_GUIDED_VOICE_SETTINGS: GuidedVoiceSettings = {
   enabled: true,
   coachingMode: 'minimal',
-  voiceProfile: 'clear',
+  coachVoice: 'maya',
+  deliveryStyle: 'clear',
   voiceURI: null,
   rhythmCues: true,
   restCues: 'chimes',
@@ -32,19 +35,18 @@ export const GUIDED_COACHING_MODES: ReadonlyArray<{
   { value: 'reps', label: 'Reps only', description: 'Only announces each new rep.' },
   { value: 'tempo', label: 'Tempo only', description: 'Only Lower, Hold, and Up.' },
   { value: 'supportive', label: 'Supportive', description: 'Rep and tempo cues, plus halfway and last rep.' },
-  { value: 'technique', label: 'PT technique', description: 'Rep and tempo cues, plus your saved technique cue before each set.' },
+  { value: 'technique', label: 'PT technique', description: 'Rep and tempo cues, with your saved technique cue shown before each set.' },
   { value: 'silent', label: 'Silent', description: 'No speech; optional tones and vibration remain available.' },
 ]
 
-export const GUIDED_VOICE_PROFILES: ReadonlyArray<{
-  value: GuidedVoiceProfile
+export const GUIDED_DELIVERY_STYLES: ReadonlyArray<{
+  value: GuidedDeliveryStyle
   label: string
   description: string
 }> = [
-  { value: 'clear', label: 'Clear', description: 'Neutral and concise.' },
-  { value: 'calm', label: 'Calm', description: 'Slower and softer.' },
-  { value: 'energetic', label: 'Energetic', description: 'Quicker and brighter.' },
-  { value: 'device', label: 'Device voice', description: 'Choose an installed system voice.' },
+  { value: 'clear', label: 'Clear', description: 'Natural pace and volume.' },
+  { value: 'calm', label: 'Calm', description: 'Slightly slower and softer.' },
+  { value: 'energetic', label: 'Energetic', description: 'Slightly quicker and brighter.' },
 ]
 
 export const GUIDED_REST_CUE_MODES: ReadonlyArray<{
@@ -58,20 +60,32 @@ export const GUIDED_REST_CUE_MODES: ReadonlyArray<{
 ]
 
 const COACHING_MODE_VALUES = new Set<GuidedCoachingMode>(GUIDED_COACHING_MODES.map((item) => item.value))
-const VOICE_PROFILE_VALUES = new Set<GuidedVoiceProfile>(GUIDED_VOICE_PROFILES.map((item) => item.value))
+const COACH_VOICE_VALUES = new Set<GuidedCoachVoice>(['maya', 'alex', 'jordan', 'kai', 'system'])
+const DELIVERY_STYLE_VALUES = new Set<GuidedDeliveryStyle>(GUIDED_DELIVERY_STYLES.map((item) => item.value))
 const REST_CUE_VALUES = new Set<GuidedRestCueMode>(GUIDED_REST_CUE_MODES.map((item) => item.value))
 
 export function normalizeGuidedVoiceSettings(value: unknown): GuidedVoiceSettings {
   if (!value || typeof value !== 'object') return { ...DEFAULT_GUIDED_VOICE_SETTINGS }
-  const candidate = value as Partial<GuidedVoiceSettings>
+  const candidate = value as Partial<GuidedVoiceSettings> & {
+    // Before coach packs, this field changed only rate/pitch and `device`
+    // selected an OS voice. Read it once so existing preferences migrate.
+    voiceProfile?: GuidedDeliveryStyle | 'device'
+  }
+  const legacyDeviceVoice = candidate.voiceProfile === 'device'
+  const deliveryStyle = DELIVERY_STYLE_VALUES.has(candidate.deliveryStyle as GuidedDeliveryStyle)
+    ? candidate.deliveryStyle as GuidedDeliveryStyle
+    : DELIVERY_STYLE_VALUES.has(candidate.voiceProfile as GuidedDeliveryStyle)
+      ? candidate.voiceProfile as GuidedDeliveryStyle
+      : DEFAULT_GUIDED_VOICE_SETTINGS.deliveryStyle
   return {
     enabled: typeof candidate.enabled === 'boolean' ? candidate.enabled : DEFAULT_GUIDED_VOICE_SETTINGS.enabled,
     coachingMode: COACHING_MODE_VALUES.has(candidate.coachingMode as GuidedCoachingMode)
       ? candidate.coachingMode as GuidedCoachingMode
       : DEFAULT_GUIDED_VOICE_SETTINGS.coachingMode,
-    voiceProfile: VOICE_PROFILE_VALUES.has(candidate.voiceProfile as GuidedVoiceProfile)
-      ? candidate.voiceProfile as GuidedVoiceProfile
-      : DEFAULT_GUIDED_VOICE_SETTINGS.voiceProfile,
+    coachVoice: COACH_VOICE_VALUES.has(candidate.coachVoice as GuidedCoachVoice)
+      ? candidate.coachVoice as GuidedCoachVoice
+      : legacyDeviceVoice ? 'system' : DEFAULT_GUIDED_VOICE_SETTINGS.coachVoice,
+    deliveryStyle,
     voiceURI: typeof candidate.voiceURI === 'string' && candidate.voiceURI.trim()
       ? candidate.voiceURI
       : null,
@@ -85,9 +99,9 @@ export function normalizeGuidedVoiceSettings(value: unknown): GuidedVoiceSetting
 }
 
 export function speechOptionsForGuidedVoice(settings: GuidedVoiceSettings): GuidedSpeechOptions {
-  if (settings.voiceProfile === 'calm') return { rate: 0.92, pitch: 0.96, volume: 0.85 }
-  if (settings.voiceProfile === 'energetic') return { rate: 1.14, pitch: 1.04, volume: 1 }
-  if (settings.voiceProfile === 'device') {
+  if (settings.deliveryStyle === 'calm') return { rate: 0.92, pitch: 0.96, volume: 0.85, ...(settings.coachVoice === 'system' && settings.voiceURI ? { voiceURI: settings.voiceURI } : {}) }
+  if (settings.deliveryStyle === 'energetic') return { rate: 1.14, pitch: 1.04, volume: 1, ...(settings.coachVoice === 'system' && settings.voiceURI ? { voiceURI: settings.voiceURI } : {}) }
+  if (settings.coachVoice === 'system') {
     return settings.voiceURI
       ? { rate: 1, pitch: 1, volume: 1, voiceURI: settings.voiceURI }
       : { rate: 1, pitch: 1, volume: 1 }

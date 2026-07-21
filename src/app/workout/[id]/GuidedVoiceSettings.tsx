@@ -3,15 +3,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   GUIDED_COACHING_MODES,
+  GUIDED_DELIVERY_STYLES,
   GUIDED_REST_CUE_MODES,
-  GUIDED_VOICE_PROFILES,
+  GuidedCoachVoice,
   GuidedCoachingMode,
+  GuidedDeliveryStyle,
   GuidedRestCueMode,
-  GuidedVoiceProfile,
   GuidedVoiceSettings,
-  speechOptionsForGuidedVoice,
 } from '@/lib/guidedVoice'
-import { GuidedSpeechVoice, speakGuided } from '@/lib/guidedSpeech'
+import { GuidedSpeechVoice } from '@/lib/guidedSpeech'
+import {
+  GUIDED_COACH_VOICES,
+  guidedPreviewCoachCues,
+  isPackagedCoachVoice,
+  preloadGuidedCoachCues,
+  speakGuidedCoach,
+} from '@/lib/guidedCoachAudio'
+import { cacheGuidedCoachPack } from '@/lib/guidedCoachCache'
 
 function useAvailableGuidedVoices(): GuidedSpeechVoice[] {
   const [voices, setVoices] = useState<GuidedSpeechVoice[]>([])
@@ -79,13 +87,19 @@ export default function GuidedVoiceSettingsFields({
   appearance?: 'setup' | 'overlay'
 }) {
   const voices = useAvailableGuidedVoices()
+  const [downloadState, setDownloadState] = useState<'idle' | 'downloading' | 'ready' | 'error'>('idle')
+  const [downloadMessage, setDownloadMessage] = useState('')
   const coachingMode = useMemo(
     () => GUIDED_COACHING_MODES.find((item) => item.value === settings.coachingMode)!,
     [settings.coachingMode],
   )
-  const voiceProfile = useMemo(
-    () => GUIDED_VOICE_PROFILES.find((item) => item.value === settings.voiceProfile)!,
-    [settings.voiceProfile],
+  const coachVoice = useMemo(
+    () => GUIDED_COACH_VOICES.find((item) => item.value === settings.coachVoice)!,
+    [settings.coachVoice],
+  )
+  const deliveryStyle = useMemo(
+    () => GUIDED_DELIVERY_STYLES.find((item) => item.value === settings.deliveryStyle)!,
+    [settings.deliveryStyle],
   )
   const restMode = useMemo(
     () => GUIDED_REST_CUE_MODES.find((item) => item.value === settings.restCues)!,
@@ -99,12 +113,33 @@ export default function GuidedVoiceSettingsFields({
     : 'border-zinc-300 bg-white text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white'
   const secondaryText = appearance === 'overlay' ? 'text-white/65' : 'text-zinc-500 dark:text-zinc-400'
 
+  useEffect(() => {
+    preloadGuidedCoachCues(settings.coachVoice, guidedPreviewCoachCues())
+  }, [settings.coachVoice])
+
   function update(patch: Partial<GuidedVoiceSettings>) {
     onChange({ ...settings, ...patch })
   }
 
   function previewVoice() {
-    speakGuided('Rep 3. Lower. Hold. Up.', true, speechOptionsForGuidedVoice(settings))
+    speakGuidedCoach(settings, guidedPreviewCoachCues(), 'Rep 3. Lower. Hold. Up.')
+  }
+
+  function chooseCoach(coach: GuidedCoachVoice) {
+    update({ coachVoice: coach })
+    setDownloadState('idle')
+    setDownloadMessage('')
+  }
+
+  async function downloadCoach() {
+    if (!isPackagedCoachVoice(settings.coachVoice) || downloadState === 'downloading') return
+    setDownloadState('downloading')
+    setDownloadMessage('Downloading voice cues…')
+    const result = await cacheGuidedCoachPack(settings.coachVoice)
+    setDownloadState(result.ok ? 'ready' : 'error')
+    setDownloadMessage(result.ok
+      ? `Ready offline · ${result.count ?? 0} voice cues`
+      : result.error ?? 'Download failed.')
   }
 
   return (
@@ -155,20 +190,49 @@ export default function GuidedVoiceSettingsFields({
         </label>
       )}
 
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-xs font-bold uppercase tracking-wide">Coach voice</legend>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {GUIDED_COACH_VOICES.map((coach) => {
+            const selected = coach.value === settings.coachVoice
+            return (
+              <label
+                key={coach.value}
+                className={`flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 transition-colors ${selected ? 'border-orange-500 bg-orange-500/10' : appearance === 'overlay' ? 'border-white/20 hover:bg-white/5' : 'border-zinc-200 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800'}`}
+              >
+                <input
+                  type="radio"
+                  name={`guided-coach-${appearance}`}
+                  value={coach.value}
+                  checked={selected}
+                  onChange={() => chooseCoach(coach.value)}
+                  className="mt-1 size-4 shrink-0 accent-orange-500"
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-black">{coach.label}</span>
+                  <span className={`block text-xs leading-snug ${secondaryText}`}>{coach.description} {coach.accent}.</span>
+                </span>
+              </label>
+            )
+          })}
+        </div>
+        <span className={`text-xs ${secondaryText}`}>{coachVoice.packaged ? 'A real offline coach pack; not a pitch-shifted system voice.' : coachVoice.description}</span>
+      </fieldset>
+
       <label className="flex flex-col gap-1">
-        <span className="text-xs font-bold uppercase tracking-wide">Voice character</span>
+        <span className="text-xs font-bold uppercase tracking-wide">Delivery pace</span>
         <select
-          aria-label="Voice character"
-          value={settings.voiceProfile}
-          onChange={(event) => update({ voiceProfile: event.target.value as GuidedVoiceProfile })}
+          aria-label="Delivery pace"
+          value={settings.deliveryStyle}
+          onChange={(event) => update({ deliveryStyle: event.target.value as GuidedDeliveryStyle })}
           className={`min-h-11 rounded-xl border px-3 text-sm font-bold ${selectClass}`}
         >
-          {GUIDED_VOICE_PROFILES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          {GUIDED_DELIVERY_STYLES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
-        <span className={`text-xs ${secondaryText}`}>{voiceProfile.description}</span>
+        <span className={`text-xs ${secondaryText}`}>{deliveryStyle.description}</span>
       </label>
 
-      {settings.voiceProfile === 'device' && (
+      {settings.coachVoice === 'system' && (
         <label className="flex flex-col gap-1">
           <span className="text-xs font-bold uppercase tracking-wide">Installed voice</span>
           <select
@@ -196,6 +260,20 @@ export default function GuidedVoiceSettingsFields({
       >
         Preview voice
       </button>
+
+      {isPackagedCoachVoice(settings.coachVoice) && (
+        <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={downloadCoach}
+            disabled={downloadState === 'downloading' || downloadState === 'ready'}
+            className="min-h-11 rounded-xl border border-zinc-400/60 px-3 text-sm font-bold transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-white/5"
+          >
+            {downloadState === 'downloading' ? 'Downloading…' : downloadState === 'ready' ? 'Available offline' : 'Download this coach for offline use'}
+          </button>
+          <span aria-live="polite" className={`text-xs ${downloadState === 'error' ? 'text-red-500' : secondaryText}`}>{downloadMessage || 'Optional. Normal playback only fetches the short cues you use.'}</span>
+        </div>
+      )}
 
       <ToggleRow
         label="Rhythm cues"

@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 const {
   DEFAULT_GUIDED_VOICE_SETTINGS,
   GUIDED_COACHING_MODES,
-  GUIDED_VOICE_PROFILES,
+  GUIDED_DELIVERY_STYLES,
   guidedPhaseAnnouncement,
   guidedReadyAnnouncement,
   guidedRestAnnouncement,
@@ -21,7 +21,8 @@ test('the default is sparse tempo plus rep guidance with silent seconds', () => 
   assert.deepEqual(DEFAULT_GUIDED_VOICE_SETTINGS, {
     enabled: true,
     coachingMode: 'minimal',
-    voiceProfile: 'clear',
+    coachVoice: 'maya',
+    deliveryStyle: 'clear',
     voiceURI: null,
     rhythmCues: true,
     restCues: 'chimes',
@@ -72,28 +73,44 @@ test('rest voice never counts seconds and remains separate from chimes', () => {
   assert.equal(guidedRestAnnouncement('off', 'complete'), null)
 })
 
-test('clear, calm, energetic, and device profiles produce safe prosody', () => {
-  assert.deepEqual(GUIDED_VOICE_PROFILES.map((profile) => profile.value), ['clear', 'calm', 'energetic', 'device'])
-  assert.deepEqual(speechOptionsForGuidedVoice({ ...DEFAULT_GUIDED_VOICE_SETTINGS, voiceProfile: 'clear' }), { rate: 1.05, pitch: 1, volume: 1 })
-  assert.deepEqual(speechOptionsForGuidedVoice({ ...DEFAULT_GUIDED_VOICE_SETTINGS, voiceProfile: 'calm' }), { rate: 0.92, pitch: 0.96, volume: 0.85 })
-  assert.deepEqual(speechOptionsForGuidedVoice({ ...DEFAULT_GUIDED_VOICE_SETTINGS, voiceProfile: 'energetic' }), { rate: 1.14, pitch: 1.04, volume: 1 })
-  assert.deepEqual(speechOptionsForGuidedVoice({ ...DEFAULT_GUIDED_VOICE_SETTINGS, voiceProfile: 'device', voiceURI: 'voice:nl' }), { rate: 1, pitch: 1, volume: 1, voiceURI: 'voice:nl' })
+test('delivery style changes prosody independently from the selected speaker', () => {
+  assert.deepEqual(GUIDED_DELIVERY_STYLES.map((profile) => profile.value), ['clear', 'calm', 'energetic'])
+  assert.deepEqual(speechOptionsForGuidedVoice({ ...DEFAULT_GUIDED_VOICE_SETTINGS, deliveryStyle: 'clear' }), { rate: 1.05, pitch: 1, volume: 1 })
+  assert.deepEqual(speechOptionsForGuidedVoice({ ...DEFAULT_GUIDED_VOICE_SETTINGS, deliveryStyle: 'calm' }), { rate: 0.92, pitch: 0.96, volume: 0.85 })
+  assert.deepEqual(speechOptionsForGuidedVoice({ ...DEFAULT_GUIDED_VOICE_SETTINGS, deliveryStyle: 'energetic' }), { rate: 1.14, pitch: 1.04, volume: 1 })
+  assert.deepEqual(speechOptionsForGuidedVoice({ ...DEFAULT_GUIDED_VOICE_SETTINGS, coachVoice: 'system', deliveryStyle: 'clear', voiceURI: 'voice:nl' }), { rate: 1, pitch: 1, volume: 1, voiceURI: 'voice:nl' })
 })
 
 test('stored voice settings fail safely and preserve valid user choices', () => {
   assert.deepEqual(normalizeGuidedVoiceSettings(null), DEFAULT_GUIDED_VOICE_SETTINGS)
   assert.deepEqual(normalizeGuidedVoiceSettings({
     enabled: false, coachingMode: 'supportive',
-    voiceProfile: 'device', voiceURI: 'voice:nl',
+    coachVoice: 'system', deliveryStyle: 'energetic', voiceURI: 'voice:nl',
     rhythmCues: false, restCues: 'voice',
   }), {
     enabled: false, coachingMode: 'supportive',
-    voiceProfile: 'device', voiceURI: 'voice:nl',
+    coachVoice: 'system', deliveryStyle: 'energetic', voiceURI: 'voice:nl',
     rhythmCues: false, restCues: 'voice',
   })
   assert.deepEqual(normalizeGuidedVoiceSettings({
-    coachingMode: 'shout', voiceProfile: 'alien', restCues: 'seconds',
+    coachingMode: 'shout', coachVoice: 'alien', deliveryStyle: 'harsh', restCues: 'seconds',
   }), DEFAULT_GUIDED_VOICE_SETTINGS)
+})
+
+test('legacy profile settings migrate without losing a chosen system voice', () => {
+  assert.deepEqual(normalizeGuidedVoiceSettings({
+    enabled: true,
+    coachingMode: 'minimal',
+    voiceProfile: 'device',
+    voiceURI: 'voice:nl',
+    rhythmCues: true,
+    restCues: 'chimes',
+  }), {
+    ...DEFAULT_GUIDED_VOICE_SETTINGS,
+    coachVoice: 'system',
+    voiceURI: 'voice:nl',
+  })
+  assert.equal(normalizeGuidedVoiceSettings({ voiceProfile: 'calm' }).deliveryStyle, 'calm')
 })
 
 test('device voice selection prefers exact URI, then language, then default', () => {
