@@ -16,6 +16,7 @@ export type SetData = {
   distance?: number | null
   rest_seconds?: number | null
   difficulty?: number | null
+  note?: string | null
 }
 
 export type SetPayload = SetData & {
@@ -88,6 +89,7 @@ function toSetRow(raw: SetPayload, workoutId: number, userId: string) {
     distance: s.distance ?? null,
     rest_seconds: s.rest_seconds ?? null,
     difficulty: s.difficulty ?? null,
+    note: typeof s.note === 'string' ? s.note.trim().slice(0, 500) || null : null,
   }
 }
 
@@ -101,11 +103,11 @@ async function insertSets(
   rows: ReturnType<typeof toSetRow>[],
 ): Promise<{ ids: number[]; error?: string }> {
   if (rows.length === 0) return { ids: [] }
-  // rest_seconds and difficulty are independent optional columns that may
+  // Optional columns may be rolled out independently.
   // each be migrated or not — strip whichever one the error names and retry,
   // up to once per column, so a DB missing both still degrades to a save.
   let attempt: Record<string, unknown>[] = rows
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const { data, error } = await supabase.from('sets').insert(attempt).select('id')
     if (!error) return { ids: (data ?? []).map((r: { id: number }) => r.id) }
     if (isMissingColumnError(error, 'rest_seconds')) {
@@ -114,6 +116,10 @@ async function insertSets(
     }
     if (isMissingColumnError(error, 'difficulty')) {
       attempt = attempt.map(({ difficulty, ...rest }) => rest)
+      continue
+    }
+    if (isMissingColumnError(error, 'note')) {
+      attempt = attempt.map(({ note, ...rest }) => rest)
       continue
     }
     return { ids: [], error: error.message }

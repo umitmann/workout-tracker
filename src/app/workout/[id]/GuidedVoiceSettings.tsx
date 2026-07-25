@@ -122,7 +122,7 @@ export default function GuidedVoiceSettingsFields({
   }
 
   function previewVoice() {
-    speakGuidedCoach(settings, guidedPreviewCoachCues(), 'Rep 3. Lower. Hold. Up.')
+    speakGuidedCoach({ ...settings, coachingMode: 'reps' }, guidedPreviewCoachCues(), 'Rep 3.')
   }
 
   function chooseCoach(coach: GuidedCoachVoice) {
@@ -146,8 +146,8 @@ export default function GuidedVoiceSettingsFields({
     <section aria-label="Guided voice settings" className={`flex flex-col gap-3 rounded-2xl border p-3 ${surface}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-black">Voice coaching</p>
-          <p className={`text-xs ${secondaryText}`}>Choose how much the guide says. Seconds are always silent.</p>
+          <p className="text-sm font-black">Voice rep counter</p>
+          <p className={`text-xs ${secondaryText}`}>Says each rep number once. Movement and seconds stay silent.</p>
         </div>
         <label className="flex min-h-11 shrink-0 items-center gap-2 text-xs font-bold">
           <input
@@ -161,6 +161,12 @@ export default function GuidedVoiceSettingsFields({
         </label>
       </div>
 
+      <details className="group">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-xl border border-zinc-300 px-3 text-sm font-bold dark:border-zinc-700">
+          Voice options
+          <span aria-hidden="true" className="transition-transform group-open:rotate-180">⌄</span>
+        </summary>
+        <div className="mt-3 flex flex-col gap-3">
       <label className="flex flex-col gap-1">
         <span className="text-xs font-bold uppercase tracking-wide">Coaching style</span>
         <select
@@ -297,6 +303,8 @@ export default function GuidedVoiceSettingsFields({
           <span className={`text-xs ${secondaryText}`}>{restMode.description} Never counts rest seconds aloud.</span>
         </label>
       )}
+        </div>
+      </details>
     </section>
   )
 }

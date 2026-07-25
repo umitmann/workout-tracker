@@ -18,6 +18,9 @@ const {
   resolveEditFields,
   applyWeightToExercise,
   applyRepsToExercise,
+  inferSetValueMode,
+  applySetValueEdit,
+  updateSetNote,
 } = await import('../src/lib/setListOps.ts')
 
 function set(overrides = {}) {
@@ -32,9 +35,47 @@ function set(overrides = {}) {
     distance: overrides.distance ?? null,
     rest_seconds: overrides.rest_seconds ?? null,
     difficulty: overrides.difficulty ?? null,
+    note: overrides.note ?? null,
     done: overrides.done ?? true,
   }
 }
+
+test('equal strength sets infer uniform mode while a dropset infers per-set mode', () => {
+  assert.equal(inferSetValueMode([
+    set({ localId: 'a', weight: 80, reps: 8 }),
+    set({ localId: 'b', weight: 80, reps: 8 }),
+  ], 1), 'uniform')
+  assert.equal(inferSetValueMode([
+    set({ localId: 'a', weight: 80, reps: 8 }),
+    set({ localId: 'b', weight: 70, reps: 10 }),
+  ], 1), 'per-set')
+})
+
+test('uniform edit changes weight and reps across the exercise without touching completion state', () => {
+  const next = applySetValueEdit([
+    set({ localId: 'a', weight: 80, reps: 8, done: true }),
+    set({ localId: 'b', weight: 80, reps: 8, done: false }),
+    set({ localId: 'c', exerciseId: 2, weight: 30, reps: 12 }),
+  ], 'a', { weight: 82.5, reps: 6 }, 'uniform')
+  assert.deepEqual(next.map((s) => [s.weight, s.reps, s.done]), [
+    [82.5, 6, true],
+    [82.5, 6, false],
+    [30, 12, true],
+  ])
+})
+
+test('per-set edit changes only the chosen set and a note never leaks to sibling sets', () => {
+  const sets = [
+    set({ localId: 'a', weight: 80, reps: 8 }),
+    set({ localId: 'b', weight: 80, reps: 8 }),
+  ]
+  const edited = applySetValueEdit(sets, 'b', { weight: 70, reps: 10 }, 'per-set')
+  const noted = updateSetNote(edited, 'b', 'Last rep assisted')
+  assert.deepEqual(noted.map((s) => [s.weight, s.reps, s.note]), [
+    [80, 8, null],
+    [70, 10, 'Last rep assisted'],
+  ])
+})
 
 test('addSet appends within the exercise group (end of list, matching new set data)', () => {
   const sets = [set({ localId: 'a', exerciseId: 1 }), set({ localId: 'b', exerciseId: 2 })]

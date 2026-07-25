@@ -1037,6 +1037,32 @@ workout or set history.
 
 ---
 
+## Phase 21 — Per-set workout notes
+
+**Ready for SQL Editor application** from
+[`20260725000100_set_notes.sql`](../supabase/migrations/20260725000100_set_notes.sql).
+
+This additive migration adds a nullable, 500-character `sets.note` field and
+updates the existing atomic `save_workout_sets` function to include it.
+Reusable exercise notes remain in `exercise_notes`; set notes belong only to
+one recorded set. The migration does not change RLS or grant direct table
+access.
+
+### Supabase SQL Editor procedure
+
+1. Copy the entire Phase 21 migration into a new SQL Editor query and run it
+   once.
+2. Run
+   [`verify_set_notes.sql`](../supabase/manual/verify_set_notes.sql).
+3. Confirm all four returned booleans are `true`.
+4. Run `notify pgrst, 'reload schema';`.
+
+The web client safely omits notes from older database reads and older versions
+of the atomic RPC ignore the extra JSON property, so app and migration deploys
+do not have to be simultaneous. Notes become durable after Phase 21 is applied.
+
+---
+
 ## Executable clean-room baseline — repository recovery support
 
 **Added and clean-reset verified** on 2026-07-14 in

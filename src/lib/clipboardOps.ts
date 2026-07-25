@@ -80,6 +80,7 @@ export function clipboardEntriesToLocalSets(
       distance: null,
       rest_seconds: null,
       difficulty: null,
+      note: null,
       done: false,
     })),
   )

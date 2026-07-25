@@ -154,56 +154,49 @@ async function installSpeechRecorder(page: Page) {
 test.describe('active workout guided behavior', () => {
   test.skip(!ptE2eEnabled(), 'Set PT_E2E_ENABLED=true with disposable local fixtures.')
 
-  test('keeps dropset weights until the user explicitly applies one weight to all sets', async ({ browser }) => {
+  test('keeps straight sets uniform until the athlete opts into different per-set values', async ({ browser }) => {
     const session = await newSignedInContext(browser, 'exerciseClient')
     try {
       await startWorkoutWithExercise(session.page)
       await addStrengthSet(session.page, '60', '8')
-      await addStrengthSet(session.page, '50', '6')
-
-      await expect(session.page.getByText('60 kg', { exact: true })).toBeVisible()
-      await expect(session.page.getByText('50 kg', { exact: true })).toBeVisible()
+      await addStrengthSet(session.page, '60', '8')
 
       await session.page.getByText('60 kg', { exact: true }).click()
-      const applyAll = session.page.getByRole('button', { name: /apply weight to all sets/i })
-      const editor = applyAll.locator('xpath=../..')
+      const editor = session.page.getByRole('checkbox', { name: /different values per set/i }).locator('xpath=../..').locator('..')
       await enterStepper(session.page, editor, 'Weight (kg)', '70')
-      await applyAll.click()
       await session.page.getByRole('button', { name: /close set editor/i }).click()
-
       await expect(session.page.getByText('70 kg', { exact: true })).toHaveCount(2)
+
+      await session.page.getByText('70 kg', { exact: true }).last().click()
+      const perSet = session.page.getByRole('checkbox', { name: /different values per set/i })
+      await perSet.check()
+      const perSetEditor = perSet.locator('xpath=../..').locator('..')
+      await enterStepper(session.page, perSetEditor, 'Weight (kg)', '50')
+      await perSetEditor.getByRole('button', { name: /close set editor/i }).click()
+      await expect(session.page.getByText('70 kg', { exact: true })).toHaveCount(1)
+      await expect(session.page.getByText('50 kg', { exact: true })).toHaveCount(1)
       await deleteWorkout(session.page)
     } finally {
       await session.context.close()
     }
   })
 
-  test('applies reps to all only when explicitly requested and seeds guided from the edited form', async ({ browser }) => {
+  test('persists a set note and shows it in the guided ready state', async ({ browser }) => {
     const session = await newSignedInContext(browser, 'exerciseClient')
     try {
       await startWorkoutWithExercise(session.page)
       await addStrengthSet(session.page, '60', '8')
-      await addStrengthSet(session.page, '50', '6')
-
       await session.page.getByText('60 kg', { exact: true }).click()
-      const applyAll = session.page.getByRole('button', { name: /apply reps to all sets/i })
-      const editor = applyAll.locator('xpath=../..')
-      await enterStepper(session.page, editor, 'Reps', '12')
-      await applyAll.click()
-      await session.page.getByRole('button', { name: /save and close set editor/i }).click()
-      await expect(session.page.getByText('12', { exact: true })).toHaveCount(2)
-
-      // The values currently visible in the normal set editor are the source
-      // of truth for guided setup — no stale previous-set/default values.
-      await session.page.getByText('50 kg', { exact: true }).click()
-      const secondEditor = session.page.getByRole('button', { name: /start guided set/i }).locator('xpath=../..')
-      await enterStepper(session.page, secondEditor, 'Weight (kg)', '55')
-      await enterStepper(session.page, secondEditor, 'Reps', '9')
-      await secondEditor.getByRole('button', { name: /start guided set/i }).click()
+      const note = session.page.getByRole('textbox', { name: /note for set 1/i })
+      await note.fill('Last rep assisted')
+      const editor = note.locator('xpath=../..').locator('..')
+      await editor.getByRole('button', { name: /start guided set/i }).click()
       const setup = session.page.getByRole('dialog', { name: /guided set:/i })
-      await expect(setup.getByRole('textbox', { name: 'Weight (kg)', exact: true })).toHaveValue('55')
-      await expect(setup.getByRole('textbox', { name: 'Goal reps', exact: true })).toHaveValue('9')
-      await setup.getByRole('button', { name: /cancel/i }).click()
+      await expect(setup.getByText(/voice rep counter/i)).toBeVisible()
+      await expect(setup.getByText(/voice options/i)).toBeVisible()
+      await expect(setup.getByLabel(/coaching style/i)).toBeHidden()
+      await setup.getByRole('button', { name: /^start$/i }).click()
+      await expect(session.page.getByText(/this set:.*last rep assisted/i)).toBeVisible()
 
       await deleteWorkout(session.page)
     } finally {
@@ -294,6 +287,7 @@ test.describe('active workout guided behavior', () => {
       ] as const) {
         await enterStepper(session.page, setup, label, value)
       }
+      await setup.getByText('Voice options', { exact: true }).click()
       const setupVoice = setup.getByRole('checkbox', { name: /voice coaching enabled/i })
       await expect(setupVoice).toBeChecked()
       await setup.getByRole('radio', { name: /device voice/i }).check()
@@ -329,7 +323,7 @@ test.describe('active workout guided behavior', () => {
         () => (window as unknown as { __guidedSpeech: string[] }).__guidedSpeech,
       )
       expect(spoken.join(' | ')).toMatch(/Rep 1/i)
-      expect(spoken.join(' | ')).toMatch(/Hold|Up|Lower/i)
+      expect(spoken.join(' | ')).not.toMatch(/Hold|Up|Lower/i)
       expect(spoken.some((phrase) => /^\d+$/.test(phrase))).toBe(false)
       expect(spoken.some((phrase) => /\. (?:1|2|3)$/.test(phrase))).toBe(false)
       await deleteWorkout(session.page)
@@ -354,6 +348,7 @@ test.describe('active workout guided behavior', () => {
       ] as const) {
         await enterStepper(session.page, setup, label, value)
       }
+      await setup.getByText('Voice options', { exact: true }).click()
       await setup.getByRole('checkbox', { name: /voice coaching enabled/i }).uncheck()
       await setup.getByRole('radio', { name: /device voice/i }).check()
       await setup.getByRole('button', { name: /start guide/i }).click()
@@ -371,7 +366,7 @@ test.describe('active workout guided behavior', () => {
         () => (window as unknown as { __guidedSpeech: string[] }).__guidedSpeech,
       )
       expect(spoken.join(' | ')).toMatch(/Rep 1/i)
-      expect(spoken.join(' | ')).toMatch(/Hold|Up|Lower/i)
+      expect(spoken.join(' | ')).not.toMatch(/Hold|Up|Lower/i)
       expect(spoken.some((phrase) => /^\d+$/.test(phrase))).toBe(false)
       expect(spoken.some((phrase) => /\. (?:1|2|3)$/.test(phrase))).toBe(false)
 
@@ -400,6 +395,7 @@ test.describe('active workout guided behavior', () => {
       ] as const) {
         await enterStepper(session.page, setup, label, value)
       }
+      await setup.getByText('Voice options', { exact: true }).click()
 
       await setup.getByRole('combobox', { name: /coaching style/i }).selectOption('supportive')
       await setup.getByRole('radio', { name: /kai/i }).check()
@@ -419,7 +415,7 @@ test.describe('active workout guided behavior', () => {
       await setup.getByRole('button', { name: /preview voice/i }).click()
       await expect.poll(() => session.page.evaluate(
         () => (window as unknown as { __guidedSpeech: string[] }).__guidedSpeech.at(-1),
-      )).toBe('Rep 3. Lower. Hold. Up.')
+      )).toBe('Rep 3.')
       await session.page.evaluate(() => {
         ;(window as unknown as { __guidedAudioFail: boolean }).__guidedAudioFail = false
       })
@@ -439,6 +435,7 @@ test.describe('active workout guided behavior', () => {
       await session.page.getByText('60 kg', { exact: true }).click()
       await session.page.getByRole('button', { name: /start guided set/i }).click()
       const reopened = session.page.getByRole('dialog', { name: /guided set:/i })
+      await reopened.getByText('Voice options', { exact: true }).click()
       await expect(reopened.getByRole('combobox', { name: /coaching style/i })).toHaveValue('technique')
       await expect(reopened.getByRole('radio', { name: /device voice/i })).toBeChecked()
       await expect(reopened.getByRole('combobox', { name: /delivery pace/i })).toHaveValue('energetic')
@@ -453,6 +450,7 @@ test.describe('active workout guided behavior', () => {
       await session.page.getByRole('button', { name: /voice settings/i }).click()
       const liveSettings = session.page.getByRole('dialog', { name: /^voice settings$/i })
       await expect(session.page.getByText('PAUSED', { exact: true })).toBeVisible()
+      await liveSettings.getByText('Voice options', { exact: true }).click()
       await liveSettings.getByRole('combobox', { name: /coaching style/i }).selectOption('reps')
       await liveSettings.getByRole('button', { name: /^done$/i }).click()
       await session.page.evaluate(() => {

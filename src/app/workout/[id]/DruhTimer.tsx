@@ -65,6 +65,8 @@ export default function DruhTimer({
   voiceSettingsDefault,
   onVoiceSettingsChange,
   techniqueCue = '',
+  exerciseNote = '',
+  setNote = '',
   onTechniqueCueChange,
   onStop,
   onCancel,
@@ -77,6 +79,8 @@ export default function DruhTimer({
   voiceSettingsDefault: GuidedVoiceSettings
   onVoiceSettingsChange?: (settings: GuidedVoiceSettings) => void
   techniqueCue?: string
+  exerciseNote?: string
+  setNote?: string
   onTechniqueCueChange?: (cue: string) => void
   onStop: (completedReps: number, difficulty: number | null) => void
   onCancel: () => void
@@ -428,6 +432,12 @@ export default function DruhTimer({
           <p className="text-lg font-semibold text-white/70">{goalReps} reps · tempo {formatTempo(tempo)}</p>
           {voiceSettings.coachingMode === 'technique' && techniqueCue.trim() && (
             <p className="max-w-md rounded-xl bg-black/20 px-4 py-2 text-sm font-bold text-white/90">Cue: {techniqueCue.trim()}</p>
+          )}
+          {(exerciseNote.trim() || setNote.trim()) && (
+            <div className="max-w-md rounded-xl bg-black/25 px-4 py-3 text-left text-sm">
+              {exerciseNote.trim() && <p><strong>Exercise:</strong> {exerciseNote.trim()}</p>}
+              {setNote.trim() && <p><strong>This set:</strong> {setNote.trim()}</p>}
+            </div>
           )}
           <p className="text-[9rem] leading-none font-black tabular-nums drop-shadow">{ready}</p>
         </div>

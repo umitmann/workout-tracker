@@ -15,6 +15,7 @@ export type DbSet = {
   distance: number | null
   rest_seconds?: number | null
   difficulty?: number | null
+  note?: string | null
   exercises: { name: string; category: string | null } | null
 }
 
@@ -35,6 +36,7 @@ function fromDbSets(sets: DbSet[]): LocalSet[] {
     distance: s.distance,
     rest_seconds: s.rest_seconds ?? null,
     difficulty: s.difficulty ?? null,
+    note: s.note ?? null,
     done: true,
   }))
 }

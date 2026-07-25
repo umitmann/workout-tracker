@@ -15,12 +15,42 @@ export type LocalSet = {
   // Tile 10c: 1-5 subjective-effort rating, non-cardio sets only. Nullable/
   // optional everywhere — never required to add/complete a set or the workout.
   difficulty: number | null
+  // Session-specific observation for this exact set. Exercise-level notes
+  // live separately and remain reusable across workouts.
+  note: string | null
   done: boolean
 }
 
 export type SetEdit = Partial<
-  Pick<LocalSet, 'weight' | 'reps' | 'duration_minutes' | 'distance' | 'difficulty' | 'done'>
+  Pick<LocalSet, 'weight' | 'reps' | 'duration_minutes' | 'distance' | 'difficulty' | 'note' | 'done'>
 >
+
+export type SetValueMode = 'uniform' | 'per-set'
+
+export function inferSetValueMode(sets: LocalSet[], exerciseId: number): SetValueMode {
+  const strengthSets = sets.filter((set) => set.exerciseId === exerciseId && set.exerciseCategory !== 'cardio')
+  if (strengthSets.length < 2) return 'uniform'
+  const first = strengthSets[0]
+  return strengthSets.every((set) => set.weight === first.weight && set.reps === first.reps)
+    ? 'uniform'
+    : 'per-set'
+}
+
+export function applySetValueEdit(
+  sets: LocalSet[],
+  localId: string,
+  edit: Pick<SetEdit, 'weight' | 'reps'>,
+  mode: SetValueMode,
+): LocalSet[] {
+  const target = sets.find((set) => set.localId === localId)
+  if (!target || mode === 'per-set') return applyEdit(sets, localId, edit)
+  return sets.map((set) => set.exerciseId === target.exerciseId ? { ...set, ...edit } : set)
+}
+
+export function updateSetNote(sets: LocalSet[], localId: string, note: string): LocalSet[] {
+  const cleaned = note.trim().slice(0, 500)
+  return applyEdit(sets, localId, { note: cleaned || null })
+}
 
 // §4.9/§4.10: exercises stay in insertion order — appending is enough.
 export function addSet(sets: LocalSet[], newSet: LocalSet): LocalSet[] {
@@ -142,6 +172,7 @@ export function commitPending(
     distance: isCardio && fields.distance ? Number(fields.distance) : null,
     rest_seconds: null,
     difficulty: null,
+    note: null,
     done: false,
   }
 }

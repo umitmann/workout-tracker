@@ -15,16 +15,34 @@ const {
   normalizeGuidedVoiceSettings,
   speechOptionsForGuidedVoice,
 } = await import('../src/lib/guidedVoice.ts')
+
+test('the default voice guide counts reps without movement commands', () => {
+  assert.equal(DEFAULT_GUIDED_VOICE_SETTINGS.coachingMode, 'reps')
+  assert.equal(guidedPhaseAnnouncement({
+    mode: DEFAULT_GUIDED_VOICE_SETTINGS.coachingMode,
+    phase: 'down',
+    rep: 3,
+    goalReps: 8,
+    announceRep: true,
+  }), 'Rep 3')
+  assert.equal(guidedPhaseAnnouncement({
+    mode: DEFAULT_GUIDED_VOICE_SETTINGS.coachingMode,
+    phase: 'up',
+    rep: 3,
+    goalReps: 8,
+    announceRep: false,
+  }), null)
+})
 const { selectGuidedSpeechVoice } = await import('../src/lib/guidedSpeech.ts')
 
-test('the default is sparse tempo plus rep guidance with silent seconds', () => {
+test('the default counts reps once with movement and rhythm cues silent', () => {
   assert.deepEqual(DEFAULT_GUIDED_VOICE_SETTINGS, {
     enabled: true,
-    coachingMode: 'minimal',
+    coachingMode: 'reps',
     coachVoice: 'maya',
     deliveryStyle: 'clear',
     voiceURI: null,
-    rhythmCues: true,
+    rhythmCues: false,
     restCues: 'chimes',
   })
   assert.deepEqual(GUIDED_COACHING_MODES.map((mode) => mode.value), [
@@ -109,6 +127,7 @@ test('legacy profile settings migrate without losing a chosen system voice', () 
     ...DEFAULT_GUIDED_VOICE_SETTINGS,
     coachVoice: 'system',
     voiceURI: 'voice:nl',
+    rhythmCues: true,
   })
   assert.equal(normalizeGuidedVoiceSettings({ voiceProfile: 'calm' }).deliveryStyle, 'calm')
 })

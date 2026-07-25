@@ -30,18 +30,19 @@ export async function getRecentWorkouts(limit = 5) {
 // Column combos to try, most-complete first, so either optional column
 // (independently) not-yet-migrated still degrades to a working select —
 // same shape as TEMPLATE_COL_VARIANTS below.
-const SET_COLS = (opts: { restSeconds: boolean; difficulty: boolean }) =>
-  `id, exercise_id, weight, reps, duration_minutes, distance,${opts.restSeconds ? ' rest_seconds,' : ''}${opts.difficulty ? ' difficulty,' : ''} exercises(name, category)`
+const SET_COLS = (opts: { restSeconds: boolean; difficulty: boolean; note: boolean }) =>
+  `id, exercise_id, weight, reps, duration_minutes, distance,${opts.restSeconds ? ' rest_seconds,' : ''}${opts.difficulty ? ' difficulty,' : ''}${opts.note ? ' note,' : ''} exercises(name, category)`
 
 const SET_COL_VARIANTS = [
-  { restSeconds: true, difficulty: true },
-  { restSeconds: true, difficulty: false },
-  { restSeconds: false, difficulty: true },
-  { restSeconds: false, difficulty: false },
+  { restSeconds: true, difficulty: true, note: true },
+  { restSeconds: true, difficulty: true, note: false },
+  { restSeconds: true, difficulty: false, note: false },
+  { restSeconds: false, difficulty: true, note: false },
+  { restSeconds: false, difficulty: false, note: false },
 ]
 
 function isMissingSetColumnError(error: unknown): boolean {
-  return isMissingColumnError(error, 'rest_seconds') || isMissingColumnError(error, 'difficulty')
+  return isMissingColumnError(error, 'rest_seconds') || isMissingColumnError(error, 'difficulty') || isMissingColumnError(error, 'note')
 }
 
 export async function getWorkoutWithSets(workoutId: number) {

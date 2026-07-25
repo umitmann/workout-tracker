@@ -27,8 +27,6 @@ import {
   addSet as addSetOp,
   deleteSet as deleteSetOp,
   applyEdit,
-  applyWeightToExercise,
-  applyRepsToExercise,
   reorderExercise,
   recordRestForSet,
   requestSetDelete,
@@ -38,6 +36,10 @@ import {
   mergeIncomingSets,
   mergeGuideResults,
   lastCompletedGuideSetId,
+  inferSetValueMode,
+  applySetValueEdit,
+  updateSetNote,
+  SetValueMode,
   MergeMode,
   restoreSnapshot,
 } from '@/lib/setListOps'
@@ -214,6 +216,8 @@ export default function WorkoutLogger({
   const [editReps, setEditReps] = useState('')
   const [editDuration, setEditDuration] = useState('')
   const [editDistance, setEditDistance] = useState('')
+  const [editSetNote, setEditSetNote] = useState('')
+  const [setValueModes, setSetValueModes] = useState<Record<number, SetValueMode>>({})
 
   // Exercise picker filter state
   const [pickerActiveMuscles, setPickerActiveMuscles] = useState<string[]>([])
@@ -554,6 +558,7 @@ export default function WorkoutLogger({
       distance: isCardio && distance ? Number(distance) : null,
       rest_seconds: null,
       difficulty: null,
+      note: null,
       done: true,
     }
     const nextSets = addSetOp(localSets, newSet)
@@ -693,38 +698,25 @@ export default function WorkoutLogger({
   // mark it done, start rest, and keep the set visible (just close the editor).
   function completeFromEdit(s: LocalSet) {
     const isCardio = s.exerciseCategory === 'cardio'
-    const nextSets = applyEdit(localSets, s.localId, {
+    let nextSets = applyEdit(localSets, s.localId, {
       weight: !isCardio && editWeight ? Number(editWeight) : s.weight,
       reps: !isCardio && editReps ? Number(editReps) : s.reps,
       duration_minutes: isCardio && editDuration ? Number(editDuration) : s.duration_minutes,
       distance: isCardio && editDistance ? Number(editDistance) : s.distance,
       done: true,
     })
+    if (!isCardio) {
+      nextSets = applySetValueEdit(nextSets, s.localId, {
+        weight: editWeight ? Number(editWeight) : s.weight,
+        reps: editReps ? Number(editReps) : s.reps,
+      }, setValueModes[s.exerciseId] ?? inferSetValueMode(localSets, s.exerciseId))
+    }
+    nextSets = updateSetNote(nextSets, s.localId, editSetNote)
     setLocalSets(nextSets)
     setSavedOnce(true)
     setEditingId(null)
     persist(nextSets)
     if (autoStartRest && startsRestOnComplete(s.exerciseCategory)) startRestFor(s.localId)
-  }
-
-  function applyEditedWeightToExercise(s: LocalSet) {
-    const nextSets = applyWeightToExercise(
-      localSets,
-      s.exerciseId,
-      editWeight ? Number(editWeight) : null,
-    )
-    setLocalSets(nextSets)
-    persist(nextSets)
-  }
-
-  function applyEditedRepsToExercise(s: LocalSet) {
-    const nextSets = applyRepsToExercise(
-      localSets,
-      s.exerciseId,
-      editReps ? Number(editReps) : null,
-    )
-    setLocalSets(nextSets)
-    persist(nextSets)
   }
 
   function guidedFromEdit(s: LocalSet) {
@@ -782,6 +774,7 @@ export default function WorkoutLogger({
       distance: null,
       rest_seconds: null,
       difficulty,
+      note: null,
       done: true,
     }
     const nextSets = setsAfterRestRestart([...localSets, newSet])
@@ -799,7 +792,7 @@ export default function WorkoutLogger({
   function guideSetsFor(exerciseId: number): GuideSet[] {
     return localSets
       .filter((s) => s.exerciseId === exerciseId)
-      .map((s) => ({ localId: s.localId, goalReps: Math.max(1, s.reps ?? 8), weight: s.weight }))
+      .map((s) => ({ localId: s.localId, goalReps: Math.max(1, s.reps ?? 8), weight: s.weight, note: s.note }))
   }
 
   // Open the whole-exercise guide SETUP (review/edit each set's reps + weight,
@@ -871,6 +864,7 @@ export default function WorkoutLogger({
         distance: null,
         rest_seconds: null,
         difficulty: null,
+        note: null,
         done: false,
       }
     })
@@ -997,6 +991,7 @@ export default function WorkoutLogger({
     setEditReps(s.reps != null ? String(s.reps) : '')
     setEditDuration(s.duration_minutes != null ? String(s.duration_minutes) : '')
     setEditDistance(s.distance != null ? String(s.distance) : '')
+    setEditSetNote(s.note ?? '')
   }
 
   // Tile 9(b): tapping away from the inline editor without ✓/Complete keeps
@@ -1015,7 +1010,12 @@ export default function WorkoutLogger({
       target,
       isCardio,
     )
-    const nextSets = applyEdit(localSets, localId, fields)
+    const mode = setValueModes[target.exerciseId] ?? inferSetValueMode(localSets, target.exerciseId)
+    let nextSets = applyEdit(localSets, localId, fields)
+    if (!isCardio) {
+      nextSets = applySetValueEdit(nextSets, localId, { weight: fields.weight, reps: fields.reps }, mode)
+    }
+    nextSets = updateSetNote(nextSets, localId, editSetNote)
     setLocalSets(nextSets)
     setEditingId(null)
     // Completed-set edits are autosaved in both active and history sessions:
@@ -1149,6 +1149,7 @@ export default function WorkoutLogger({
       distance: s.distance,
       rest_seconds: s.rest_seconds,
       difficulty: s.difficulty,
+      note: s.note,
     }
   }
 
@@ -1902,23 +1903,40 @@ export default function WorkoutLogger({
                         </>
                       )}
                     </div>
+                    <label className="col-span-2 flex flex-col gap-1">
+                      <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Set note</span>
+                      <input
+                        aria-label={`Note for set ${i + 1}`}
+                        value={editSetNote}
+                        maxLength={500}
+                        onChange={(event) => setEditSetNote(event.target.value)}
+                        placeholder="Only for this set, e.g. last rep assisted"
+                        className="min-h-11 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm outline-none focus:border-orange-400 dark:border-zinc-700 dark:bg-zinc-800"
+                      />
+                    </label>
+                    {s.exerciseCategory !== 'cardio' && (
+                      <label className="col-span-2 flex min-h-11 items-center justify-between gap-3 rounded-lg bg-zinc-50 px-3 text-sm dark:bg-zinc-800">
+                        <span>
+                          <span className="block font-bold">Different values per set</span>
+                          <span className="block text-xs text-zinc-500">
+                            {(setValueModes[s.exerciseId] ?? inferSetValueMode(localSets, s.exerciseId)) === 'uniform'
+                              ? 'Weight and reps update all sets.'
+                              : 'Only this set is changed.'}
+                          </span>
+                        </span>
+                        <input
+                          aria-label="Different values per set"
+                          type="checkbox"
+                          checked={(setValueModes[s.exerciseId] ?? inferSetValueMode(localSets, s.exerciseId)) === 'per-set'}
+                          onChange={(event) => setSetValueModes((current) => ({
+                            ...current,
+                            [s.exerciseId]: event.target.checked ? 'per-set' : 'uniform',
+                          }))}
+                          className="size-5 accent-orange-500"
+                        />
+                      </label>
+                    )}
                     <div className="col-span-2 flex flex-wrap items-center justify-end gap-2">
-                      {s.exerciseCategory !== 'cardio' && (
-                        <button
-                          onMouseDown={(e) => { e.preventDefault(); applyEditedWeightToExercise(s) }}
-                          className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-bold text-zinc-600 transition-colors hover:border-orange-400 hover:text-orange-500 dark:border-zinc-700 dark:text-zinc-400"
-                        >
-                          Apply weight to all sets
-                        </button>
-                      )}
-                      {s.exerciseCategory !== 'cardio' && (
-                        <button
-                          onMouseDown={(e) => { e.preventDefault(); applyEditedRepsToExercise(s) }}
-                          className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-bold text-zinc-600 transition-colors hover:border-orange-400 hover:text-orange-500 dark:border-zinc-700 dark:text-zinc-400"
-                        >
-                          Apply reps to all sets
-                        </button>
-                      )}
                       {s.exerciseCategory !== 'cardio' && (
                         <button
                           onMouseDown={(e) => { e.preventDefault(); guidedFromEdit(s) }}
@@ -2023,6 +2041,9 @@ export default function WorkoutLogger({
                     )}
                     {formatRestRow(s.rest_seconds) && (
                       <p className="text-xs text-zinc-400 dark:text-zinc-600 pl-8">{formatRestRow(s.rest_seconds)}</p>
+                    )}
+                    {s.note && (
+                      <p className="pl-8 text-xs text-amber-700 dark:text-amber-300">Set note: {s.note}</p>
                     )}
                     {/* ADR-0008 (WP-09): two-tap confirm, mirrors the calendar's Confirm/Cancel (§3.15-3.17) */}
                     {pendingDeleteId === s.localId && (
@@ -2448,6 +2469,8 @@ export default function WorkoutLogger({
           voiceSettingsDefault={guideVoiceSettings}
           onVoiceSettingsChange={setGuideVoiceSettings}
           techniqueCue={guideTechniqueCues[runningDruh.exercise.id] ?? ''}
+          exerciseNote={notes[runningDruh.exercise.id] ?? ''}
+          setNote={runningDruh.targetLocalId ? localSets.find((set) => set.localId === runningDruh.targetLocalId)?.note ?? '' : ''}
           onTechniqueCueChange={(cue) => updateGuideTechniqueCue(runningDruh.exercise.id, cue)}
           onStop={handleGuidedStop}
           onCancel={() => setRunningDruh(null)}
@@ -2605,6 +2628,7 @@ export default function WorkoutLogger({
           voiceSettingsDefault={guideVoiceSettings}
           onVoiceSettingsChange={setGuideVoiceSettings}
           techniqueCue={guideTechniqueCues[guidingExerciseId] ?? ''}
+          exerciseNote={notes[guidingExerciseId] ?? ''}
           onTechniqueCueChange={(cue) => updateGuideTechniqueCue(guidingExerciseId, cue)}
           onDone={handleGuideDone}
         />

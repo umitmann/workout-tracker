@@ -18,11 +18,11 @@ export type GuidedVoiceSettings = {
 
 export const DEFAULT_GUIDED_VOICE_SETTINGS: GuidedVoiceSettings = {
   enabled: true,
-  coachingMode: 'minimal',
+  coachingMode: 'reps',
   coachVoice: 'maya',
   deliveryStyle: 'clear',
   voiceURI: null,
-  rhythmCues: true,
+  rhythmCues: false,
   restCues: 'chimes',
 }
 
@@ -79,7 +79,9 @@ export function normalizeGuidedVoiceSettings(value: unknown): GuidedVoiceSetting
       : DEFAULT_GUIDED_VOICE_SETTINGS.deliveryStyle
   return {
     enabled: typeof candidate.enabled === 'boolean' ? candidate.enabled : DEFAULT_GUIDED_VOICE_SETTINGS.enabled,
-    coachingMode: COACHING_MODE_VALUES.has(candidate.coachingMode as GuidedCoachingMode)
+    coachingMode: candidate.coachingMode === 'minimal'
+      ? 'reps'
+      : COACHING_MODE_VALUES.has(candidate.coachingMode as GuidedCoachingMode)
       ? candidate.coachingMode as GuidedCoachingMode
       : DEFAULT_GUIDED_VOICE_SETTINGS.coachingMode,
     coachVoice: COACH_VOICE_VALUES.has(candidate.coachVoice as GuidedCoachVoice)

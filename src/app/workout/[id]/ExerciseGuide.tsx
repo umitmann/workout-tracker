@@ -27,7 +27,7 @@ import {
 import GuidedVoiceSettingsFields from './GuidedVoiceSettings'
 import Modal from '@/components/Modal'
 
-export type GuideSet = { localId: string; goalReps: number; weight: number | null }
+export type GuideSet = { localId: string; goalReps: number; weight: number | null; note?: string | null }
 export type GuideResult = {
   localId: string
   reps: number
@@ -73,6 +73,7 @@ export default function ExerciseGuide({
   voiceSettingsDefault,
   onVoiceSettingsChange,
   techniqueCue = '',
+  exerciseNote = '',
   onTechniqueCueChange,
   onDone,
 }: {
@@ -84,6 +85,7 @@ export default function ExerciseGuide({
   voiceSettingsDefault: GuidedVoiceSettings
   onVoiceSettingsChange?: (settings: GuidedVoiceSettings) => void
   techniqueCue?: string
+  exerciseNote?: string
   onTechniqueCueChange?: (cue: string) => void
   onDone: (results: GuideResult[], activeRest?: GuidedRestHandoff) => void
 }) {
@@ -435,6 +437,12 @@ export default function ExerciseGuide({
           <p className="text-lg font-semibold text-white/70">Set {setNum} · {sets[idx]?.weight ? `${sets[idx]?.weight}kg × ` : ''}{sets[idx]?.goalReps} reps</p>
           {voiceSettings.coachingMode === 'technique' && techniqueCue.trim() && (
             <p className="max-w-md rounded-xl bg-black/20 px-4 py-2 text-sm font-bold text-white/90">Cue: {techniqueCue.trim()}</p>
+          )}
+          {(exerciseNote.trim() || sets[idx]?.note?.trim()) && (
+            <div className="max-w-md rounded-xl bg-black/25 px-4 py-3 text-left text-sm">
+              {exerciseNote.trim() && <p><strong>Exercise:</strong> {exerciseNote.trim()}</p>}
+              {sets[idx]?.note?.trim() && <p><strong>This set:</strong> {sets[idx]?.note?.trim()}</p>}
+            </div>
           )}
           <p className="text-[clamp(6rem,28vw,9rem)] font-black leading-none tabular-nums drop-shadow">{readyLeft}</p>
         </div>
