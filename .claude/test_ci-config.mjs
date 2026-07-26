@@ -58,7 +58,7 @@ test('ci.yml runs audit, lint, tsc, unit/data-access tests and filters', () => {
   const yml = readCi()
   assert.match(
     yml,
-    /npm audit --audit-level=high\b/,
+    /npm run audit:ci\b/,
     'ci.yml must reject high or critical dependency advisories',
   )
   assert.match(yml, /npm run lint\b/, 'ci.yml must run `npm run lint`')
