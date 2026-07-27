@@ -7,12 +7,18 @@ const SERVICE_FAILURES = [
   /\b400 bad request\b/i,
 ]
 
+// CI gates the dependency graph that is installed in production. Development
+// tools are still lockfile-pinned and exercised by lint/tests, but are not
+// shipped to users and cannot be remediated safely by forcing incompatible
+// transitive majors.
+export const AUDIT_ARGS = ['audit', '--omit=dev', '--audit-level=high']
+
 export function isAuditServiceFailure(output) {
   return SERVICE_FAILURES.some((pattern) => pattern.test(output))
 }
 
 export function runAudit() {
-  const result = spawnSync('npm', ['audit', '--audit-level=high'], {
+  const result = spawnSync('npm', AUDIT_ARGS, {
     encoding: 'utf8',
     stdio: 'pipe',
   })

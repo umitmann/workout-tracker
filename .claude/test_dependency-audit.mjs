@@ -1,6 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { isAuditServiceFailure } from '../scripts/audit-dependencies.mjs'
+import { AUDIT_ARGS, isAuditServiceFailure } from '../scripts/audit-dependencies.mjs'
+
+test('dependency audit gates production dependencies at high severity', () => {
+  assert.deepEqual(AUDIT_ARGS, ['audit', '--omit=dev', '--audit-level=high'])
+})
 
 test('dependency audit recognizes registry transport failures only', () => {
   assert.equal(isAuditServiceFailure('npm error audit endpoint returned an error'), true)
