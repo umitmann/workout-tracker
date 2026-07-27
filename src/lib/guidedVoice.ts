@@ -123,12 +123,14 @@ export function guidedPhaseAnnouncement({
   rep,
   goalReps,
   announceRep,
+  maxMode = false,
 }: {
   mode: GuidedCoachingMode
   phase: TempoPhase
   rep: number
   goalReps: number
   announceRep: boolean
+  maxMode?: boolean
 }): string | null {
   if (mode === 'silent') return null
   const movement = movementCue(phase)
@@ -137,7 +139,7 @@ export function guidedPhaseAnnouncement({
   if (!announceRep) return movement
 
   const repLabel = `Rep ${Math.max(1, Math.floor(rep))}`
-  if (mode === 'supportive') {
+  if (mode === 'supportive' && !maxMode) {
     if (rep === Math.max(1, Math.floor(goalReps))) return `${repLabel}. Last rep. ${movement}`
     if (goalReps >= 4 && rep === Math.ceil(goalReps / 2)) return `${repLabel}. Halfway. ${movement}`
   }
@@ -156,6 +158,7 @@ export function guidedReadyAnnouncement({
   goalReps,
   weight,
   techniqueCue,
+  maxMode = false,
 }: {
   enabled: boolean
   mode: GuidedCoachingMode
@@ -164,10 +167,15 @@ export function guidedReadyAnnouncement({
   goalReps: number
   weight?: number | null
   techniqueCue?: string | null
+  maxMode?: boolean
 }): string | null {
   if (!enabled || mode === 'silent') return null
   const exercise = cleanSpeechFragment(exerciseName, 100) || 'Exercise'
-  const parts = [exercise, `Set ${Math.max(1, Math.floor(setNumber))}`, `${Math.max(1, Math.floor(goalReps))} reps`]
+  const parts = [
+    exercise,
+    `Set ${Math.max(1, Math.floor(setNumber))}`,
+    maxMode ? 'Max mode' : `${Math.max(1, Math.floor(goalReps))} reps`,
+  ]
   if (typeof weight === 'number' && Number.isFinite(weight) && weight > 0) {
     parts.push(`${Number(weight.toFixed(2))} kilograms`)
   }

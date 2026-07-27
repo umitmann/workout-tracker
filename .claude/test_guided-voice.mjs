@@ -67,6 +67,16 @@ test('supportive speech is sparse and factual rather than invented praise', () =
   assert.doesNotMatch(guidedPhaseAnnouncement({ mode: 'supportive', phase: 'down', rep: 2, goalReps: 8, announceRep: true }), /perfect|form|faster|harder/i)
 })
 
+test('max mode keeps rep speech but never invents halfway or last-rep milestones', () => {
+  assert.equal(guidedPhaseAnnouncement({
+    mode: 'supportive', phase: 'down', rep: 8, goalReps: 8, announceRep: true, maxMode: true,
+  }), 'Rep 8. Lower')
+  assert.equal(guidedReadyAnnouncement({
+    enabled: true, mode: 'reps', exerciseName: 'Bench Press',
+    setNumber: 2, goalReps: 8, weight: 60, maxMode: true,
+  }), 'Bench Press. Set 2. Max mode. 60 kilograms.')
+})
+
 test('ready speech summarizes the prescription and includes a bounded user/PT cue only in technique mode', () => {
   assert.equal(guidedReadyAnnouncement({
     enabled: true, mode: 'minimal', exerciseName: 'Bench Press',

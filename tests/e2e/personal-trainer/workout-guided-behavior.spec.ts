@@ -269,6 +269,39 @@ test.describe('active workout guided behavior', () => {
     }
   })
 
+  test('max mode keeps the tempo running past the goal until the athlete stops', async ({ browser }) => {
+    const session = await newSignedInContext(browser, 'exerciseClient')
+    try {
+      await startWorkoutWithExercise(session.page)
+      await addStrengthSet(session.page, '60', '1')
+      await session.page.getByText('60 kg', { exact: true }).click()
+      await session.page.getByRole('button', { name: /start guided set/i }).click()
+      const setup = session.page.getByRole('dialog', { name: /guided set:/i })
+      await enterStepper(session.page, setup, 'Goal reps', '1')
+      await enterStepper(session.page, setup, 'Down', '1')
+      for (const label of ['Rest', 'Up', 'Hold']) {
+        await enterStepper(session.page, setup, label, '0')
+      }
+      await setup.getByRole('switch', { name: /max mode/i }).check()
+      await expect(setup.getByText('No limit', { exact: true })).toBeVisible()
+      await setup.getByRole('button', { name: /^start$/i }).click()
+      await session.page.getByRole('button', { name: /start now/i }).click()
+
+      await expect(session.page.getByText(/rep 2 · max/i)).toBeVisible({ timeout: 4_000 })
+      await expect(session.page.getByText(/how many reps did you actually complete/i)).toHaveCount(0)
+      await session.page.getByRole('button', { name: /stop & log/i }).click()
+      await expect(session.page.getByText(/max mode · stopped manually/i)).toBeVisible()
+      const completed = Number(await session.page.getByTestId('guided-confirm-reps').textContent())
+      await session.page.getByRole('button', { name: 'Increase reps', exact: true }).click()
+      await session.page.getByRole('button', { name: new RegExp(`log ${completed + 1} reps?`, 'i') }).click()
+
+      await expect(session.page.getByRole('paragraph').filter({ hasText: new RegExp(`^${completed + 1}$`) })).toBeVisible()
+      await deleteWorkout(session.page)
+    } finally {
+      await session.context.close()
+    }
+  })
+
   test('voice is optional before and during guidance and never speaks elapsed seconds', async ({ browser }) => {
     const session = await newSignedInContext(browser, 'exerciseClient')
     try {

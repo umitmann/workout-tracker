@@ -83,12 +83,14 @@ export function guidedPhaseCoachCues({
   rep,
   goalReps,
   announceRep,
+  maxMode = false,
 }: {
   mode: GuidedCoachingMode
   phase: TempoPhase
   rep: number
   goalReps: number
   announceRep: boolean
+  maxMode?: boolean
 }): GuidedCoachCue[] | null {
   if (mode === 'silent') return []
   const movement = movementCue(phase)
@@ -101,7 +103,7 @@ export function guidedPhaseCoachCues({
   if (rep < 1 || rep > MAX_PACKAGED_REP) return null
 
   const cues: GuidedCoachCue[] = [`rep-${Math.floor(rep)}`]
-  if (mode === 'supportive') {
+  if (mode === 'supportive' && !maxMode) {
     if (rep === Math.max(1, Math.floor(goalReps))) cues.push('last-rep')
     else if (goalReps >= 4 && rep === Math.ceil(goalReps / 2)) cues.push('halfway')
   }

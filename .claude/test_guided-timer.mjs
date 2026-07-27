@@ -10,6 +10,7 @@ const {
   guidedStateAt,
   completedRepsAt,
   stopEarlyReps,
+  adjustGuidedReps,
   isTickSecond,
   guidedRestAudioCue,
   READY_SECONDS,
@@ -80,6 +81,30 @@ test('stopEarlyReps logs only fully completed reps, capped at goal', () => {
   assert.equal(stopEarlyReps(T, 10, 7), 1) // exactly one rep done
   assert.equal(stopEarlyReps(T, 10, 20), 2) // 2 full reps
   assert.equal(stopEarlyReps(T, 3, 999), 3) // never exceeds goal
+})
+
+test('max mode keeps advancing beyond the goal until the athlete stops it', () => {
+  const s = guidedStateAt(T, 3, 70, true)
+  assert.equal(s.finished, false)
+  assert.equal(s.completedReps, 10)
+  assert.equal(s.rep, 11)
+})
+
+test('max mode review uses every completed rep instead of the original goal cap', () => {
+  assert.equal(stopEarlyReps(T, 3, 70, true), 10)
+  assert.equal(stopEarlyReps(T, 3, 70), 3)
+})
+
+test('max mode still rejects a zero-length tempo instead of running forever', () => {
+  const s = guidedStateAt({ down: 0, rest: 0, up: 0, hold: 0 }, 3, 70, true)
+  assert.equal(s.finished, true)
+  assert.equal(s.completedReps, 0)
+})
+
+test('rep confirmation is goal-capped normally and open-ended in max mode', () => {
+  assert.equal(adjustGuidedReps(3, 1, 3, false), 3)
+  assert.equal(adjustGuidedReps(10, 1, 3, true), 11)
+  assert.equal(adjustGuidedReps(0, -1, 3, true), 0)
 })
 
 test('completedRepsAt is safe for zero-length tempo', () => {

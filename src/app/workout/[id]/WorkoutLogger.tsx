@@ -277,12 +277,14 @@ export default function WorkoutLogger({
     exercise: SlimExercise
     goalReps: string
     weight: string
+    maxMode: boolean
     targetLocalId?: string // adjust + run guided for an existing (scheduled) set
   } | null>(null)
   const [runningDruh, setRunningDruh] = useState<{
     exercise: SlimExercise
     goalReps: number
     weight: number | null
+    maxMode: boolean
     targetLocalId?: string // when set, fill this existing (pending) set instead of appending
   } | null>(null)
   // Inline "last session" per exercise, for at-a-glance comparison
@@ -646,7 +648,7 @@ export default function WorkoutLogger({
   function openGuidedSetup() {
     if (!selectedExercise) return
     applyPtTempo(selectedExercise.id)
-    setGuidedSetup({ exercise: selectedExercise, goalReps: reps || '8', weight })
+    setGuidedSetup({ exercise: selectedExercise, goalReps: reps || '8', weight, maxMode: false })
   }
 
   function updateGuideTechniqueCue(exerciseId: number, cue: string) {
@@ -669,6 +671,7 @@ export default function WorkoutLogger({
       exercise: guidedSetup.exercise,
       goalReps: goal,
       weight: guidedSetup.weight ? Number(guidedSetup.weight) : null,
+      maxMode: guidedSetup.maxMode,
       targetLocalId: guidedSetup.targetLocalId,
     })
     setGuidedSetup(null)
@@ -688,6 +691,7 @@ export default function WorkoutLogger({
       exercise: ex,
       goalReps: s.reps != null ? String(s.reps) : '8',
       weight: s.weight != null ? String(s.weight) : '',
+      maxMode: false,
       targetLocalId: s.localId,
     })
   }
@@ -728,6 +732,7 @@ export default function WorkoutLogger({
       exercise: ex,
       goalReps: editReps || (s.reps != null ? String(s.reps) : '8'),
       weight: editWeight || (s.weight != null ? String(s.weight) : ''),
+      maxMode: false,
       targetLocalId: s.localId,
     })
   }
@@ -2415,14 +2420,39 @@ export default function WorkoutLogger({
                 decimal
                 onChange={(v) => setGuidedSetup((g) => (g ? { ...g, weight: v > 0 ? String(v) : '' } : g))}
               />
-              <Stepper
-                label="Goal reps"
-                value={Number(guidedSetup.goalReps) || 0}
-                min={1}
-                max={50}
-                onChange={(v) => setGuidedSetup((g) => (g ? { ...g, goalReps: String(v) } : g))}
-              />
+              {guidedSetup.maxMode ? (
+                <div className="flex min-h-24 flex-col items-center justify-center rounded-xl bg-orange-50 text-center dark:bg-orange-950/30">
+                  <span className="text-xs font-bold uppercase tracking-wide text-orange-500">Goal reps</span>
+                  <span className="mt-1 text-sm font-black text-zinc-900 dark:text-white">No limit</span>
+                </div>
+              ) : (
+                <Stepper
+                  label="Goal reps"
+                  value={Number(guidedSetup.goalReps) || 0}
+                  min={1}
+                  max={50}
+                  onChange={(v) => setGuidedSetup((g) => (g ? { ...g, goalReps: String(v) } : g))}
+                />
+              )}
             </div>
+            <label className="flex min-h-14 cursor-pointer items-center justify-between gap-4 rounded-2xl border border-zinc-200 px-4 py-3 dark:border-zinc-700">
+              <span>
+                <span className="block text-sm font-black text-zinc-900 dark:text-white">Max mode</span>
+                <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                  Keep the tempo running until you stop manually.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Max mode"
+                checked={guidedSetup.maxMode}
+                onChange={(event) => setGuidedSetup((current) => (
+                  current ? { ...current, maxMode: event.target.checked } : current
+                ))}
+                className="size-5 shrink-0 accent-orange-500"
+              />
+            </label>
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Tempo (sec per phase)</span>
@@ -2465,6 +2495,7 @@ export default function WorkoutLogger({
           exerciseName={runningDruh.exercise.name}
           tempo={tempo}
           goalReps={runningDruh.goalReps}
+          maxMode={runningDruh.maxMode}
           weight={runningDruh.weight}
           voiceSettingsDefault={guideVoiceSettings}
           onVoiceSettingsChange={setGuideVoiceSettings}

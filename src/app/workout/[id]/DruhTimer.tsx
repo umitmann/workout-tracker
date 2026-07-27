@@ -6,6 +6,7 @@ import {
   activeElapsedSeconds,
   guidedStateAt,
   stopEarlyReps,
+  adjustGuidedReps,
   READY_SECONDS,
   readySecondsLeft,
   resumedStartTime,
@@ -60,6 +61,7 @@ export default function DruhTimer({
   exerciseName,
   tempo,
   goalReps,
+  maxMode = false,
   weight = null,
   setNumber = 1,
   voiceSettingsDefault,
@@ -74,6 +76,7 @@ export default function DruhTimer({
   exerciseName: string
   tempo: TempoConfig
   goalReps: number
+  maxMode?: boolean
   weight?: number | null
   setNumber?: number
   voiceSettingsDefault: GuidedVoiceSettings
@@ -87,7 +90,7 @@ export default function DruhTimer({
 }) {
   // Wake lock is now owned by WorkoutLogger at the session level (ADR-0007) —
   // no per-timer lock here.
-  const initial = guidedStateAt(tempo, goalReps, 0)
+  const initial = guidedStateAt(tempo, goalReps, 0, maxMode)
   const [voiceSettings, setVoiceSettings] = useState(voiceSettingsDefault)
   const [showVoiceSettings, setShowVoiceSettings] = useState(false)
   const [ready, setReady] = useState(READY_SECONDS) // >0 = GET READY lead-in
@@ -132,6 +135,7 @@ export default function DruhTimer({
       goalReps,
       weight,
       techniqueCue,
+      maxMode,
     })
     if (readyAnnouncement) {
       speakGuidedCoach(voiceSettingsRef.current, guidedReadyCoachCues(), readyAnnouncement)
@@ -153,7 +157,7 @@ export default function DruhTimer({
         return
       }
 
-      const s = guidedStateAt(tempo, goalReps, elapsed)
+      const s = guidedStateAt(tempo, goalReps, elapsed, maxMode)
 
       if (s.finished) {
         finish(goalReps)
@@ -176,6 +180,7 @@ export default function DruhTimer({
             rep: s.rep,
             goalReps,
             announceRep,
+            maxMode,
           })
           if (announcement) {
             speakGuidedCoach(currentSettings, guidedPhaseCoachCues({
@@ -184,6 +189,7 @@ export default function DruhTimer({
               rep: s.rep,
               goalReps,
               announceRep,
+              maxMode,
             }), announcement)
           }
           if (announceRep && announcement) lastSpokenRepRef.current = s.rep
@@ -261,6 +267,7 @@ export default function DruhTimer({
         goalReps,
         weight,
         techniqueCue,
+        maxMode,
       })
       if (announcement) speakGuidedCoach(next, guidedReadyCoachCues(), announcement)
     }
@@ -283,7 +290,7 @@ export default function DruhTimer({
   // instead of logging it silently — the lifter adjusts ± and saves.
   function handleStopEarly() {
     if (doneRef.current || confirmReps != null) return
-    pauseForConfirmation(stopEarlyReps(tempo, goalReps, elapsedNow()))
+    pauseForConfirmation(stopEarlyReps(tempo, goalReps, elapsedNow(), maxMode))
   }
 
   function pauseForConfirmation(repsCompleted: number) {
@@ -294,7 +301,7 @@ export default function DruhTimer({
   }
 
   function adjustConfirmReps(delta: number) {
-    setConfirmReps((r) => (r == null ? r : Math.max(0, Math.min(goalReps, r + delta))))
+    setConfirmReps((r) => (r == null ? r : adjustGuidedReps(r, delta, goalReps, maxMode)))
   }
 
   // Adjusting to 0 and saving logs nothing — the existing ≤0 rule in the
@@ -325,7 +332,7 @@ export default function DruhTimer({
       {/* Top bar: exercise progress + live guidance controls */}
       <div className="flex items-center justify-between px-6 pt-6">
         <p className="text-sm font-bold uppercase tracking-widest text-white/80">
-          Rep {Math.min(rep, goalReps)} / {goalReps}
+          {maxMode ? `Rep ${rep} · MAX` : `Rep ${Math.min(rep, goalReps)} / ${goalReps}`}
         </p>
         <div className="flex items-center gap-2">
           {!inConfirm && (
@@ -397,17 +404,19 @@ export default function DruhTimer({
             >
               −
             </button>
-            <p className="text-[7rem] leading-none font-black tabular-nums drop-shadow min-w-[3ch]">{confirmReps}</p>
+            <p data-testid="guided-confirm-reps" className="text-[7rem] leading-none font-black tabular-nums drop-shadow min-w-[3ch]">{confirmReps}</p>
             <button
               onClick={() => adjustConfirmReps(1)}
-              disabled={confirmReps >= goalReps}
+              disabled={!maxMode && confirmReps >= goalReps}
               aria-label="Increase reps"
               className="w-14 h-14 rounded-full bg-white/15 hover:bg-white/25 disabled:opacity-30 text-3xl font-black transition-colors"
             >
               +
             </button>
           </div>
-          <p className="text-sm font-semibold uppercase tracking-widest text-white/50">goal was {goalReps}</p>
+          <p className="text-sm font-semibold uppercase tracking-widest text-white/50">
+            {maxMode ? 'max mode · stopped manually' : `goal was ${goalReps}`}
+          </p>
           <fieldset className="mt-3">
             <legend className="mb-2 text-xs font-bold uppercase tracking-widest text-white/60">Difficulty (optional)</legend>
             <div className="flex justify-center gap-2">
@@ -429,7 +438,9 @@ export default function DruhTimer({
       ) : inReady ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 px-6 text-center">
           <p className="text-3xl font-black tracking-widest text-white/90">GET READY</p>
-          <p className="text-lg font-semibold text-white/70">{goalReps} reps · tempo {formatTempo(tempo)}</p>
+          <p className="text-lg font-semibold text-white/70">
+            {maxMode ? 'Max mode · stop manually' : `${goalReps} reps`} · tempo {formatTempo(tempo)}
+          </p>
           {voiceSettings.coachingMode === 'technique' && techniqueCue.trim() && (
             <p className="max-w-md rounded-xl bg-black/20 px-4 py-2 text-sm font-bold text-white/90">Cue: {techniqueCue.trim()}</p>
           )}

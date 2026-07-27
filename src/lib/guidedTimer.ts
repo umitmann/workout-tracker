@@ -20,14 +20,14 @@ export function readySecondsLeft(elapsed: number): number {
 }
 
 export type GuidedState = {
-  rep: number // 1-based, capped at goalReps
+  rep: number // 1-based, capped at goalReps unless max mode is active
   phase: TempoPhase
   verb: string
   sub: string
   icon: string // directional symbol (↓ ↑ ⏸)
   secondsLeft: number // whole seconds, counting down
-  completedReps: number // fully finished reps so far (capped at goal)
-  finished: boolean // goal reached (or degenerate zero-length tempo)
+  completedReps: number // fully finished reps so far (uncapped in max mode)
+  finished: boolean // goal reached outside max mode (or degenerate tempo)
 }
 
 // Fully completed reps at a given elapsed time (a rep completes each repDuration).
@@ -37,10 +37,25 @@ export function completedRepsAt(tempo: TempoConfig, elapsed: number): number {
   return Math.max(0, Math.floor(elapsed / dur))
 }
 
-// Reps to LOG when the user stops early — only fully completed reps count,
-// never more than the goal.
-export function stopEarlyReps(tempo: TempoConfig, goalReps: number, elapsed: number): number {
-  return Math.min(goalReps, completedRepsAt(tempo, elapsed))
+// Reps to log when the athlete stops: only fully completed reps count.
+// Goal-based sets stay capped; max-mode sets deliberately remain uncapped.
+export function stopEarlyReps(
+  tempo: TempoConfig,
+  goalReps: number,
+  elapsed: number,
+  maxMode = false,
+): number {
+  const completed = completedRepsAt(tempo, elapsed)
+  return maxMode ? completed : Math.min(goalReps, completed)
+}
+
+export function adjustGuidedReps(
+  current: number,
+  delta: number,
+  goalReps: number,
+  maxMode = false,
+): number {
+  return Math.max(0, maxMode ? current + delta : Math.min(goalReps, current + delta))
 }
 
 // A "get ready" tick fires on each of the final 3 whole seconds of a phase.
@@ -94,11 +109,16 @@ export function guidedRestAudioCue(
   return null
 }
 
-export function guidedStateAt(tempo: TempoConfig, goalReps: number, elapsed: number): GuidedState {
+export function guidedStateAt(
+  tempo: TempoConfig,
+  goalReps: number,
+  elapsed: number,
+  maxMode = false,
+): GuidedState {
   const dur = repDuration(tempo)
   const completed = completedRepsAt(tempo, elapsed)
 
-  if (dur <= 0 || completed >= goalReps) {
+  if (dur <= 0 || (!maxMode && completed >= goalReps)) {
     const cue = TEMPO_PHASE_CUE.hold
     return {
       rep: goalReps,
