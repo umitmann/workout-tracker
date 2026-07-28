@@ -302,6 +302,36 @@ test.describe('active workout guided behavior', () => {
     }
   })
 
+  test('can rotate the DRUH cycle to begin with lifting in both guided flows', async ({ browser }) => {
+    const session = await newSignedInContext(browser, 'exerciseClient')
+    try {
+      await startWorkoutWithExercise(session.page)
+      await addStrengthSet(session.page, '60', '2')
+      await session.page.getByText('60 kg', { exact: true }).click()
+      await session.page.getByRole('button', { name: /start guided set/i }).click()
+      const singleSetup = session.page.getByRole('dialog', { name: /guided set:/i })
+      await singleSetup.getByRole('combobox', { name: /first tempo phase/i }).selectOption('up')
+      await singleSetup.getByRole('button', { name: /^start$/i }).click()
+      await session.page.getByRole('button', { name: /start now/i }).click()
+      await expect(session.page.getByText('LIFT', { exact: true })).toBeVisible()
+      await session.page.getByRole('button', { name: /review & exit/i }).click()
+      await session.page.getByRole('button', { name: /discard set/i }).click()
+
+      await session.page.getByRole('button', { name: /guide whole exercise/i }).click()
+      const allSetup = session.page.getByRole('dialog', { name: /guide exercise:/i })
+      await expect(allSetup.getByRole('combobox', { name: /first tempo phase/i })).toHaveValue('up')
+      await allSetup.getByRole('button', { name: /start guide/i }).click()
+      await session.page.getByRole('button', { name: /start now/i }).click()
+      await expect(session.page.getByText('LIFT', { exact: true })).toBeVisible()
+      await session.page.getByRole('button', { name: /review & exit/i }).click()
+      const review = session.page.getByRole('dialog', { name: /review:/i })
+      await review.getByRole('button', { name: /leave pending/i }).click()
+      await deleteWorkout(session.page)
+    } finally {
+      await session.context.close()
+    }
+  })
+
   test('voice is optional before and during guidance and never speaks elapsed seconds', async ({ browser }) => {
     const session = await newSignedInContext(browser, 'exerciseClient')
     try {

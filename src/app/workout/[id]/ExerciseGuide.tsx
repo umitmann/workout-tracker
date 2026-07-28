@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { TempoConfig, TempoPhase, secondsLeft } from '@/lib/tempo'
+import { TempoConfig, TempoPhase, TEMPO_PHASE_CUE, secondsLeft } from '@/lib/tempo'
 import {
   activeElapsedSeconds,
   guidedRestAudioCue,
@@ -69,6 +69,7 @@ export default function ExerciseGuide({
   tempo,
   sets,
   maxMode = false,
+  startPhase = 'down',
   restSeconds,
   restBetweenSets = true,
   voiceSettingsDefault,
@@ -82,6 +83,7 @@ export default function ExerciseGuide({
   tempo: TempoConfig
   sets: GuideSet[]
   maxMode?: boolean
+  startPhase?: TempoPhase
   restSeconds: number
   restBetweenSets?: boolean
   voiceSettingsDefault: GuidedVoiceSettings
@@ -95,7 +97,7 @@ export default function ExerciseGuide({
   const [showVoiceSettings, setShowVoiceSettings] = useState(false)
   const [mode, setMode] = useState<Mode>('ready')
   const [idx, setIdx] = useState(0)
-  const [view, setView] = useState(() => guidedStateAt(tempo, sets[0]?.goalReps ?? 1, 0, maxMode))
+  const [view, setView] = useState(() => guidedStateAt(tempo, sets[0]?.goalReps ?? 1, 0, maxMode, startPhase))
   const [restLeft, setRestLeft] = useState(restSeconds)
   const [readyLeft, setReadyLeft] = useState(READY_SECONDS)
   const [paused, setPaused] = useState(false)
@@ -164,7 +166,7 @@ export default function ExerciseGuide({
       if (elapsed >= READY_SECONDS) { beginSet(); return }
     } else if (modeRef.current === 'set') {
       const current = sets[idxRef.current]
-      const state = guidedStateAt(tempo, current.goalReps, elapsed, maxMode)
+      const state = guidedStateAt(tempo, current.goalReps, elapsed, maxMode, startPhase)
       const phaseKey = `${state.rep}:${state.phase}`
       if (phaseKey !== lastPhaseRef.current) {
         lastPhaseRef.current = phaseKey
@@ -442,6 +444,9 @@ export default function ExerciseGuide({
           <p className="text-lg font-semibold text-white/70">
             Set {setNum} · {sets[idx]?.weight ? `${sets[idx]?.weight}kg · ` : ''}
             {maxMode ? 'Max mode · stop manually' : `${sets[idx]?.goalReps} reps`}
+          </p>
+          <p className="text-sm font-bold uppercase tracking-wide text-white/60">
+            Starts with {TEMPO_PHASE_CUE[startPhase].verb.toLowerCase()}
           </p>
           {voiceSettings.coachingMode === 'technique' && techniqueCue.trim() && (
             <p className="max-w-md rounded-xl bg-black/20 px-4 py-2 text-sm font-bold text-white/90">Cue: {techniqueCue.trim()}</p>

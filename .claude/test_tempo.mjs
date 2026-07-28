@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-const { parseTempo, formatTempo, repDuration, phaseAt, TEMPO_PHASES, TEMPO_PHASE_CUE, secondsLeft } = await import(
+const { parseTempo, formatTempo, repDuration, phaseAt, phasesStartingAt, normalizeTempoPhase, TEMPO_PHASES, TEMPO_PHASE_CUE, secondsLeft } = await import(
   '../src/lib/tempo.ts'
 )
 
@@ -118,6 +118,29 @@ test('phaseAt skips zero-length phases', () => {
   assert.equal(phaseAt(cfg, 0).phase, 'down')
   assert.equal(phaseAt(cfg, 4).phase, 'up')
   assert.equal(phaseAt(cfg, 5.5).phase, 'up')
+})
+
+test('the DRUH cycle can start at any phase without changing its cyclic order', () => {
+  assert.deepEqual(phasesStartingAt('down'), ['down', 'rest', 'up', 'hold'])
+  assert.deepEqual(phasesStartingAt('rest'), ['rest', 'up', 'hold', 'down'])
+  assert.deepEqual(phasesStartingAt('up'), ['up', 'hold', 'down', 'rest'])
+  assert.deepEqual(phasesStartingAt('hold'), ['hold', 'down', 'rest', 'up'])
+})
+
+test('phaseAt follows the selected cyclic starting phase and preserves duration', () => {
+  const cfg = { down: 3, rest: 1, up: 2, hold: 1 }
+  assert.equal(phaseAt(cfg, 0, 'up').phase, 'up')
+  assert.equal(phaseAt(cfg, 1.9, 'up').phase, 'up')
+  assert.equal(phaseAt(cfg, 2, 'up').phase, 'hold')
+  assert.equal(phaseAt(cfg, 3, 'up').phase, 'down')
+  assert.equal(phaseAt(cfg, 6, 'up').phase, 'rest')
+  assert.equal(repDuration(cfg), 7)
+})
+
+test('stored starting phases fail safely to down', () => {
+  assert.equal(normalizeTempoPhase('up'), 'up')
+  assert.equal(normalizeTempoPhase('sideways'), 'down')
+  assert.equal(normalizeTempoPhase(null), 'down')
 })
 
 test('phaseAt clamps out-of-range elapsed into the rep', () => {

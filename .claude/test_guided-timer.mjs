@@ -49,6 +49,15 @@ test('phase verbs progress LOWER -> HOLD -> LIFT -> HOLD within one rep', () => 
   assert.equal(guidedStateAt(T, 10, 6).verb, 'HOLD') // hold [6,7)
 })
 
+test('guided state begins at the selected phase and continues cyclically', () => {
+  assert.equal(guidedStateAt(T, 10, 0, false, 'up').verb, 'LIFT')
+  assert.equal(guidedStateAt(T, 10, 2, false, 'up').phase, 'hold')
+  assert.equal(guidedStateAt(T, 10, 3, false, 'up').phase, 'down')
+  assert.equal(guidedStateAt(T, 10, 6, false, 'up').phase, 'rest')
+  assert.equal(guidedStateAt(T, 10, 7, false, 'up').rep, 2)
+  assert.equal(guidedStateAt(T, 10, 7, false, 'up').phase, 'up')
+})
+
 test('each phase carries a directional symbol (down ↓, up ↑, holds ⏸)', () => {
   assert.equal(guidedStateAt(T, 10, 0).icon, '↓') // LOWER
   assert.equal(guidedStateAt(T, 10, 3).icon, '⏸') // HOLD bottom

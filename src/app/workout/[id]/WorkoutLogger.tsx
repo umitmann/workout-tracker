@@ -18,7 +18,7 @@ import GuidedVoiceSettingsFields from './GuidedVoiceSettings'
 import Stepper from './Stepper'
 import { useWorkoutClipboard } from '@/lib/WorkoutClipboardContext'
 import { useWakeLock } from './useWakeLock'
-import { TempoConfig, repDuration, formatTempo, parseTempo } from '@/lib/tempo'
+import { TempoConfig, TempoPhase, repDuration, formatTempo, parseTempo, normalizeTempoPhase } from '@/lib/tempo'
 import { startsRestOnComplete, formatRestRow, shouldStickRestBar, canStartRestImplicitly, resolveRestTarget } from '@/lib/restTimer'
 import { deriveInitialSets } from '@/lib/deriveInitialSets'
 import { expandTemplate } from '@/lib/expandTemplate'
@@ -146,6 +146,40 @@ function DifficultyChip({
   )
 }
 
+const TEMPO_START_OPTIONS: ReadonlyArray<{ value: TempoPhase; label: string }> = [
+  { value: 'down', label: 'Lowering' },
+  { value: 'rest', label: 'Bottom hold' },
+  { value: 'up', label: 'Lifting' },
+  { value: 'hold', label: 'Top hold' },
+]
+
+function TempoStartSelector({
+  value,
+  onChange,
+}: {
+  value: TempoPhase
+  onChange: (phase: TempoPhase) => void
+}) {
+  return (
+    <label className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
+      <span>
+        <span className="block text-sm font-bold text-zinc-800 dark:text-zinc-200">Start cycle with</span>
+        <span className="block text-xs text-zinc-500">The remaining phases follow in DRUH order.</span>
+      </span>
+      <select
+        aria-label="First tempo phase"
+        value={value}
+        onChange={(event) => onChange(normalizeTempoPhase(event.target.value))}
+        className="min-h-11 rounded-xl border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+      >
+        {TEMPO_START_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function WorkoutLogger({
@@ -225,6 +259,7 @@ export default function WorkoutLogger({
 
   // Guided set (DRUH tempo timer) + rest timer — persisted so they don't reset.
   const [tempo, setTempo] = useState<TempoConfig>(() => readStored('wt.tempo', { down: 3, rest: 1, up: 2, hold: 1 }))
+  const [tempoStartPhase, setTempoStartPhase] = useState<TempoPhase>(() => normalizeTempoPhase(readStored('wt.tempoStartPhase', 'down')))
   const [restMode, setRestMode] = useState<'fixed' | 'variable'>(() => readStored<'fixed' | 'variable'>('wt.restMode', 'fixed'))
   const [restTarget, setRestTarget] = useState(() => readStored('wt.restTarget', 90))
   const [autoStartRest, setAutoStartRest] = useState(() => readStored('wt.autoStartRest', true))
@@ -266,6 +301,7 @@ export default function WorkoutLogger({
   }, [initialTemplate])
 
   useEffect(() => { writeStored('wt.tempo', tempo) }, [tempo])
+  useEffect(() => { writeStored('wt.tempoStartPhase', tempoStartPhase) }, [tempoStartPhase])
   useEffect(() => { writeStored('wt.restMode', restMode) }, [restMode])
   useEffect(() => { writeStored('wt.restTarget', restTarget) }, [restTarget])
   useEffect(() => { writeStored('wt.autoStartRest', autoStartRest) }, [autoStartRest])
@@ -2471,6 +2507,7 @@ export default function WorkoutLogger({
                 <Stepper label="Hold" sublabel="top" value={tempo.hold} min={0} max={10} onChange={(v) => setTempo((t) => ({ ...t, hold: v }))} />
               </div>
             </div>
+            <TempoStartSelector value={tempoStartPhase} onChange={setTempoStartPhase} />
             <GuidedVoiceSettingsFields
               settings={guideVoiceSettings}
               onChange={setGuideVoiceSettings}
@@ -2502,6 +2539,7 @@ export default function WorkoutLogger({
           tempo={tempo}
           goalReps={runningDruh.goalReps}
           maxMode={runningDruh.maxMode}
+          startPhase={tempoStartPhase}
           weight={runningDruh.weight}
           voiceSettingsDefault={guideVoiceSettings}
           onVoiceSettingsChange={setGuideVoiceSettings}
@@ -2575,6 +2613,7 @@ export default function WorkoutLogger({
                 <Stepper label="Hold" sublabel="top" value={tempo.hold} min={0} max={10} onChange={(v) => setTempo((t) => ({ ...t, hold: v }))} />
               </div>
             </div>
+            <TempoStartSelector value={tempoStartPhase} onChange={setTempoStartPhase} />
 
             <label className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
               <span>
@@ -2678,6 +2717,7 @@ export default function WorkoutLogger({
           tempo={tempo}
           sets={guideSetsFor(guidingExerciseId)}
           maxMode={guidingMaxMode}
+          startPhase={tempoStartPhase}
           restSeconds={resolveRestTarget(ptRest[guidingExerciseId], restTarget)}
           restBetweenSets={guideRestBetweenSets}
           voiceSettingsDefault={guideVoiceSettings}

@@ -4,6 +4,17 @@
 export const TEMPO_PHASES = ['down', 'rest', 'up', 'hold'] as const
 export type TempoPhase = (typeof TEMPO_PHASES)[number]
 
+export function normalizeTempoPhase(value: unknown): TempoPhase {
+  return typeof value === 'string' && (TEMPO_PHASES as readonly string[]).includes(value)
+    ? value as TempoPhase
+    : 'down'
+}
+
+export function phasesStartingAt(startPhase: TempoPhase = 'down'): TempoPhase[] {
+  const start = TEMPO_PHASES.indexOf(startPhase)
+  return [...TEMPO_PHASES.slice(start), ...TEMPO_PHASES.slice(0, start)]
+}
+
 export type TempoConfig = {
   down: number
   rest: number
@@ -58,7 +69,11 @@ export type PhaseState = {
 // Given elapsed seconds within a single rep, return the active phase and the
 // time remaining in it. Zero-length phases are skipped. Elapsed is clamped into
 // the rep window so the caller can pass raw elapsed % repDuration or the raw value.
-export function phaseAt(cfg: TempoConfig, elapsedInRep: number): PhaseState {
+export function phaseAt(
+  cfg: TempoConfig,
+  elapsedInRep: number,
+  startPhase: TempoPhase = 'down',
+): PhaseState {
   const total = repDuration(cfg)
   if (total <= 0) return { phase: 'down', remaining: 0 }
 
@@ -67,7 +82,8 @@ export function phaseAt(cfg: TempoConfig, elapsedInRep: number): PhaseState {
   if (t >= total) t = total - 0.0001 // keep inside the last non-empty segment
 
   let start = 0
-  for (const phase of TEMPO_PHASES) {
+  const phaseOrder = phasesStartingAt(startPhase)
+  for (const phase of phaseOrder) {
     const dur = cfg[phase]
     if (dur <= 0) continue
     const end = start + dur
@@ -76,6 +92,6 @@ export function phaseAt(cfg: TempoConfig, elapsedInRep: number): PhaseState {
   }
 
   // Fallback: last non-empty phase
-  const last = [...TEMPO_PHASES].reverse().find((p) => cfg[p] > 0) ?? 'down'
+  const last = [...phaseOrder].reverse().find((p) => cfg[p] > 0) ?? startPhase
   return { phase: last, remaining: 0 }
 }

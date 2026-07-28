@@ -62,6 +62,7 @@ export default function DruhTimer({
   tempo,
   goalReps,
   maxMode = false,
+  startPhase = 'down',
   weight = null,
   setNumber = 1,
   voiceSettingsDefault,
@@ -77,6 +78,7 @@ export default function DruhTimer({
   tempo: TempoConfig
   goalReps: number
   maxMode?: boolean
+  startPhase?: TempoPhase
   weight?: number | null
   setNumber?: number
   voiceSettingsDefault: GuidedVoiceSettings
@@ -90,7 +92,7 @@ export default function DruhTimer({
 }) {
   // Wake lock is now owned by WorkoutLogger at the session level (ADR-0007) —
   // no per-timer lock here.
-  const initial = guidedStateAt(tempo, goalReps, 0, maxMode)
+  const initial = guidedStateAt(tempo, goalReps, 0, maxMode, startPhase)
   const [voiceSettings, setVoiceSettings] = useState(voiceSettingsDefault)
   const [showVoiceSettings, setShowVoiceSettings] = useState(false)
   const [ready, setReady] = useState(READY_SECONDS) // >0 = GET READY lead-in
@@ -157,7 +159,7 @@ export default function DruhTimer({
         return
       }
 
-      const s = guidedStateAt(tempo, goalReps, elapsed, maxMode)
+      const s = guidedStateAt(tempo, goalReps, elapsed, maxMode, startPhase)
 
       if (s.finished) {
         finish(goalReps)
@@ -440,6 +442,9 @@ export default function DruhTimer({
           <p className="text-3xl font-black tracking-widest text-white/90">GET READY</p>
           <p className="text-lg font-semibold text-white/70">
             {maxMode ? 'Max mode · stop manually' : `${goalReps} reps`} · tempo {formatTempo(tempo)}
+          </p>
+          <p className="text-sm font-bold uppercase tracking-wide text-white/60">
+            Starts with {TEMPO_PHASE_CUE[startPhase].verb.toLowerCase()}
           </p>
           {voiceSettings.coachingMode === 'technique' && techniqueCue.trim() && (
             <p className="max-w-md rounded-xl bg-black/20 px-4 py-2 text-sm font-bold text-white/90">Cue: {techniqueCue.trim()}</p>

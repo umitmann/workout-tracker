@@ -114,6 +114,7 @@ export function guidedStateAt(
   goalReps: number,
   elapsed: number,
   maxMode = false,
+  startPhase: TempoPhase = 'down',
 ): GuidedState {
   const dur = repDuration(tempo)
   const completed = completedRepsAt(tempo, elapsed)
@@ -133,7 +134,7 @@ export function guidedStateAt(
   }
 
   const inRep = elapsed - completed * dur
-  const state = phaseAt(tempo, inRep)
+  const state = phaseAt(tempo, inRep, startPhase)
   const cue = TEMPO_PHASE_CUE[state.phase]
   return {
     rep: completed + 1,
