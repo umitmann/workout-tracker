@@ -410,6 +410,36 @@ test.describe('active workout guided behavior', () => {
     }
   })
 
+  test('whole-exercise max mode keeps every set running until manually stopped', async ({ browser }) => {
+    const session = await newSignedInContext(browser, 'exerciseClient')
+    try {
+      await startWorkoutWithExercise(session.page)
+      await addStrengthSet(session.page, '60', '1')
+      await session.page.getByRole('button', { name: /guide whole exercise/i }).click()
+      const setup = session.page.getByRole('dialog', { name: /guide exercise:/i })
+      await enterStepper(session.page, setup, 'Down', '1')
+      for (const label of ['Rest', 'Up', 'Hold']) {
+        await enterStepper(session.page, setup, label, '0')
+      }
+      await setup.getByRole('switch', { name: /max mode/i }).check()
+      await expect(setup.getByText(/every set continues until you stop it/i)).toBeVisible()
+      await setup.getByRole('button', { name: /start guide/i }).click()
+      await session.page.getByRole('button', { name: /start now/i }).click()
+
+      await expect(session.page.getByText(/rep 2 · max/i)).toBeVisible({ timeout: 4_000 })
+      await expect(session.page.getByRole('dialog', { name: /review:/i })).toHaveCount(0)
+      await session.page.getByRole('button', { name: /^stop set/i }).click()
+
+      const review = session.page.getByRole('dialog', { name: /review:/i })
+      await expect(review).toBeVisible()
+      await expect(review.getByText(/max mode/i)).toBeVisible()
+      await review.getByRole('button', { name: /log these sets/i }).click()
+      await deleteWorkout(session.page)
+    } finally {
+      await session.context.close()
+    }
+  })
+
   test('previews and persists voice choices, then changes coaching style safely during a guide', async ({ browser }) => {
     const session = await newSignedInContext(browser, 'exerciseClient')
     try {

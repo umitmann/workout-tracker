@@ -352,10 +352,12 @@ export default function WorkoutLogger({
   }
   // exerciseId currently being guided as a whole (full-screen set→rest→set…)
   const [guidingExerciseId, setGuidingExerciseId] = useState<number | null>(null)
+  const [guidingMaxMode, setGuidingMaxMode] = useState(false)
   // Setup screen for the whole-exercise guide (edit per-set reps/weight + tempo)
   const [guideSetup, setGuideSetup] = useState<{
     exerciseId: number
     exerciseName: string
+    maxMode: boolean
     rows: { localId: string; reps: number; weight: number }[]
   } | null>(null)
   // Tile 12: batched end-of-guide rep review — rather than interrupting each
@@ -364,6 +366,7 @@ export default function WorkoutLogger({
   // is committed until the review is confirmed.
   const [guideReview, setGuideReview] = useState<{
     exerciseName: string
+    maxMode: boolean
     results: (GuideResult & { weight: number | null; goalReps: number })[]
     activeRest?: GuidedRestHandoff
   } | null>(null)
@@ -809,7 +812,7 @@ export default function WorkoutLogger({
       .filter((s) => s.exerciseId === exerciseId)
       .map((s) => ({ localId: s.localId, reps: s.reps ?? 8, weight: s.weight ?? 0 }))
     if (rows.length === 0) return
-    setGuideSetup({ exerciseId, exerciseName: name, rows })
+    setGuideSetup({ exerciseId, exerciseName: name, maxMode: false, rows })
   }
 
   function updateGuideRow(localId: string, patch: Partial<{ reps: number; weight: number }>) {
@@ -889,6 +892,7 @@ export default function WorkoutLogger({
 
     setLocalSets(nextSets)
     persist(nextSets)
+    setGuidingMaxMode(guideSetup.maxMode)
     setGuidingExerciseId(exerciseId)
     setGuideSetup(null)
   }
@@ -921,6 +925,7 @@ export default function WorkoutLogger({
     const exerciseName = grouped[exerciseId]?.name ?? ''
     setGuideReview({
       exerciseName,
+      maxMode: guidingMaxMode,
       activeRest,
       results: results.map((r) => {
         // `localSets` still holds the PRE-guide values here (the review's
@@ -930,6 +935,7 @@ export default function WorkoutLogger({
         return { ...r, weight: s?.weight ?? null, goalReps: s?.reps ?? Math.max(r.reps, 1) }
       }),
     })
+    setGuidingMaxMode(false)
   }
 
   function updateGuideReviewReps(localId: string, reps: number) {
@@ -2583,6 +2589,23 @@ export default function WorkoutLogger({
               />
             </label>
 
+            <label className="flex min-h-14 cursor-pointer items-center justify-between gap-4 rounded-xl border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
+              <span>
+                <span className="block text-sm font-bold text-zinc-800 dark:text-zinc-200">Max mode</span>
+                <span className="block text-xs text-zinc-500">Every set continues until you stop it manually.</span>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Max mode"
+                checked={guideSetup.maxMode}
+                onChange={(event) => setGuideSetup((current) => (
+                  current ? { ...current, maxMode: event.target.checked } : current
+                ))}
+                className="size-5 accent-orange-500"
+              />
+            </label>
+
             <GuidedVoiceSettingsFields
               settings={guideVoiceSettings}
               onChange={setGuideVoiceSettings}
@@ -2654,6 +2677,7 @@ export default function WorkoutLogger({
           exerciseName={grouped[guidingExerciseId]?.name ?? ''}
           tempo={tempo}
           sets={guideSetsFor(guidingExerciseId)}
+          maxMode={guidingMaxMode}
           restSeconds={resolveRestTarget(ptRest[guidingExerciseId], restTarget)}
           restBetweenSets={guideRestBetweenSets}
           voiceSettingsDefault={guideVoiceSettings}
@@ -2681,6 +2705,11 @@ export default function WorkoutLogger({
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
                 Adjust any set before logging — 0 reps leaves that set pending (not logged).
               </p>
+              {guideReview.maxMode && (
+                <p className="mt-2 text-xs font-bold uppercase tracking-wide text-orange-500">
+                  Max mode · manually stopped sets
+                </p>
+              )}
             </div>
             <div className="flex flex-col gap-2">
               {guideReview.results.map((r, i) => (
@@ -2690,7 +2719,7 @@ export default function WorkoutLogger({
                   </span>
                   <Stepper
                     label="Reps"
-                    sublabel={`goal ${r.goalReps}`}
+                    sublabel={guideReview.maxMode ? 'max mode' : `goal ${r.goalReps}`}
                     value={r.reps}
                     min={0}
                     max={Math.max(r.goalReps, r.reps, 50)}

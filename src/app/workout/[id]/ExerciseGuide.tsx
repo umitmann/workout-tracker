@@ -68,6 +68,7 @@ export default function ExerciseGuide({
   exerciseName,
   tempo,
   sets,
+  maxMode = false,
   restSeconds,
   restBetweenSets = true,
   voiceSettingsDefault,
@@ -80,6 +81,7 @@ export default function ExerciseGuide({
   exerciseName: string
   tempo: TempoConfig
   sets: GuideSet[]
+  maxMode?: boolean
   restSeconds: number
   restBetweenSets?: boolean
   voiceSettingsDefault: GuidedVoiceSettings
@@ -93,7 +95,7 @@ export default function ExerciseGuide({
   const [showVoiceSettings, setShowVoiceSettings] = useState(false)
   const [mode, setMode] = useState<Mode>('ready')
   const [idx, setIdx] = useState(0)
-  const [view, setView] = useState(() => guidedStateAt(tempo, sets[0]?.goalReps ?? 1, 0))
+  const [view, setView] = useState(() => guidedStateAt(tempo, sets[0]?.goalReps ?? 1, 0, maxMode))
   const [restLeft, setRestLeft] = useState(restSeconds)
   const [readyLeft, setReadyLeft] = useState(READY_SECONDS)
   const [paused, setPaused] = useState(false)
@@ -162,7 +164,7 @@ export default function ExerciseGuide({
       if (elapsed >= READY_SECONDS) { beginSet(); return }
     } else if (modeRef.current === 'set') {
       const current = sets[idxRef.current]
-      const state = guidedStateAt(tempo, current.goalReps, elapsed)
+      const state = guidedStateAt(tempo, current.goalReps, elapsed, maxMode)
       const phaseKey = `${state.rep}:${state.phase}`
       if (phaseKey !== lastPhaseRef.current) {
         lastPhaseRef.current = phaseKey
@@ -176,6 +178,7 @@ export default function ExerciseGuide({
             rep: state.rep,
             goalReps: current.goalReps,
             announceRep,
+            maxMode,
           })
           if (announcement) {
             speakGuidedCoach(currentSettings, guidedPhaseCoachCues({
@@ -184,6 +187,7 @@ export default function ExerciseGuide({
               rep: state.rep,
               goalReps: current.goalReps,
               announceRep,
+              maxMode,
             }), announcement)
           }
           if (announceRep && announcement) lastSpokenRepRef.current = state.rep
@@ -254,7 +258,7 @@ export default function ExerciseGuide({
   function stopSet() {
     if (doneRef.current || modeRef.current !== 'set') return
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
-    completeSet(stopEarlyReps(tempo, sets[idxRef.current].goalReps, elapsedNow()))
+    completeSet(stopEarlyReps(tempo, sets[idxRef.current].goalReps, elapsedNow(), maxMode))
   }
 
   function skipRest() {
@@ -320,6 +324,7 @@ export default function ExerciseGuide({
       goalReps: current.goalReps,
       weight: current.weight,
       techniqueCue: techniqueCueRef.current,
+      maxMode,
     })
     if (announcement) speakGuidedCoach(settings, guidedReadyCoachCues(), announcement, interrupt)
   }
@@ -358,7 +363,7 @@ export default function ExerciseGuide({
     if (current && modeRef.current === 'set') {
       upsertResult({
         localId: current.localId,
-        reps: stopEarlyReps(tempo, current.goalReps, elapsedNow()),
+        reps: stopEarlyReps(tempo, current.goalReps, elapsedNow(), maxMode),
         difficulty: difficultyBySet[current.localId] ?? null,
       })
     } else if (current && modeRef.current === 'ready' && !resultsRef.current.some((result) => result.localId === current.localId)) {
@@ -434,7 +439,10 @@ export default function ExerciseGuide({
       {mode === 'ready' ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
           <p className="text-3xl font-black tracking-widest text-white/90">GET READY</p>
-          <p className="text-lg font-semibold text-white/70">Set {setNum} · {sets[idx]?.weight ? `${sets[idx]?.weight}kg × ` : ''}{sets[idx]?.goalReps} reps</p>
+          <p className="text-lg font-semibold text-white/70">
+            Set {setNum} · {sets[idx]?.weight ? `${sets[idx]?.weight}kg · ` : ''}
+            {maxMode ? 'Max mode · stop manually' : `${sets[idx]?.goalReps} reps`}
+          </p>
           {voiceSettings.coachingMode === 'technique' && techniqueCue.trim() && (
             <p className="max-w-md rounded-xl bg-black/20 px-4 py-2 text-sm font-bold text-white/90">Cue: {techniqueCue.trim()}</p>
           )}
@@ -452,7 +460,9 @@ export default function ExerciseGuide({
           <p className="text-6xl font-black leading-none tracking-tight drop-shadow sm:text-7xl">{view.verb}</p>
           <p className="text-lg font-semibold text-white/80">{view.sub}</p>
           <p className="mt-5 text-[clamp(6rem,25vw,8rem)] font-black leading-none tabular-nums drop-shadow">{view.secondsLeft}</p>
-          <p className="mt-3 text-sm font-bold uppercase tracking-[0.25em] text-white/70">Rep {view.rep} / {sets[idx]?.goalReps}</p>
+          <p className="mt-3 text-sm font-bold uppercase tracking-[0.25em] text-white/70">
+            {maxMode ? `Rep ${view.rep} · MAX` : `Rep ${view.rep} / ${sets[idx]?.goalReps}`}
+          </p>
         </div>
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 overflow-y-auto px-6 py-4 text-center">
