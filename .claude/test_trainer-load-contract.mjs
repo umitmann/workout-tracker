@@ -11,6 +11,7 @@ test('PT load profile uses controlled arrival rates for every read surface', () 
   for (const scenario of [
     'trainer_directory',
     'exercise_library',
+    'athlete_dashboard',
     'trainee_connections',
     'client_calendar',
     'completed_results',
@@ -27,6 +28,7 @@ test('every load surface has failure, check, p95, and p99 thresholds', () => {
   const expectations = {
     trainer_directory: [600, 1200],
     exercise_library: [650, 1300],
+    athlete_dashboard: [850, 1600],
     trainee_connections: [700, 1400],
     client_calendar: [800, 1500],
     completed_results: [900, 1800],
@@ -54,6 +56,7 @@ test('trainee and trainer cookies are separated and required for enabled surface
   assert.match(source, /if \(calendarPath \|\| resultsPath\) requireRuntimeValue\(trainerCookie/)
   assert.match(source, /params\(traineeCookie, 'directory'\)/)
   assert.match(source, /params\(traineeCookie, 'exercises'\)/)
+  assert.match(source, /params\(traineeCookie, 'dashboard'\)/)
   assert.match(source, /params\(trainerCookie, 'calendar'\)/)
   assert.match(source, /params\(trainerCookie, 'results'\)/)
 })

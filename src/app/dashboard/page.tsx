@@ -5,6 +5,7 @@ import { getServerAuthContext } from '@/lib/serverAuth'
 import { getMonthWorkoutsWithPreviews, getUserTemplates, getRecentBodyWeights } from '@/lib/dal'
 import { buildAppNavigation } from '@/lib/appNavigation'
 import { dateNDaysAfter, localDateStr } from '@/lib/localDate'
+import { getTodayReadiness } from '@/lib/readinessDal'
 import { listAttributedWorkoutPlanDetails } from '@/lib/trainerPlanningDal'
 import { listMyTrainerRelationships } from '@/lib/trainerRelationshipDal'
 import {
@@ -15,6 +16,8 @@ import CalendarView from '@/app/workouts/CalendarView'
 import BodyweightCard from './BodyweightCard'
 import StartWorkoutButton from './StartWorkoutButton'
 import WorkoutPlanAgenda from './WorkoutPlanAgenda'
+import DailyReadinessCard from './DailyReadinessCard'
+import { startOfLocalWeek } from '@/lib/weeklyPlanning'
 
 function greeting() {
   const hour = new Date().getHours()
@@ -57,14 +60,23 @@ export default async function Dashboard({
   const today = localDateStr()
   let workoutPlans: Awaited<ReturnType<typeof listAttributedWorkoutPlanDetails>> = []
   let planReadFailed = false
+  let todayReadiness: Awaited<ReturnType<typeof getTodayReadiness>> = null
+  let readinessAvailable = true
   try {
     workoutPlans = await listAttributedWorkoutPlanDetails(
-      today,
+      startOfLocalWeek(today),
       dateNDaysAfter(today, 120),
       trainerRelationships,
     )
   } catch {
     planReadFailed = true
+  }
+  try {
+    todayReadiness = await getTodayReadiness()
+  } catch {
+    // Rolling deploy compatibility: the dashboard stays usable before the
+    // additive readiness migration is installed in Supabase SQL Editor.
+    readinessAvailable = false
   }
 
   const name = user.user_metadata?.full_name ?? user.user_metadata?.display_name ?? user.email ?? 'Athlete'
@@ -97,6 +109,8 @@ export default async function Dashboard({
           <StartWorkoutButton />
         </div>
       </section>
+
+      <DailyReadinessCard initial={todayReadiness} available={readinessAvailable} />
 
       <section aria-labelledby="quick-actions-title" className="mt-6">
         <h2 id="quick-actions-title" className="sr-only">Quick actions</h2>

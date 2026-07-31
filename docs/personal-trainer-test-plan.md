@@ -96,6 +96,15 @@ accessible shared dialogs, independent consent controls, immutable-plan
 logger hydration, and role-aware navigation. These contracts were added
 without modifying the established Playwright consent journey.
 
+`.claude/test_weekly-planning.mjs`, `.claude/test_daily-readiness.mjs`, and
+`.claude/test_weekly-readiness-ui.mjs` pin the flexible-week addition: one to
+seven ordered sessions (including duplicate templates), Monday–Sunday date
+choice, pending-state copy, authentication-before-validation, five accessible
+feeling values, and no browser-supplied readiness owner/date. The Phase 23 SQL
+contract keeps both new tables private and every public RPC hardened. The full
+migration chain plus a two-plan trainer/trainee start and readiness-upsert
+scenario is replayed against disposable Supabase PostgreSQL before release.
+
 ## Supabase/RLS integration contract
 
 The trainer-directory slice has its own real-JWT contract:
@@ -296,6 +305,12 @@ uniquely titled snapshot, verifies trainer attribution and the prescribed
 exercise, starts exactly one linked workout in the real logger, and deletes
 that workout afterward. The immutable plan/audit row is intentionally cleaned
 only by resetting the dedicated test project.
+
+`weekly-plan-readiness.spec.ts` reuses that resettable plan fixture to assign a
+repeated template twice in the current week, verify the trainee's pending
+count, choose today, start exactly one prescription, and persist a smiley
+check-in across reload. It remains explicitly gated; a skipped stateful suite
+is not reported as release evidence.
 
 ```text
 PT_PLAN_START_E2E_ENABLED=true

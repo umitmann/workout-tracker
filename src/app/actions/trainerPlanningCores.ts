@@ -1,5 +1,7 @@
 import {
   parseTrainerPlanAssignment,
+  parseTrainerWeekAssignment,
+  parseWorkoutPlanDateChoice,
   parseWorkoutPlanTransition,
 } from '@/lib/trainerPlanningValidation'
 import { isUuid } from '@/lib/trainerValidation'
@@ -19,6 +21,50 @@ export type TrainerPlanningActionClient = {
     functionName: string,
     args?: Record<string, unknown>,
   ) => PromiseLike<PlanningActionResult>
+}
+
+export async function assignTrainerWeekCore(
+  client: TrainerPlanningActionClient,
+  formData: FormData,
+): Promise<TrainerPlanningActionState> {
+  if (!(await isAuthenticated(client))) return authenticationFailure()
+  const parsed = parseTrainerWeekAssignment(formData)
+  if (!parsed.success) {
+    return invalidRequest('Choose one to seven templates and a week beginning on Monday.')
+  }
+
+  const { data, error } = await client.rpc('assign_weekly_workouts_from_routines', {
+    p_relationship_id: parsed.data.relationshipId,
+    p_routine_ids: parsed.data.routineIds,
+    p_week_start: parsed.data.weekStart,
+    p_instructions: parsed.data.instructions,
+  })
+  if (error) return mutationFailure(error, 'We could not assign the training week. Try again shortly.')
+  if (!Array.isArray(data)) return invalidRequest('The training week could not be confirmed. Refresh and try again.')
+  const planIds = data.filter((value): value is string => typeof value === 'string' && isUuid(value))
+  if (planIds.length !== data.length || planIds.length < 1) {
+    return invalidRequest('The training week could not be confirmed. Refresh and try again.')
+  }
+  return {
+    success: true,
+    message: `${planIds.length} workout${planIds.length === 1 ? '' : 's'} assigned for the week.`,
+    planCount: planIds.length,
+  }
+}
+
+export async function chooseWorkoutPlanDateCore(
+  client: TrainerPlanningActionClient,
+  formData: FormData,
+): Promise<TrainerPlanningActionState> {
+  if (!(await isAuthenticated(client))) return authenticationFailure()
+  const parsed = parseWorkoutPlanDateChoice(formData)
+  if (!parsed.success) return invalidRequest('Choose a valid training day.')
+  const { error } = await client.rpc('choose_workout_plan_date', {
+    p_plan_id: parsed.data.planId,
+    p_selected_date: parsed.data.selectedDate,
+  })
+  if (error) return mutationFailure(error, 'We could not save the training day. Refresh and try again.')
+  return { success: true, message: 'Training day saved.' }
 }
 
 function authenticationFailure(): TrainerPlanningActionState {

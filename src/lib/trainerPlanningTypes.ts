@@ -1,10 +1,15 @@
 import type { SetDetail } from './dal'
 
 export type WorkoutPlanStatus = 'scheduled' | 'cancelled' | 'started' | 'completed'
+export type WorkoutPlanScheduleScope = 'day' | 'week'
 
 export type WorkoutPlanSummary = {
   plan_id: string
   scheduled_date: string
+  schedule_scope: WorkoutPlanScheduleScope
+  week_start: string | null
+  week_end: string | null
+  selected_date: string | null
   title: string
   status: WorkoutPlanStatus
   trainer_assigned: boolean
@@ -49,6 +54,10 @@ export type WorkoutPlanExercise = {
 export type WorkoutPlanDetail = {
   plan_id: string
   scheduled_date: string
+  schedule_scope: WorkoutPlanScheduleScope
+  week_start: string | null
+  week_end: string | null
+  selected_date: string | null
   title: string
   instructions: string | null
   status: WorkoutPlanStatus
@@ -66,5 +75,6 @@ export type TrainerPlanningActionState = {
   success: boolean
   message: string
   planId?: string
+  planCount?: number
   workoutId?: number
 }

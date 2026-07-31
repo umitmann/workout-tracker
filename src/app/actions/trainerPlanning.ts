@@ -6,13 +6,33 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import type { TrainerPlanningActionState } from '@/lib/trainerPlanningTypes'
 import {
   assignTrainerWorkoutCore,
+  assignTrainerWeekCore,
   cancelWorkoutPlanCore,
+  chooseWorkoutPlanDateCore,
   startWorkoutPlanCore,
   type TrainerPlanningActionClient,
 } from './trainerPlanningCores'
 
 async function planningClient(): Promise<TrainerPlanningActionClient> {
   return (await createServerSupabaseClient()) as unknown as TrainerPlanningActionClient
+}
+
+export async function assignTrainerWeekAction(
+  _previousState: TrainerPlanningActionState | null,
+  formData: FormData,
+): Promise<TrainerPlanningActionState> {
+  const result = await assignTrainerWeekCore(await planningClient(), formData)
+  if (result.success) revalidatePlanningViews()
+  return result
+}
+
+export async function chooseWorkoutPlanDateAction(
+  _previousState: TrainerPlanningActionState | null,
+  formData: FormData,
+): Promise<TrainerPlanningActionState> {
+  const result = await chooseWorkoutPlanDateCore(await planningClient(), formData)
+  if (result.success) revalidatePlanningViews()
+  return result
 }
 
 function revalidatePlanningViews() {

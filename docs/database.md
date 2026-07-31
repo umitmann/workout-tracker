@@ -1089,6 +1089,44 @@ missing column on an older database as pending for an in-progress workout.
 
 ---
 
+## Phase 23 — Flexible training weeks and daily readiness
+
+**Ready for SQL Editor application** from
+[`20260731000200_weekly_plans_and_readiness.sql`](../supabase/migrations/20260731000200_weekly_plans_and_readiness.sql).
+
+This additive migration leaves immutable workout-plan prescriptions intact and
+adds private `workout_plan_week_windows` metadata. An approved trainer can
+assign one to seven ordered template snapshots for a Monday–Sunday window,
+including the same template more than once. The trainee alone can choose a day
+inside that week. Starting remains serialized to one workout per plan and a
+weekly workout records the actual day it was started.
+
+It also creates athlete-private `daily_readiness_checkins` with one bounded
+feeling value (1–5) per profile-local day. The RPC derives both `auth.uid()` and
+today from the profile timezone; the browser cannot supply an owner or date.
+No trainer-read function or direct table grant is added.
+
+### Supabase SQL Editor procedure
+
+1. Confirm Phase 22 has been applied successfully.
+2. Copy the entire Phase 23 migration into one new SQL Editor query and run it
+   once. Do not run fragments separately because function replacement and
+   grants are committed atomically.
+3. Confirm the final row shows `true` for `weekly_plan_table_created`,
+   `readiness_table_created`, `authenticated_private_tables_closed`,
+   `weekly_rpc_permissions_scoped`, and `readiness_rpc_permissions_scoped`.
+4. Confirm `stored_workout_plan_count`, `stored_workout_count`, and
+   `stored_set_count` have not decreased.
+5. Run
+   [`verify_weekly_plans_and_readiness.sql`](../supabase/manual/verify_weekly_plans_and_readiness.sql).
+6. Run `notify pgrst, 'reload schema';` once.
+
+The website is rolling-deploy safe: existing day plans still normalize as day
+plans before this migration, and the readiness control displays a non-blocking
+database-update state instead of breaking the dashboard.
+
+---
+
 ## Executable clean-room baseline — repository recovery support
 
 **Added and clean-reset verified** on 2026-07-14 in

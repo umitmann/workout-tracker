@@ -15,6 +15,7 @@ import type {
   WorkoutPlanSummary,
 } from './trainerPlanningTypes'
 import { isUuid } from './trainerValidation'
+import { dateNDaysAfter } from './localDate'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -45,6 +46,38 @@ function planStatus(value: unknown): WorkoutPlanStatus | null {
     : null
 }
 
+function scheduleFields(row: UnknownRecord, scheduledDate: string) {
+  if (row.schedule_scope != null && row.schedule_scope !== 'day' && row.schedule_scope !== 'week') {
+    return null
+  }
+  const scope = row.schedule_scope === 'week' ? 'week' as const : 'day' as const
+  if (scope === 'day') {
+    return {
+      schedule_scope: scope,
+      week_start: null,
+      week_end: null,
+      selected_date: null,
+    }
+  }
+  const weekStart = typeof row.week_start === 'string' ? row.week_start : ''
+  const weekEnd = typeof row.week_end === 'string' ? row.week_end : ''
+  const selectedDate = typeof row.selected_date === 'string' ? row.selected_date : null
+  if (
+    !isCalendarDate(weekStart)
+    || !isCalendarDate(weekEnd)
+    || scheduledDate !== weekStart
+    || weekEnd !== dateNDaysAfter(weekStart, 6)
+    || (selectedDate != null && !isCalendarDate(selectedDate))
+    || (selectedDate != null && (selectedDate < weekStart || selectedDate > weekEnd))
+  ) return null
+  return {
+    schedule_scope: scope,
+    week_start: weekStart,
+    week_end: weekEnd,
+    selected_date: selectedDate,
+  }
+}
+
 function normalizeSummary(value: unknown): WorkoutPlanSummary | null {
   const row = record(value)
   if (!row) return null
@@ -54,6 +87,7 @@ function normalizeSummary(value: unknown): WorkoutPlanSummary | null {
   const title = typeof row.title === 'string' ? row.title : ''
   const workoutId = nullableNumber(row.workout_id)
   const exerciseCount = finiteNumber(row.exercise_count)
+  const schedule = scheduleFields(row, date)
   if (
     !isUuid(planId)
     || !isCalendarDate(date)
@@ -61,12 +95,14 @@ function normalizeSummary(value: unknown): WorkoutPlanSummary | null {
     || !status
     || exerciseCount == null
     || exerciseCount < 0
+    || !schedule
   ) {
     return null
   }
   return {
     plan_id: planId,
     scheduled_date: date,
+    ...schedule,
     title,
     status,
     trainer_assigned: row.trainer_assigned === true,
@@ -130,12 +166,14 @@ function normalizeDetail(value: unknown): WorkoutPlanDetail | null {
   const title = typeof row.title === 'string' ? row.title : ''
   const rawExercises = Array.isArray(row.exercises) ? row.exercises : []
   const exercises = rawExercises.map(normalizeExercise).filter((item): item is WorkoutPlanExercise => item != null)
-  if (!isUuid(planId) || !isCalendarDate(date) || !title || !status || exercises.length !== rawExercises.length) {
+  const schedule = scheduleFields(row, date)
+  if (!isUuid(planId) || !isCalendarDate(date) || !title || !status || !schedule || exercises.length !== rawExercises.length) {
     return null
   }
   return {
     plan_id: planId,
     scheduled_date: date,
+    ...schedule,
     title,
     instructions: typeof row.instructions === 'string' ? row.instructions : null,
     status,

@@ -2,10 +2,14 @@
 
 import { useActionState, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { assignTrainerWorkoutAction } from '@/app/actions/trainerPlanning'
+import {
+  assignTrainerWeekAction,
+  assignTrainerWorkoutAction,
+} from '@/app/actions/trainerPlanning'
 import Modal from '@/components/Modal'
 import type { RoutineWithExercises } from '@/lib/dal'
 import { dateNDaysAfter, localDateStr } from '@/lib/localDate'
+import { startOfLocalWeek } from '@/lib/weeklyPlanning'
 
 const fieldClass = 'min-h-12 w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-zinc-950 shadow-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white'
 
@@ -22,12 +26,18 @@ function ScheduleWorkoutModal({
   onClose,
 }: ScheduleWorkoutProps & { onClose: () => void }) {
   const router = useRouter()
-  const [state, action, pending] = useActionState(assignTrainerWorkoutAction, null)
+  const [assignmentMode, setAssignmentMode] = useState<'day' | 'week'>('day')
+  const [weeklyTemplates, setWeeklyTemplates] = useState([''])
+  const [dayState, dayAction, dayPending] = useActionState(assignTrainerWorkoutAction, null)
+  const [weekState, weekAction, weekPending] = useActionState(assignTrainerWeekAction, null)
+  const state = assignmentMode === 'day' ? dayState : weekState
+  const pending = dayPending || weekPending
   const today = localDateStr()
+  const nextWeekStart = startOfLocalWeek(dateNDaysAfter(today, 7))
 
   useEffect(() => {
-    if (state?.success) router.refresh()
-  }, [router, state])
+    if (dayState?.success || weekState?.success) router.refresh()
+  }, [dayState, router, weekState])
 
   return (
     <Modal
@@ -55,36 +65,115 @@ function ScheduleWorkoutModal({
         </div>
       </div>
 
-      <form action={action} className="flex flex-col gap-5 px-5 py-6 sm:px-6">
+      <form action={assignmentMode === 'day' ? dayAction : weekAction} className="flex flex-col gap-5 px-5 py-6 sm:px-6">
         <input type="hidden" name="relationshipId" value={relationshipId} />
 
-        <label className="flex flex-col gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-          Workout template
-          <select name="routineId" required defaultValue="" className={fieldClass}>
-            <option value="" disabled>Choose a template</option>
-            {templates.map((template) => (
-              <option key={template.id} value={template.id}>{template.name}</option>
+        <fieldset>
+          <legend className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">When can the client train?</legend>
+          <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-950">
+            {(['day', 'week'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={assignmentMode === mode}
+                onClick={() => setAssignmentMode(mode)}
+                disabled={pending}
+                className={`min-h-11 rounded-lg px-3 text-sm font-bold transition ${assignmentMode === mode ? 'bg-white text-zinc-950 shadow-sm dark:bg-zinc-800 dark:text-white' : 'text-zinc-500 hover:text-zinc-950 dark:hover:text-white'}`}
+              >
+                {mode === 'day' ? 'Specific day' : 'Flexible week'}
+              </button>
             ))}
-          </select>
-        </label>
+          </div>
+        </fieldset>
 
-        <label className="flex flex-col gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-          Scheduled date
-          <input
-            type="date"
-            name="scheduledDate"
-            required
-            min={today}
-            max={dateNDaysAfter(today, 730)}
-            defaultValue={dateNDaysAfter(today, 1)}
-            className={fieldClass}
-          />
-        </label>
+        {assignmentMode === 'day' ? (
+          <>
+            <label className="flex flex-col gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+              Workout template
+              <select name="routineId" required defaultValue="" className={fieldClass}>
+                <option value="" disabled>Choose a template</option>
+                {templates.map((template) => (
+                  <option key={template.id} value={template.id}>{template.name}</option>
+                ))}
+              </select>
+            </label>
 
-        <label className="flex flex-col gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-          Session title <span className="font-normal text-zinc-500">(optional)</span>
-          <input name="title" maxLength={120} placeholder="Uses the template name when blank" className={fieldClass} />
-        </label>
+            <label className="flex flex-col gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+              Scheduled date
+              <input
+                type="date"
+                name="scheduledDate"
+                required
+                min={today}
+                max={dateNDaysAfter(today, 730)}
+                defaultValue={dateNDaysAfter(today, 1)}
+                className={fieldClass}
+              />
+            </label>
+
+            <label className="flex flex-col gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+              Session title <span className="font-normal text-zinc-500">(optional)</span>
+              <input name="title" maxLength={120} placeholder="Uses the template name when blank" className={fieldClass} />
+            </label>
+          </>
+        ) : (
+          <>
+            <label className="flex flex-col gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+              Week beginning <span className="font-normal text-zinc-500">(Monday)</span>
+              <input
+                type="date"
+                name="weekStart"
+                required
+                step={7}
+                min={startOfLocalWeek(today)}
+                max={dateNDaysAfter(today, 728)}
+                defaultValue={nextWeekStart}
+                className={fieldClass}
+              />
+            </label>
+
+            <fieldset className="flex flex-col gap-3">
+              <legend className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Workouts for the week</legend>
+              <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">Add up to seven workouts. You may choose the same template more than once.</p>
+              {weeklyTemplates.map((selected, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <label className="min-w-0 flex-1">
+                    <span className="sr-only">Workout {index + 1} template</span>
+                    <select
+                      name="routineId"
+                      required
+                      value={selected}
+                      onChange={(event) => setWeeklyTemplates((current) => current.map((value, itemIndex) => itemIndex === index ? event.target.value : value))}
+                      className={fieldClass}
+                    >
+                      <option value="" disabled>Workout {index + 1}: choose template</option>
+                      {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
+                    </select>
+                  </label>
+                  {weeklyTemplates.length > 1 && (
+                    <button
+                      type="button"
+                      aria-label={`Remove workout ${index + 1}`}
+                      onClick={() => setWeeklyTemplates((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                      className="grid min-h-12 min-w-12 place-items-center rounded-xl border border-zinc-300 text-lg text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+              {weeklyTemplates.length < 7 && (
+                <button
+                  type="button"
+                  onClick={() => setWeeklyTemplates((current) => [...current, ''])}
+                  className="min-h-11 self-start rounded-xl border border-orange-300 px-4 text-sm font-bold text-orange-700 hover:bg-orange-50 dark:border-orange-900 dark:text-orange-300 dark:hover:bg-orange-950"
+                >
+                  + Add another workout
+                </button>
+              )}
+            </fieldset>
+          </>
+        )}
 
         <label className="flex flex-col gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
           Notes for {traineeName}
@@ -98,7 +187,9 @@ function ScheduleWorkoutModal({
         </label>
 
         <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm leading-6 text-orange-900 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-200">
-          Assignment creates a fixed snapshot. Later template edits will not change this prescription.
+          {assignmentMode === 'week'
+            ? 'Each workout becomes a fixed prescription. The client chooses a day within the week and always sees what is still pending.'
+            : 'Assignment creates a fixed snapshot. Later template edits will not change this prescription.'}
         </div>
 
         {state && (
@@ -129,7 +220,7 @@ function ScheduleWorkoutModal({
               disabled={pending || templates.length === 0}
               className="min-h-12 rounded-xl bg-orange-600 px-6 py-3 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-50"
             >
-              {pending ? 'Assigning…' : 'Assign'}
+              {pending ? 'Assigning…' : assignmentMode === 'week' ? `Assign ${weeklyTemplates.length} for the week` : 'Assign'}
             </button>
           )}
         </div>

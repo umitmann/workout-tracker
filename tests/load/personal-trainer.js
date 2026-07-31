@@ -4,6 +4,7 @@ import { check } from 'k6'
 const baseUrl = (__ENV.PT_LOAD_BASE_URL || '').replace(/\/$/, '')
 const directoryPath = __ENV.PT_LOAD_DIRECTORY_PATH || '/trainers'
 const exercisesPath = __ENV.PT_LOAD_EXERCISES_PATH || '/routines'
+const dashboardPath = __ENV.PT_LOAD_DASHBOARD_PATH || '/dashboard'
 const connectionsPath = __ENV.PT_LOAD_CONNECTIONS_PATH || ''
 const calendarPath = __ENV.PT_LOAD_CLIENT_CALENDAR_PATH || ''
 const resultsPath = __ENV.PT_LOAD_CLIENT_RESULTS_PATH || ''
@@ -11,6 +12,7 @@ const traineeCookie = __ENV.PT_LOAD_TRAINEE_COOKIE || ''
 const trainerCookie = __ENV.PT_LOAD_TRAINER_COOKIE || ''
 const directoryMarker = __ENV.PT_LOAD_DIRECTORY_MARKER || ''
 const exercisesMarker = __ENV.PT_LOAD_EXERCISES_MARKER || ''
+const dashboardMarker = __ENV.PT_LOAD_DASHBOARD_MARKER || 'How are you feeling today?'
 const connectionsMarker = __ENV.PT_LOAD_CONNECTIONS_MARKER || ''
 const calendarMarker = __ENV.PT_LOAD_CALENDAR_MARKER || ''
 const resultsMarker = __ENV.PT_LOAD_RESULTS_MARKER || ''
@@ -37,6 +39,16 @@ const scenarios = {
     preAllocatedVUs: Number(__ENV.PT_LOAD_EXERCISES_VUS || 20),
     maxVUs: Number(__ENV.PT_LOAD_EXERCISES_MAX_VUS || 60),
   },
+  athlete_dashboard: {
+    executor: 'constant-arrival-rate',
+    exec: 'athleteDashboard',
+    startTime: '5s',
+    rate: Number(__ENV.PT_LOAD_DASHBOARD_RPS || 8),
+    timeUnit: '1s',
+    duration,
+    preAllocatedVUs: Number(__ENV.PT_LOAD_DASHBOARD_VUS || 16),
+    maxVUs: Number(__ENV.PT_LOAD_DASHBOARD_MAX_VUS || 50),
+  },
 }
 
 const thresholds = {
@@ -46,6 +58,9 @@ const thresholds = {
   'http_req_failed{scenario:exercise_library}': ['rate<0.01'],
   'http_req_duration{scenario:exercise_library}': ['p(95)<650', 'p(99)<1300'],
   'checks{scenario:exercise_library}': ['rate>0.99'],
+  'http_req_failed{scenario:athlete_dashboard}': ['rate<0.01'],
+  'http_req_duration{scenario:athlete_dashboard}': ['p(95)<850', 'p(99)<1600'],
+  'checks{scenario:athlete_dashboard}': ['rate>0.99'],
   dropped_iterations: ['count==0'],
 }
 
@@ -111,7 +126,7 @@ function requireRuntimeValue(value, name) {
 }
 
 function params(cookie, scenario) {
-  const traineeSurface = scenario === 'directory' || scenario === 'exercises' || scenario === 'connections'
+  const traineeSurface = scenario === 'directory' || scenario === 'exercises' || scenario === 'connections' || scenario === 'dashboard'
   return {
     headers: {
       Cookie: requireRuntimeValue(cookie, `${traineeSurface ? 'PT_LOAD_TRAINEE' : 'PT_LOAD_TRAINER'}_COOKIE`),
@@ -146,6 +161,11 @@ export function trainerDirectory() {
 export function exerciseLibrary() {
   const response = http.get(`${baseUrl}${exercisesPath}`, params(traineeCookie, 'exercises'))
   verify(response, exercisesMarker, 'exercise library')
+}
+
+export function athleteDashboard() {
+  const response = http.get(`${baseUrl}${dashboardPath}`, params(traineeCookie, 'dashboard'))
+  verify(response, dashboardMarker, 'athlete dashboard')
 }
 
 export function traineeConnections() {

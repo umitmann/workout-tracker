@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   cancelWorkoutPlanAction,
+  chooseWorkoutPlanDateAction,
   startWorkoutPlanAction,
 } from '@/app/actions/trainerPlanning'
 import Modal from '@/components/Modal'
@@ -12,6 +13,8 @@ import type {
   AttributedWorkoutPlan,
   TrainerPlanningActionState,
 } from '@/lib/trainerPlanningTypes'
+import { localDateStr } from '@/lib/localDate'
+import { weeklyPlanAvailability } from '@/lib/weeklyPlanning'
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en', {
@@ -19,6 +22,11 @@ function formatDate(value: string) {
     day: 'numeric',
     month: 'short',
   }).format(new Date(`${value}T00:00:00`))
+}
+
+function compactDate(value: string) {
+  return new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short' })
+    .format(new Date(`${value}T00:00:00`))
 }
 
 function targetSummary(plan: AttributedWorkoutPlan['exercises'][number]) {
@@ -43,12 +51,27 @@ function WorkoutPlanModal({
   onClose: () => void
 }) {
   const router = useRouter()
+  const today = localDateStr()
+  const weeklyAvailability = plan.schedule_scope === 'week'
+    ? weeklyPlanAvailability(plan, today)
+    : null
   const [state, startAction, starting] = useActionState(startWorkoutPlanAction, null)
   const [cancelState, cancelAction, cancelling] = useActionState(async (
     _previousState: TrainerPlanningActionState | null,
     formData: FormData,
   ) => {
     const result = await cancelWorkoutPlanAction(null, formData)
+    if (result.success) {
+      onClose()
+      router.refresh()
+    }
+    return result
+  }, null)
+  const [choiceState, choiceAction, choosing] = useActionState(async (
+    _previousState: TrainerPlanningActionState | null,
+    formData: FormData,
+  ) => {
+    const result = await chooseWorkoutPlanDateAction(null, formData)
     if (result.success) {
       onClose()
       router.refresh()
@@ -65,14 +88,18 @@ function WorkoutPlanModal({
   return (
     <Modal
       title={`${plan.title} workout plan`}
-      onClose={() => !starting && !cancelling && onClose()}
+      onClose={() => !starting && !cancelling && !choosing && onClose()}
       backdropClassName="fixed inset-0 z-50 flex items-end justify-center bg-zinc-950/65 backdrop-blur-sm sm:items-center sm:p-5"
       panelClassName="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-[1.75rem] bg-white shadow-2xl dark:bg-zinc-900 sm:rounded-[1.75rem]"
     >
       <div className="border-b border-zinc-200 px-5 py-5 dark:border-zinc-800 sm:px-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600 dark:text-orange-400">{plan.scheduled_date}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600 dark:text-orange-400">
+              {plan.schedule_scope === 'week' && plan.week_start && plan.week_end
+                ? `Flexible week · ${compactDate(plan.week_start)}–${compactDate(plan.week_end)}`
+                : plan.scheduled_date}
+            </p>
             <h2 className="mt-1 text-xl font-black tracking-tight text-zinc-950 dark:text-white">{plan.title}</h2>
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
               {plan.assigned_by_name ? `Assigned by ${plan.assigned_by_name}` : 'Scheduled by you'}
@@ -127,21 +154,54 @@ function WorkoutPlanModal({
 
         {(state && !state.success) && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">{state.message}</p>}
         {(cancelState && !cancelState.success) && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">{cancelState.message}</p>}
+        {(choiceState && !choiceState.success) && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">{choiceState.message}</p>}
 
         {plan.status === 'scheduled' ? (
-          <div className="flex flex-col gap-3 sm:flex-row-reverse">
-            <form action={startAction} className="flex-1">
-              <input type="hidden" name="planId" value={plan.plan_id} />
-              <button type="submit" disabled={starting || cancelling} className="min-h-12 w-full rounded-xl bg-orange-600 px-5 py-3 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-50">
-                {starting ? 'Starting…' : 'Start workout'}
-              </button>
-            </form>
-            <form action={cancelAction} className="flex-1">
-              <input type="hidden" name="planId" value={plan.plan_id} />
-              <button type="submit" disabled={starting || cancelling} className="min-h-12 w-full rounded-xl border border-red-300 px-5 py-3 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950">
-                {cancelling ? 'Cancelling…' : 'Cancel plan'}
-              </button>
-            </form>
+          <div className="flex flex-col gap-3">
+            {plan.schedule_scope === 'week' && plan.week_start && plan.week_end && weeklyAvailability !== 'missed' && (
+              <form action={choiceAction} className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+                <input type="hidden" name="planId" value={plan.plan_id} />
+                <label className="flex flex-col gap-2 text-sm font-bold text-zinc-800 dark:text-zinc-200">
+                  Choose your training day
+                  <span className="flex flex-col gap-2 sm:flex-row">
+                    <input
+                      type="date"
+                      name="selectedDate"
+                      required
+                      min={plan.week_start}
+                      max={plan.week_end}
+                      defaultValue={plan.selected_date ?? (weeklyAvailability === 'available' ? today : plan.week_start)}
+                      className="min-h-12 min-w-0 flex-1 rounded-xl border border-zinc-300 bg-white px-3 text-sm text-zinc-950 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white"
+                    />
+                    <button type="submit" disabled={choosing || starting || cancelling} className="min-h-12 rounded-xl border border-orange-300 px-4 text-sm font-bold text-orange-700 hover:bg-orange-50 disabled:opacity-50 dark:border-orange-900 dark:text-orange-300 dark:hover:bg-orange-950">
+                      {choosing ? 'Saving…' : plan.selected_date ? 'Change day' : 'Save day'}
+                    </button>
+                  </span>
+                </label>
+                {plan.selected_date && <p className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">Planned for {formatDate(plan.selected_date)}</p>}
+              </form>
+            )}
+
+            {weeklyAvailability === 'missed' && (
+              <p className="rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">This training week has passed. It remains pending so you can see what was missed; ask your trainer to move or replace it.</p>
+            )}
+
+            <div className="flex flex-col gap-3 sm:flex-row-reverse">
+              {(plan.schedule_scope === 'day' || weeklyAvailability === 'available') && (
+                <form action={startAction} className="flex-1">
+                  <input type="hidden" name="planId" value={plan.plan_id} />
+                  <button type="submit" disabled={starting || cancelling || choosing} className="min-h-12 w-full rounded-xl bg-orange-600 px-5 py-3 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-50">
+                    {starting ? 'Starting…' : plan.schedule_scope === 'week' ? 'Start today' : 'Start workout'}
+                  </button>
+                </form>
+              )}
+              <form action={cancelAction} className="flex-1">
+                <input type="hidden" name="planId" value={plan.plan_id} />
+                <button type="submit" disabled={starting || cancelling || choosing} className="min-h-12 w-full rounded-xl border border-red-300 px-5 py-3 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950">
+                  {cancelling ? 'Cancelling…' : 'Cancel plan'}
+                </button>
+              </form>
+            </div>
           </div>
         ) : plan.workout_id ? (
           <Link href={`/workout/${plan.workout_id}`} className="inline-flex min-h-12 items-center justify-center rounded-xl bg-orange-600 px-5 py-3 text-sm font-bold text-white hover:bg-orange-700">
@@ -161,6 +221,13 @@ export default function WorkoutPlanAgenda({
   loadFailed?: boolean
 }) {
   const [selected, setSelected] = useState<AttributedWorkoutPlan | null>(null)
+  const today = localDateStr()
+  const pendingCount = plans.filter((plan) => plan.status === 'scheduled').length
+  const thisWeekPending = plans.filter((plan) => (
+    plan.status === 'scheduled'
+    && plan.schedule_scope === 'week'
+    && weeklyPlanAvailability(plan, today) === 'available'
+  )).length
 
   return (
     <section aria-labelledby="upcoming-plan-heading" className="rounded-[1.5rem] border border-zinc-200/80 bg-white p-5 shadow-sm shadow-zinc-950/5 dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
@@ -168,6 +235,11 @@ export default function WorkoutPlanAgenda({
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600 dark:text-orange-400">Your schedule</p>
           <h2 id="upcoming-plan-heading" className="mt-1 text-xl font-black tracking-tight text-zinc-950 dark:text-white">Upcoming plans</h2>
+          {plans.length > 0 && (
+            <p className="mt-1 text-sm font-semibold text-zinc-600 dark:text-zinc-300">
+              {pendingCount} pending{thisWeekPending > 0 ? ` · ${thisWeekPending} left this week` : ''}
+            </p>
+          )}
         </div>
         <Link href="/connections" className="inline-flex min-h-11 items-center text-sm font-bold text-orange-700 hover:text-orange-900 dark:text-orange-300">
           My PT
@@ -191,16 +263,21 @@ export default function WorkoutPlanAgenda({
               <button
                 type="button"
                 onClick={() => setSelected(plan)}
-                aria-label={`Open workout plan on ${plan.scheduled_date}: ${plan.title}`}
+                aria-label={plan.schedule_scope === 'week'
+                  ? `Open weekly workout plan ${plan.title}`
+                  : `Open workout plan on ${plan.scheduled_date}: ${plan.title}`}
                 className="group flex min-h-16 w-full items-center gap-3 rounded-2xl border border-zinc-200 px-3 py-3 text-left transition hover:border-orange-300 hover:bg-orange-50/60 dark:border-zinc-800 dark:hover:border-orange-900 dark:hover:bg-orange-950/20"
               >
-                <time dateTime={plan.scheduled_date} className="grid h-11 w-12 shrink-0 place-items-center rounded-xl bg-zinc-100 text-center text-[0.68rem] font-bold uppercase leading-tight text-zinc-600 group-hover:bg-white dark:bg-zinc-800 dark:text-zinc-300 dark:group-hover:bg-zinc-900">
-                  {formatDate(plan.scheduled_date)}
+                <time dateTime={plan.selected_date ?? plan.scheduled_date} className="grid h-11 w-12 shrink-0 place-items-center rounded-xl bg-zinc-100 text-center text-[0.68rem] font-bold uppercase leading-tight text-zinc-600 group-hover:bg-white dark:bg-zinc-800 dark:text-zinc-300 dark:group-hover:bg-zinc-900">
+                  {plan.schedule_scope === 'week'
+                    ? plan.selected_date ? formatDate(plan.selected_date) : 'This week'
+                    : formatDate(plan.scheduled_date)}
                 </time>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-bold text-zinc-950 dark:text-white">{plan.title}</span>
                   <span className="mt-0.5 block truncate text-xs text-zinc-500 dark:text-zinc-400">
                     {plan.assigned_by_name ? `Assigned by ${plan.assigned_by_name}` : 'Scheduled by you'} · {plan.exercises.length} exercise{plan.exercises.length === 1 ? '' : 's'}
+                    {plan.schedule_scope === 'week' && !plan.selected_date ? ' · Choose a day' : ''}
                   </span>
                 </span>
                 <span aria-hidden="true" className="text-lg text-zinc-400 transition group-hover:translate-x-0.5 group-hover:text-orange-600">›</span>

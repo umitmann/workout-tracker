@@ -17,6 +17,7 @@ import { getMyTrainerRelationship, listMyTrainerRelationships } from '@/lib/trai
 import { countTrainerRelationshipNotifications } from '@/lib/trainerRelationshipNotifications'
 import { isUuid } from '@/lib/trainerValidation'
 import ScheduleWorkoutDialog from './ScheduleWorkoutDialog'
+import { startOfLocalWeek } from '@/lib/weeklyPlanning'
 
 type ClientView = 'overview' | 'calendar' | 'results'
 
@@ -64,7 +65,7 @@ export default async function TrainerClientPage({
   const [templates, plans] = active
     ? await Promise.all([
         getUserTemplates(),
-        listTrainerRelationshipPlans(relationship.relationship_id, today, planTo),
+        listTrainerRelationshipPlans(relationship.relationship_id, startOfLocalWeek(today), planTo),
       ])
     : [[], []]
 
@@ -214,10 +215,16 @@ export default async function TrainerClientPage({
                   <ol className="mt-5 divide-y divide-zinc-200 dark:divide-zinc-800">
                     {plans.map((plan) => (
                       <li key={plan.plan_id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                        <time dateTime={plan.scheduled_date} className="w-24 shrink-0 text-xs font-bold text-zinc-500 dark:text-zinc-400">{plan.scheduled_date}</time>
+                        <time dateTime={plan.selected_date ?? plan.scheduled_date} className="w-24 shrink-0 text-xs font-bold text-zinc-500 dark:text-zinc-400">
+                          {plan.schedule_scope === 'week'
+                            ? plan.selected_date ?? `Week ${plan.week_start}`
+                            : plan.scheduled_date}
+                        </time>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-bold text-zinc-950 dark:text-white">{plan.title}</p>
-                          <p className="mt-0.5 text-xs capitalize text-zinc-500">{plan.status} · {plan.exercise_count} exercises</p>
+                          <p className="mt-0.5 text-xs capitalize text-zinc-500">
+                            {plan.status} · {plan.exercise_count} exercises{plan.schedule_scope === 'week' && !plan.selected_date ? ' · day not chosen' : ''}
+                          </p>
                         </div>
                       </li>
                     ))}
