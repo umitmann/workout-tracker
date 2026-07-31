@@ -16,6 +16,7 @@ export type DbSet = {
   rest_seconds?: number | null
   difficulty?: number | null
   note?: string | null
+  is_completed?: boolean | null
   exercises: { name: string; category: string | null } | null
 }
 
@@ -24,7 +25,7 @@ export type WorkoutForDerive = {
   sets: DbSet[]
 }
 
-function fromDbSets(sets: DbSet[]): LocalSet[] {
+function fromDbSets(sets: DbSet[], legacyDefaultDone: boolean): LocalSet[] {
   return sets.map((s) => ({
     localId: crypto.randomUUID(),
     exerciseId: s.exercise_id,
@@ -37,7 +38,7 @@ function fromDbSets(sets: DbSet[]): LocalSet[] {
     rest_seconds: s.rest_seconds ?? null,
     difficulty: s.difficulty ?? null,
     note: s.note ?? null,
-    done: true,
+    done: s.is_completed ?? legacyDefaultDone,
   }))
 }
 
@@ -48,12 +49,12 @@ export function deriveInitialSets(
   // §2.4/§2.5: a completed workout's sets are the source of truth, full stop —
   // an empty result here means "no sets were logged", never "load the template".
   if (workout.status === 'completed') {
-    return fromDbSets(workout.sets)
+    return fromDbSets(workout.sets, true)
   }
   // §2.3/§2.8: any saved sets (even one) mean this workout has already diverged
   // from the template — template values must not resurface alongside them.
   if (workout.sets.length > 0) {
-    return fromDbSets(workout.sets)
+    return fromDbSets(workout.sets, false)
   }
   // §2.2: nothing saved yet — preload the template into local state only.
   if (template) {

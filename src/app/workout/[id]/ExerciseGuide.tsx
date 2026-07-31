@@ -27,7 +27,7 @@ import {
 import GuidedVoiceSettingsFields from './GuidedVoiceSettings'
 import Modal from '@/components/Modal'
 
-export type GuideSet = { localId: string; goalReps: number; weight: number | null; note?: string | null }
+export type GuideSet = { localId: string; goalReps: number; weight: number | null; note?: string | null; maxMode?: boolean; setNumber?: number }
 export type GuideResult = {
   localId: string
   reps: number
@@ -97,7 +97,7 @@ export default function ExerciseGuide({
   const [showVoiceSettings, setShowVoiceSettings] = useState(false)
   const [mode, setMode] = useState<Mode>('ready')
   const [idx, setIdx] = useState(0)
-  const [view, setView] = useState(() => guidedStateAt(tempo, sets[0]?.goalReps ?? 1, 0, maxMode, startPhase))
+  const [view, setView] = useState(() => guidedStateAt(tempo, sets[0]?.goalReps ?? 1, 0, sets[0]?.maxMode ?? maxMode, startPhase))
   const [restLeft, setRestLeft] = useState(restSeconds)
   const [readyLeft, setReadyLeft] = useState(READY_SECONDS)
   const [paused, setPaused] = useState(false)
@@ -166,7 +166,8 @@ export default function ExerciseGuide({
       if (elapsed >= READY_SECONDS) { beginSet(); return }
     } else if (modeRef.current === 'set') {
       const current = sets[idxRef.current]
-      const state = guidedStateAt(tempo, current.goalReps, elapsed, maxMode, startPhase)
+      const currentMaxMode = current.maxMode ?? maxMode
+      const state = guidedStateAt(tempo, current.goalReps, elapsed, currentMaxMode, startPhase)
       const phaseKey = `${state.rep}:${state.phase}`
       if (phaseKey !== lastPhaseRef.current) {
         lastPhaseRef.current = phaseKey
@@ -180,7 +181,7 @@ export default function ExerciseGuide({
             rep: state.rep,
             goalReps: current.goalReps,
             announceRep,
-            maxMode,
+            maxMode: currentMaxMode,
           })
           if (announcement) {
             speakGuidedCoach(currentSettings, guidedPhaseCoachCues({
@@ -189,7 +190,7 @@ export default function ExerciseGuide({
               rep: state.rep,
               goalReps: current.goalReps,
               announceRep,
-              maxMode,
+              maxMode: currentMaxMode,
             }), announcement)
           }
           if (announceRep && announcement) lastSpokenRepRef.current = state.rep
@@ -260,7 +261,8 @@ export default function ExerciseGuide({
   function stopSet() {
     if (doneRef.current || modeRef.current !== 'set') return
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
-    completeSet(stopEarlyReps(tempo, sets[idxRef.current].goalReps, elapsedNow(), maxMode))
+    const current = sets[idxRef.current]
+    completeSet(stopEarlyReps(tempo, current.goalReps, elapsedNow(), current.maxMode ?? maxMode))
   }
 
   function skipRest() {
@@ -326,7 +328,7 @@ export default function ExerciseGuide({
       goalReps: current.goalReps,
       weight: current.weight,
       techniqueCue: techniqueCueRef.current,
-      maxMode,
+      maxMode: current.maxMode ?? maxMode,
     })
     if (announcement) speakGuidedCoach(settings, guidedReadyCoachCues(), announcement, interrupt)
   }
@@ -365,7 +367,7 @@ export default function ExerciseGuide({
     if (current && modeRef.current === 'set') {
       upsertResult({
         localId: current.localId,
-        reps: stopEarlyReps(tempo, current.goalReps, elapsedNow(), maxMode),
+        reps: stopEarlyReps(tempo, current.goalReps, elapsedNow(), current.maxMode ?? maxMode),
         difficulty: difficultyBySet[current.localId] ?? null,
       })
     } else if (current && modeRef.current === 'ready' && !resultsRef.current.some((result) => result.localId === current.localId)) {
@@ -387,14 +389,16 @@ export default function ExerciseGuide({
   }
 
   const setNum = Math.min(idx + 1, sets.length)
+  const sourceSetNumber = sets[idx]?.setNumber ?? setNum
   const currentDifficulty = sets[idx] ? difficultyBySet[sets[idx].localId] ?? null : null
+  const currentMaxMode = sets[idx]?.maxMode ?? maxMode
   const bg = mode === 'set' ? PHASE_BG[view.phase] : mode === 'rest' ? 'bg-orange-600' : 'bg-zinc-800'
 
   return (
     <div className={`fixed inset-0 z-[80] flex flex-col ${bg} text-white transition-colors duration-150`}>
       <div className="flex items-center justify-between px-4 pt-[max(1.5rem,env(safe-area-inset-top))] sm:px-6">
         <p className="min-w-0 flex-1 truncate text-sm font-bold uppercase tracking-widest text-white/80">
-          {exerciseName} · Set {setNum}/{sets.length}
+          {exerciseName} · Set {sourceSetNumber} · {setNum}/{sets.length} selected
         </p>
         <div className="flex shrink-0 items-center gap-2">
           <button type="button" onClick={togglePause} className="grid min-h-11 min-w-11 place-items-center rounded-full bg-white/15 px-3 text-xs font-bold transition-colors hover:bg-white/25" aria-label={paused ? 'Resume guidance' : 'Pause guidance'} aria-pressed={paused}>
@@ -442,8 +446,8 @@ export default function ExerciseGuide({
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
           <p className="text-3xl font-black tracking-widest text-white/90">GET READY</p>
           <p className="text-lg font-semibold text-white/70">
-            Set {setNum} · {sets[idx]?.weight ? `${sets[idx]?.weight}kg · ` : ''}
-            {maxMode ? 'Max mode · stop manually' : `${sets[idx]?.goalReps} reps`}
+            Set {sourceSetNumber} · {sets[idx]?.weight ? `${sets[idx]?.weight}kg · ` : ''}
+            {currentMaxMode ? 'Max mode · stop manually' : `${sets[idx]?.goalReps} reps`}
           </p>
           <p className="text-sm font-bold uppercase tracking-wide text-white/60">
             Starts with {TEMPO_PHASE_CUE[startPhase].verb.toLowerCase()}
@@ -466,7 +470,7 @@ export default function ExerciseGuide({
           <p className="text-lg font-semibold text-white/80">{view.sub}</p>
           <p className="mt-5 text-[clamp(6rem,25vw,8rem)] font-black leading-none tabular-nums drop-shadow">{view.secondsLeft}</p>
           <p className="mt-3 text-sm font-bold uppercase tracking-[0.25em] text-white/70">
-            {maxMode ? `Rep ${view.rep} · MAX` : `Rep ${view.rep} / ${sets[idx]?.goalReps}`}
+            {currentMaxMode ? `Rep ${view.rep} · MAX` : `Rep ${view.rep} / ${sets[idx]?.goalReps}`}
           </p>
         </div>
       ) : (
@@ -475,7 +479,7 @@ export default function ExerciseGuide({
           <p className="text-[clamp(5.5rem,25vw,8rem)] font-black leading-none tabular-nums drop-shadow">{secondsLeft(restLeft)}</p>
           <p className="text-sm font-semibold uppercase tracking-widest text-white/70">next: set {Math.min(idx + 2, sets.length)}</p>
           <fieldset className="mt-3">
-            <legend className="mb-2 text-xs font-bold uppercase tracking-widest text-white/70">Difficulty for set {setNum}</legend>
+            <legend className="mb-2 text-xs font-bold uppercase tracking-widest text-white/70">Difficulty for set {sourceSetNumber}</legend>
             <div className="flex justify-center gap-2">
               {[1, 2, 3, 4, 5].map((value) => (
                 <button

@@ -14,7 +14,7 @@
     "test:auth-bootstrap": "node .claude/bootstrap-auth.mjs",
     "test:cardio": "node .claude/test_cardio-exercise-unit-aware-logging.mjs",
     "test:guided": "node .claude/test_guided-set-rest.mjs",
-    "pretest:unit": "npm run test:guided-voice && npm run test:desktop:unit && npm run test:pwa:unit",
+    "pretest:unit": "npm run test:guided-voice && npm run test:desktop:unit && npm run test:pwa:unit && node --import tsx --test .claude/test_active-workout-session.mjs .claude/test_guide-set-selection.mjs .claude/test_set-completion-migration.mjs .claude/test_last-performance-query.mjs .claude/test_next-time-template.mjs .claude/test_next-time-template-action.mjs",
     "test:guided-voice": "node --import tsx --test .claude/test_guided-voice.mjs .claude/test_guided-coach-audio.mjs",
     "test:desktop:unit": "node --import tsx --test .claude/test_muscle-load.mjs .claude/test_muscle-anatomy.mjs .claude/test_muscle-model-asset.mjs .claude/test_mobile-muscle-map.mjs .claude/test_desktop-generator-mode.mjs .claude/test_desktop-generator-data.mjs .claude/test_desktop-generator-ui.mjs .claude/test_desktop-generator-migration.mjs .claude/test_detailed-muscles.mjs .claude/test_detailed-muscle-migration.mjs",
     "test:pwa:unit": "node --import tsx --test .claude/test_pwa-contract.mjs",

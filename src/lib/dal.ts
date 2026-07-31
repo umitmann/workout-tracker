@@ -30,19 +30,20 @@ export async function getRecentWorkouts(limit = 5) {
 // Column combos to try, most-complete first, so either optional column
 // (independently) not-yet-migrated still degrades to a working select —
 // same shape as TEMPLATE_COL_VARIANTS below.
-const SET_COLS = (opts: { restSeconds: boolean; difficulty: boolean; note: boolean }) =>
-  `id, exercise_id, weight, reps, duration_minutes, distance,${opts.restSeconds ? ' rest_seconds,' : ''}${opts.difficulty ? ' difficulty,' : ''}${opts.note ? ' note,' : ''} exercises(name, category)`
+const SET_COLS = (opts: { restSeconds: boolean; difficulty: boolean; note: boolean; completion: boolean }) =>
+  `id, exercise_id, weight, reps, duration_minutes, distance,${opts.restSeconds ? ' rest_seconds,' : ''}${opts.difficulty ? ' difficulty,' : ''}${opts.note ? ' note,' : ''}${opts.completion ? ' is_completed,' : ''} exercises(name, category)`
 
 const SET_COL_VARIANTS = [
-  { restSeconds: true, difficulty: true, note: true },
-  { restSeconds: true, difficulty: true, note: false },
-  { restSeconds: true, difficulty: false, note: false },
-  { restSeconds: false, difficulty: true, note: false },
-  { restSeconds: false, difficulty: false, note: false },
+  { restSeconds: true, difficulty: true, note: true, completion: true },
+  { restSeconds: true, difficulty: true, note: true, completion: false },
+  { restSeconds: true, difficulty: true, note: false, completion: false },
+  { restSeconds: true, difficulty: false, note: false, completion: false },
+  { restSeconds: false, difficulty: true, note: false, completion: false },
+  { restSeconds: false, difficulty: false, note: false, completion: false },
 ]
 
 function isMissingSetColumnError(error: unknown): boolean {
-  return isMissingColumnError(error, 'rest_seconds') || isMissingColumnError(error, 'difficulty') || isMissingColumnError(error, 'note')
+  return isMissingColumnError(error, 'rest_seconds') || isMissingColumnError(error, 'difficulty') || isMissingColumnError(error, 'note') || isMissingColumnError(error, 'is_completed')
 }
 
 export async function getWorkoutWithSets(workoutId: number) {
@@ -388,27 +389,25 @@ export async function getLastExercisePerformance(exerciseId: number): Promise<La
   const { supabase, user } = await getServerAuthContext()
   if (!user) return null
 
-  // Find the most recent completed workout that actually contains this
-  // exercise, keyed by exercise_id via sets -> workouts — NOT a fixed window
-  // of the 50 most-recent workouts (an exercise rotated out for 50+ sessions
-  // must still resolve to its real last session, same as all-time Best,
-  // which has no such cap). `workouts!inner(...)` makes the join filtering
-  // (user_id/status) exclude non-matching sets rows rather than just nulling
-  // the embedded relation.
+  // Order the WORKOUT rows and only then limit to one. The previous query was
+  // rooted at sets and ordered an embedded relation; PostgREST does not use an
+  // embedded order to sort the parent set rows, so limit(1) could return an
+  // older workout even when last week's session existed.
   const { data: latest } = await supabase
-    .from('sets')
-    .select('workout_id, workouts!inner(date, status, user_id)')
-    .eq('exercise_id', exerciseId)
-    .eq('workouts.user_id', user.id)
-    .eq('workouts.status', 'completed')
-    .order('date', { foreignTable: 'workouts', ascending: false })
+    .from('workouts')
+    .select('id, date, sets!inner(exercise_id)')
+    .eq('user_id', user.id)
+    .eq('status', 'completed')
+    .eq('sets.exercise_id', exerciseId)
+    .order('date', { ascending: false })
+    .order('id', { ascending: false })
     .limit(1)
 
   const latestRow = (latest as any)?.[0]
   if (!latestRow) return null
 
-  const workoutId = latestRow.workout_id as number
-  const date = latestRow.workouts.date as string
+  const workoutId = latestRow.id as number
+  const date = latestRow.date as string
 
   // duration_minutes/distance are selected alongside weight/reps (WP-11,
   // checklist §19.8) so LastPerfModal can render cardio columns instead of

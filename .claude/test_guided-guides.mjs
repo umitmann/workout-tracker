@@ -49,16 +49,18 @@ test('single-set and whole-exercise guidance both wire optional speech and pause
   assert.match(logger, /GuidedVoiceSettingsFields/)
 })
 
-test('whole-exercise guidance wires max mode through setup, timer, voice, and manual stopping', async () => {
+test('whole-exercise guidance wires per-set max mode through selection, timer, voice, and manual stopping', async () => {
   const [whole, logger] = await Promise.all([
     readFile(new URL('../src/app/workout/[id]/ExerciseGuide.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/workout/[id]/WorkoutLogger.tsx', import.meta.url), 'utf8'),
   ])
-  assert.match(logger, /aria-label="Max mode"/)
-  assert.match(logger, /maxMode=\{guidingMaxMode\}/)
-  assert.match(whole, /guidedStateAt\(tempo,\s*current\.goalReps,\s*elapsed,\s*maxMode,\s*startPhase\)/)
-  assert.match(whole, /stopEarlyReps\(tempo,\s*current\.goalReps,\s*elapsedNow\(\),\s*maxMode\)/)
-  assert.match(whole, /maxMode,\s*\}\)/)
+  assert.match(logger, /aria-label="Max mode for all selected sets"/)
+  assert.match(logger, /Max mode for set/)
+  assert.match(logger, /Guide set \$\{i \+ 1\}/)
+  assert.match(logger, /sets=\{guidingSets\}/)
+  assert.match(whole, /current\.maxMode \?\? maxMode/)
+  assert.match(whole, /guidedStateAt\(tempo,\s*current\.goalReps,\s*elapsed,\s*currentMaxMode,\s*startPhase\)/)
+  assert.match(whole, /stopEarlyReps\(tempo,\s*current\.goalReps,\s*elapsedNow\(\),\s*current\.maxMode \?\? maxMode\)/)
   assert.match(whole, /Rep \$\{view\.rep\} · MAX/)
 })
 

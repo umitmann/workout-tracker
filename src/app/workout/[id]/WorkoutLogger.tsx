@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect, useMemo, useRef } from 'react'
 import { saveWorkoutProgress, completeWorkout, deleteWorkout, SetPayload } from '@/app/actions/workouts'
 import { createSaveQueue, SaveState } from '@/lib/saveQueue'
 import { fetchExerciseDetails, fetchLastExercisePerformance, fetchBestExercisePerformance, fetchBestExercisePerformance60Days } from '@/app/actions/exercises'
-import { fetchUserTemplates } from '@/app/actions/templates'
+import { fetchUserTemplates, updateLinkedTemplateFromWorkout } from '@/app/actions/templates'
 import { fetchExerciseNotes, saveExerciseNote } from '@/app/actions/notes'
 import type { LastExercisePerformance, RoutineWithExercises } from '@/lib/dal'
 import ExercisePickerSheet, { SlimExercise } from './ExercisePickerSheet'
@@ -52,6 +52,22 @@ import {
   GuidedVoiceSettings,
   normalizeGuidedVoiceSettings,
 } from '@/lib/guidedVoice'
+import {
+  clearActiveWorkoutSession,
+  elapsedRestSeconds,
+  findRestOwnerSet,
+  readActiveWorkoutSession,
+  restOwnerForSet,
+  writeActiveWorkoutSession,
+} from '@/lib/activeWorkoutSession'
+import {
+  buildGuideRows,
+  guideAllRows,
+  guidePendingRows,
+  GuideSetupRow,
+  selectedGuideRows,
+  setAllSelectedMaxMode,
+} from '@/lib/guideSetSelection'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -81,6 +97,8 @@ type Workout = {
     distance: number | null
     rest_seconds?: number | null
     difficulty?: number | null
+    note?: string | null
+    is_completed?: boolean | null
     exercises: { name: string; category: string | null } | null
   }[]
 }
@@ -329,7 +347,13 @@ export default function WorkoutLogger({
   const [notes, setNotes] = useState<Record<number, string>>({})
   const [editingNote, setEditingNote] = useState<{ exerciseId: number; name: string; text: string } | null>(null)
   // localId of the set the active rest timer will attach its elapsed time to
-  const [restForSet, setRestForSet] = useState<string | null>(null)
+  const restoredRestRef = useRef((() => {
+    const session = readActiveWorkoutSession()
+    if (session?.workoutId !== workout.id || !session.rest) return null
+    const localId = findRestOwnerSet(localSets, session.rest)
+    return localId ? { localId, session: session.rest } : null
+  })())
+  const [restForSet, setRestForSet] = useState<string | null>(() => restoredRestRef.current?.localId ?? null)
   // Bumped every time rest (re)starts so the timer always resets from 0 —
   // never continues a previous rest, even for the same set.
   const [restNonce, setRestNonce] = useState(0)
@@ -337,8 +361,14 @@ export default function WorkoutLogger({
   // RestTimer's own internal clock so the explicit force-restart path (which
   // renders outside <RestTimer>) can compute "current elapsed" itself without
   // reaching into that component's state.
-  const [restStartedAt, setRestStartedAt] = useState<number | null>(null)
-  const [restInitialElapsed, setRestInitialElapsed] = useState(0)
+  const [restStartedAt, setRestStartedAt] = useState<number | null>(() => (
+    restoredRestRef.current
+      ? restoredRestRef.current.session.startedAt - restoredRestRef.current.session.initialElapsed * 1_000
+      : null
+  ))
+  const [restInitialElapsed, setRestInitialElapsed] = useState(() => (
+    restoredRestRef.current ? elapsedRestSeconds(restoredRestRef.current.session) : 0
+  ))
 
   // D5 (sacred rest): a running rest timer is never reset or re-pointed by an
   // implicit action. This is the entry point ordinary callers (toggleDone,
@@ -388,13 +418,12 @@ export default function WorkoutLogger({
   }
   // exerciseId currently being guided as a whole (full-screen set→rest→set…)
   const [guidingExerciseId, setGuidingExerciseId] = useState<number | null>(null)
-  const [guidingMaxMode, setGuidingMaxMode] = useState(false)
+  const [guidingSets, setGuidingSets] = useState<GuideSet[] | null>(null)
   // Setup screen for the whole-exercise guide (edit per-set reps/weight + tempo)
   const [guideSetup, setGuideSetup] = useState<{
     exerciseId: number
     exerciseName: string
-    maxMode: boolean
-    rows: { localId: string; reps: number; weight: number }[]
+    rows: GuideSetupRow[]
   } | null>(null)
   // Tile 12: batched end-of-guide rep review — rather than interrupting each
   // set with a confirm, the guide-all's `onDone` results are staged here for
@@ -402,8 +431,7 @@ export default function WorkoutLogger({
   // is committed until the review is confirmed.
   const [guideReview, setGuideReview] = useState<{
     exerciseName: string
-    maxMode: boolean
-    results: (GuideResult & { weight: number | null; goalReps: number })[]
+    results: (GuideResult & { weight: number | null; goalReps: number; maxMode: boolean; setNumber: number })[]
     activeRest?: GuidedRestHandoff
   } | null>(null)
 
@@ -429,6 +457,9 @@ export default function WorkoutLogger({
   // Template import
   const [templates, setTemplates] = useState<RoutineWithExercises[] | null>(null)
   const [loadingTemplates, setLoadingTemplates] = useState(false)
+  const [minimizing, setMinimizing] = useState(false)
+  const [nextTimeState, setNextTimeState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [nextTimeMessage, setNextTimeMessage] = useState<string | null>(null)
 
   // Warn on browser tab close / refresh — for active workouts with sets, and
   // unconditionally while a save has failed or is still pending (ADR-0004:
@@ -461,6 +492,42 @@ export default function WorkoutLogger({
     },
     { grouped: {}, exerciseOrder: [] },
   )
+
+  const restForSetExerciseId = localSets.find((set) => set.localId === restForSet)?.exerciseId
+  const activeRestTarget = resolveRestTarget(
+    restForSetExerciseId != null ? ptRest[restForSetExerciseId] : undefined,
+    restTarget,
+  )
+
+  // The active session is intentionally route-independent. A global dock in
+  // Providers reads this absolute-time snapshot while the logger is unmounted,
+  // then this page restores the same rest owner by exercise ordinal on Resume.
+  function publishActiveSession() {
+    const owner = restForSet ? restOwnerForSet(localSets, restForSet) : null
+    const elapsed = restStartedAt == null ? 0 : Math.max(0, Math.round((Date.now() - restStartedAt) / 1_000))
+    writeActiveWorkoutSession({
+      workoutId: workout.id,
+      date: workout.date,
+      updatedAt: Date.now(),
+      rest: owner && restStartedAt != null ? {
+        ...owner,
+        startedAt: Date.now(),
+        initialElapsed: elapsed,
+        mode: restMode,
+        target: activeRestTarget,
+      } : null,
+    })
+  }
+
+  useEffect(() => {
+    if (workout.status === 'completed') {
+      clearActiveWorkoutSession(workout.id)
+      return
+    }
+    publishActiveSession()
+    // publishActiveSession is intentionally a render-local snapshot writer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workout.id, workout.date, workout.status, localSets, restForSet, restStartedAt, restMode, activeRestTarget])
 
   // Fetch last-session performance for each exercise present, once per exercise.
   const exerciseKey = exerciseOrder.join(',')
@@ -833,25 +900,17 @@ export default function WorkoutLogger({
 
   // ── Guide whole exercise ────────────────────────────────────────────────────
 
-  function guideSetsFor(exerciseId: number): GuideSet[] {
-    return localSets
-      .filter((s) => s.exerciseId === exerciseId)
-      .map((s) => ({ localId: s.localId, goalReps: Math.max(1, s.reps ?? 8), weight: s.weight, note: s.note }))
-  }
-
   // Open the whole-exercise guide SETUP (review/edit each set's reps + weight,
   // and the tempo) before starting — mirrors the single-set guided setup.
   function openGuideSetup(exerciseId: number) {
     applyPtTempo(exerciseId)
     const name = grouped[exerciseId]?.name ?? ''
-    const rows = localSets
-      .filter((s) => s.exerciseId === exerciseId)
-      .map((s) => ({ localId: s.localId, reps: s.reps ?? 8, weight: s.weight ?? 0 }))
+    const rows = buildGuideRows(localSets.filter((set) => set.exerciseId === exerciseId))
     if (rows.length === 0) return
-    setGuideSetup({ exerciseId, exerciseName: name, maxMode: false, rows })
+    setGuideSetup({ exerciseId, exerciseName: name, rows })
   }
 
-  function updateGuideRow(localId: string, patch: Partial<{ reps: number; weight: number }>) {
+  function updateGuideRow(localId: string, patch: Partial<GuideSetupRow>) {
     setGuideSetup((g) =>
       g ? { ...g, rows: g.rows.map((r) => (r.localId === localId ? { ...r, ...patch } : r)) } : g,
     )
@@ -873,7 +932,19 @@ export default function WorkoutLogger({
     setGuideSetup((g) => {
       if (!g) return g
       const last = g.rows[g.rows.length - 1] ?? { reps: 8, weight: 0 }
-      return { ...g, rows: [...g.rows, { localId: crypto.randomUUID(), reps: last.reps, weight: last.weight }] }
+      return {
+        ...g,
+        rows: [...g.rows, {
+          localId: crypto.randomUUID(),
+          reps: last.reps,
+          weight: last.weight,
+          selected: true,
+          maxMode: false,
+          done: false,
+          note: null,
+          setNumber: g.rows.length + 1,
+        }],
+      }
     })
   }
 
@@ -889,6 +960,8 @@ export default function WorkoutLogger({
   function startGuideAll() {
     if (!guideSetup) return
     if (repDuration(tempo) <= 0) return
+    const selectedRows = selectedGuideRows(guideSetup.rows)
+    if (selectedRows.length === 0) return
     const exerciseId = guideSetup.exerciseId
     const category = exercises.find((e) => e.id === exerciseId)?.category ?? null
 
@@ -928,7 +1001,20 @@ export default function WorkoutLogger({
 
     setLocalSets(nextSets)
     persist(nextSets)
-    setGuidingMaxMode(guideSetup.maxMode)
+    const selectedIds = new Set(selectedRows.map((row) => row.localId))
+    setGuidingSets(rebuilt
+      .filter((set) => selectedIds.has(set.localId))
+      .map((set) => {
+        const setupRow = selectedRows.find((row) => row.localId === set.localId)
+        return {
+          localId: set.localId,
+          goalReps: Math.max(1, set.reps ?? 8),
+          weight: set.weight,
+          note: set.note,
+          maxMode: setupRow?.maxMode ?? false,
+          setNumber: setupRow?.setNumber,
+        }
+      }))
     setGuidingExerciseId(exerciseId)
     setGuideSetup(null)
   }
@@ -956,22 +1042,29 @@ export default function WorkoutLogger({
   // byte-for-byte untouched, regardless of when this fires.
   function handleGuideDone(results: GuideResult[], activeRest?: GuidedRestHandoff) {
     const exerciseId = guidingExerciseId
+    const runSets = guidingSets ?? []
     setGuidingExerciseId(null)
+    setGuidingSets(null)
     if (exerciseId == null) return
     const exerciseName = grouped[exerciseId]?.name ?? ''
     setGuideReview({
       exerciseName,
-      maxMode: guidingMaxMode,
       activeRest,
       results: results.map((r) => {
         // `localSets` still holds the PRE-guide values here (the review's
         // commit hasn't run yet) — that set's `reps` is exactly the goal
         // `guideSetsFor` read when the guide started.
         const s = localSets.find((x) => x.localId === r.localId)
-        return { ...r, weight: s?.weight ?? null, goalReps: s?.reps ?? Math.max(r.reps, 1) }
+        const runSet = runSets.find((set) => set.localId === r.localId)
+        return {
+          ...r,
+          weight: s?.weight ?? null,
+          goalReps: runSet?.goalReps ?? s?.reps ?? Math.max(r.reps, 1),
+          maxMode: runSet?.maxMode ?? false,
+          setNumber: runSet?.setNumber ?? 1,
+        }
       }),
     })
-    setGuidingMaxMode(false)
   }
 
   function updateGuideReviewReps(localId: string, reps: number) {
@@ -1130,6 +1223,89 @@ export default function WorkoutLogger({
     setShowLeaveSheet(true)
   }
 
+  // Flushes open, non-completion inputs into one snapshot. `done` is never
+  // changed here: minimizing/switching pages must not complete a set.
+  function snapshotForMinimize(): LocalSet[] {
+    let snapshot = localSets
+    if (editingId) {
+      const target = snapshot.find((set) => set.localId === editingId)
+      if (target) {
+        const isCardio = target.exerciseCategory === 'cardio'
+        const fields = resolveEditFields(
+          { weight: editWeight, reps: editReps, duration_minutes: editDuration, distance: editDistance },
+          target,
+          isCardio,
+        )
+        snapshot = applyEdit(snapshot, target.localId, fields)
+        if (!isCardio) {
+          snapshot = applySetValueEdit(
+            snapshot,
+            target.localId,
+            { weight: fields.weight, reps: fields.reps },
+            setValueModes[target.exerciseId] ?? inferSetValueMode(snapshot, target.exerciseId),
+          )
+        }
+        snapshot = updateSetNote(snapshot, target.localId, editSetNote)
+      }
+    }
+    if (selectedExercise) {
+      const pending = commitPending(
+        { weight, reps, duration_minutes: duration, distance },
+        {
+          localId: crypto.randomUUID(),
+          exerciseId: selectedExercise.id,
+          exerciseName: selectedExercise.name,
+          exerciseCategory: selectedExercise.category,
+        },
+        selectedExercise.category === 'cardio',
+        addFormDirty,
+      )
+      if (pending) snapshot = addSetOp(snapshot, pending)
+    }
+    return snapshot
+  }
+
+  async function handleMinimize() {
+    if (minimizing) return
+    setMinimizing(true)
+    const snapshot = snapshotForMinimize()
+    setLocalSets(snapshot)
+    setEditingId(null)
+    setAddFormDirty(false)
+    const key = String(workout.id)
+    await saveQueueRef.current.enqueue(key, snapshot)
+    const state = saveQueueRef.current.getState(key)
+    setSaveState(state)
+    if (state.dirty || state.error) {
+      setMinimizing(false)
+      return
+    }
+    window.location.href = '/dashboard'
+  }
+
+  async function handleUpdateNextTime() {
+    if (!workout.template_id || nextTimeState === 'saving') return
+    setNextTimeState('saving')
+    setNextTimeMessage(null)
+    const key = String(workout.id)
+    await saveQueueRef.current.enqueue(key, localSets)
+    const state = saveQueueRef.current.getState(key)
+    setSaveState(state)
+    if (state.dirty || state.error) {
+      setNextTimeState('error')
+      setNextTimeMessage('Save this workout first, then try again.')
+      return
+    }
+    const result = await updateLinkedTemplateFromWorkout(workout.id)
+    if (result?.error) {
+      setNextTimeState('error')
+      setNextTimeMessage(result.error)
+      return
+    }
+    setNextTimeState('saved')
+    setNextTimeMessage('Template updated. These values will be used next time.')
+  }
+
   // Tile 1: flush the latest snapshot through the save queue (this also
   // waits out any already-in-flight/retrying save via the queue's per-key
   // coalescing) before navigating away. The workout stays in_progress and
@@ -1155,6 +1331,7 @@ export default function WorkoutLogger({
   // "Are you sure?" step, then the real delete action (already redirects to
   // the dashboard on success).
   function handleConfirmDeleteWorkout() {
+    clearActiveWorkoutSession(workout.id)
     startTransition(async () => {
       await deleteWorkout(workout.id)
     })
@@ -1197,6 +1374,7 @@ export default function WorkoutLogger({
       rest_seconds: s.rest_seconds,
       difficulty: s.difficulty,
       note: s.note,
+      is_completed: s.done,
     }
   }
 
@@ -1242,11 +1420,14 @@ export default function WorkoutLogger({
       // failure REJECTS rather than returning {error}, and an unhandled
       // rejection here would be the silent Done-failure ADR-0004 forbids.
       try {
+        clearActiveWorkoutSession(workout.id)
         const result = await completeWorkout(workout.id, buildPayload())
         if (result?.error) {
+          publishActiveSession()
           setSaveState({ dirty: true, pending: false, error: result.error, retrying: false })
         }
       } catch (e) {
+        publishActiveSession()
         setSaveState({
           dirty: true,
           pending: false,
@@ -1624,16 +1805,6 @@ export default function WorkoutLogger({
     )
   }
 
-  // Resolved rest target for the sticky RestTimer (Tile 6 / D4): the set
-  // `restForSet` belongs to determines which exercise's prescription (if any)
-  // applies; falls back to the global stepper when there's no set, exercise,
-  // or prescription.
-  const restForSetExerciseId = localSets.find((s) => s.localId === restForSet)?.exerciseId
-  const activeRestTarget = resolveRestTarget(
-    restForSetExerciseId != null ? ptRest[restForSetExerciseId] : undefined,
-    restTarget,
-  )
-
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
       {/* Header */}
@@ -1669,6 +1840,16 @@ export default function WorkoutLogger({
               {copied ? 'Copied!' : 'Copy'}
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={handleMinimize}
+            disabled={minimizing || isPending}
+            title="Keep this workout and rest timer running while you use the app"
+            className="rounded-full border border-orange-300 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-orange-600 transition-colors hover:bg-orange-50 disabled:opacity-40 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-950/30"
+          >
+            {minimizing ? 'Saving…' : 'Minimize'}
+          </button>
 
           <button
             onClick={handleSaveProgress}
@@ -2140,6 +2321,30 @@ export default function WorkoutLogger({
             </button>
           )}
         </div>
+
+        {workout.template_id && localSets.length > 0 && (
+          <section className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-black text-zinc-900 dark:text-white">Use this next time</p>
+                <p className="mt-0.5 text-xs leading-5 text-zinc-500">Update the linked template with today&apos;s weight, reps, duration, and per-set pattern.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleUpdateNextTime}
+                disabled={nextTimeState === 'saving'}
+                className="min-h-11 shrink-0 rounded-xl bg-zinc-900 px-4 text-xs font-black text-white hover:bg-orange-600 disabled:opacity-50 dark:bg-white dark:text-zinc-950"
+              >
+                {nextTimeState === 'saving' ? 'Updating…' : 'Update template'}
+              </button>
+            </div>
+            {nextTimeMessage && (
+              <p role="status" className={`mt-2 text-xs font-bold ${nextTimeState === 'error' ? 'text-red-600' : 'text-emerald-600'}`}>
+                {nextTimeMessage}
+              </p>
+            )}
+          </section>
+        )}
 
         {/* Form for a newly-selected exercise not yet in the list */}
         {selectedExercise && !exerciseOrder.includes(selectedExercise.id) && renderAddSetForm()}
@@ -2630,16 +2835,16 @@ export default function WorkoutLogger({
 
             <label className="flex min-h-14 cursor-pointer items-center justify-between gap-4 rounded-xl border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
               <span>
-                <span className="block text-sm font-bold text-zinc-800 dark:text-zinc-200">Max mode</span>
-                <span className="block text-xs text-zinc-500">Every set continues until you stop it manually.</span>
+                <span className="block text-sm font-bold text-zinc-800 dark:text-zinc-200">Max all selected</span>
+                <span className="block text-xs text-zinc-500">Every set continues until you stop it manually; only selected sets are affected.</span>
               </span>
               <input
                 type="checkbox"
                 role="switch"
-                aria-label="Max mode"
-                checked={guideSetup.maxMode}
+                aria-label="Max mode for all selected sets"
+                checked={selectedGuideRows(guideSetup.rows).length > 0 && selectedGuideRows(guideSetup.rows).every((row) => row.maxMode)}
                 onChange={(event) => setGuideSetup((current) => (
-                  current ? { ...current, maxMode: event.target.checked } : current
+                  current ? { ...current, rows: setAllSelectedMaxMode(current.rows, event.target.checked) } : current
                 ))}
                 className="size-5 accent-orange-500"
               />
@@ -2654,12 +2859,46 @@ export default function WorkoutLogger({
             />
 
             <div className="flex flex-col gap-2">
-              <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Per-set goals</span>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-zinc-400">Choose sets to guide</span>
+                <span className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setGuideSetup((current) => current ? { ...current, rows: guideAllRows(current.rows) } : current)}
+                    className="text-xs font-bold text-orange-600"
+                  >Guide all</button>
+                  <button
+                    type="button"
+                    onClick={() => setGuideSetup((current) => current ? { ...current, rows: guidePendingRows(current.rows) } : current)}
+                    className="text-xs font-bold text-zinc-500"
+                  >Pending only</button>
+                </span>
+              </div>
               {guideSetup.rows.map((r, i) => (
-                <div key={r.localId} className="grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)] items-end gap-2">
-                  <span className="w-8 pb-2 text-xs font-bold text-zinc-400">#{i + 1}</span>
+                <div key={r.localId} className={`grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)] items-end gap-2 rounded-xl border p-2 ${r.selected ? 'border-orange-300 bg-orange-50/50 dark:border-orange-800 dark:bg-orange-950/20' : 'border-zinc-200 opacity-65 dark:border-zinc-700'}`}>
+                  <label className="flex flex-col items-center gap-1 pb-1 text-[0.65rem] font-bold text-zinc-500">
+                    <span>#{i + 1}</span>
+                    <input
+                      type="checkbox"
+                      aria-label={`Guide set ${i + 1}`}
+                      checked={r.selected}
+                      onChange={(event) => updateGuideRow(r.localId, { selected: event.target.checked })}
+                      className="size-5 accent-orange-500"
+                    />
+                  </label>
                   <Stepper label="Weight" sublabel="kg" value={r.weight} min={0} max={500} decimal onChange={(v) => updateGuideRow(r.localId, { weight: v })} />
                   <Stepper label="Reps" value={r.reps} min={1} max={50} onChange={(v) => updateGuideRow(r.localId, { reps: v })} />
+                  <label className="col-span-3 flex min-h-11 items-center justify-between rounded-lg bg-white px-3 text-xs font-bold dark:bg-zinc-900">
+                    Max mode for set {i + 1}
+                    <input
+                      type="checkbox"
+                      aria-label={`Max mode for set ${i + 1}`}
+                      checked={r.maxMode}
+                      disabled={!r.selected}
+                      onChange={(event) => updateGuideRow(r.localId, { maxMode: event.target.checked })}
+                      className="size-5 accent-orange-500"
+                    />
+                  </label>
                   <button
                     onClick={() => removeGuideRow(r.localId)}
                     disabled={guideSetup.rows.length <= 1}
@@ -2701,9 +2940,10 @@ export default function WorkoutLogger({
               </button>
               <button
                 onClick={startGuideAll}
+                disabled={selectedGuideRows(guideSetup.rows).length === 0}
                 className="flex-1 rounded-xl bg-orange-500 hover:bg-orange-600 py-2.5 text-sm font-bold text-white transition-colors"
               >
-                Start guide
+                Start guide selected ({selectedGuideRows(guideSetup.rows).length})
               </button>
             </div>
           </>
@@ -2711,12 +2951,11 @@ export default function WorkoutLogger({
       )}
 
       {/* Whole-exercise guide (set → rest → set …) */}
-      {guidingExerciseId != null && (
+      {guidingExerciseId != null && guidingSets && (
         <ExerciseGuide
           exerciseName={grouped[guidingExerciseId]?.name ?? ''}
           tempo={tempo}
-          sets={guideSetsFor(guidingExerciseId)}
-          maxMode={guidingMaxMode}
+          sets={guidingSets}
           startPhase={tempoStartPhase}
           restSeconds={resolveRestTarget(ptRest[guidingExerciseId], restTarget)}
           restBetweenSets={guideRestBetweenSets}
@@ -2745,7 +2984,7 @@ export default function WorkoutLogger({
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
                 Adjust any set before logging — 0 reps leaves that set pending (not logged).
               </p>
-              {guideReview.maxMode && (
+              {guideReview.results.some((result) => result.maxMode) && (
                 <p className="mt-2 text-xs font-bold uppercase tracking-wide text-orange-500">
                   Max mode · manually stopped sets
                 </p>
@@ -2755,11 +2994,11 @@ export default function WorkoutLogger({
               {guideReview.results.map((r, i) => (
                 <div key={r.localId} className="grid grid-cols-[4rem_minmax(0,1fr)] items-center gap-3 rounded-xl border border-zinc-100 p-2 dark:border-zinc-800">
                   <span className="w-16 shrink-0 text-xs font-bold text-zinc-400">
-                    Set {i + 1}{r.weight ? ` · ${r.weight}kg` : ''}
+                    Set {r.setNumber}{r.weight ? ` · ${r.weight}kg` : ''}
                   </span>
                   <Stepper
                     label="Reps"
-                    sublabel={guideReview.maxMode ? 'max mode' : `goal ${r.goalReps}`}
+                    sublabel={r.maxMode ? 'max mode' : `goal ${r.goalReps}`}
                     value={r.reps}
                     min={0}
                     max={Math.max(r.goalReps, r.reps, 50)}

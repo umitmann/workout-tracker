@@ -1063,6 +1063,32 @@ do not have to be simultaneous. Notes become durable after Phase 21 is applied.
 
 ---
 
+## Phase 22 — Durable per-set completion state
+
+**Ready for SQL Editor application** from
+[`20260731000100_set_completion_state.sql`](../supabase/migrations/20260731000100_set_completion_state.sql).
+
+This additive migration adds `sets.is_completed` and threads it through the
+existing atomic workout-snapshot RPC. It fixes an ambiguity in the original
+schema: a saved row previously proved only that the set had values, but the
+client interpreted every reloaded row as completed. Pending prescribed sets
+can now survive navigation and reload without acquiring a checkmark.
+
+Existing rows default to `true` so completed history is retained. The updated
+client explicitly writes `true` or `false` for every new snapshot and treats a
+missing column on an older database as pending for an in-progress workout.
+
+### Supabase SQL Editor procedure
+
+1. Copy the entire Phase 22 migration into a new SQL Editor query and run it once.
+2. Confirm the final row shows `true` for `set_completion_column_created`,
+   `atomic_completion_write_installed`, and `rpc_permissions_are_scoped`.
+3. Confirm `stored_workout_count` and `stored_set_count` have not decreased.
+4. Run [`verify_set_completion_state.sql`](../supabase/manual/verify_set_completion_state.sql).
+5. Run `notify pgrst, 'reload schema';` once.
+
+---
+
 ## Executable clean-room baseline — repository recovery support
 
 **Added and clean-reset verified** on 2026-07-14 in

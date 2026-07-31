@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { signOut } from '@/app/actions/auth'
+import { clearActiveWorkoutSession } from '@/lib/activeWorkoutSession'
 
 export default function AccountMenu({
   userName,
@@ -75,7 +76,7 @@ export default function AccountMenu({
               Trainer profile
             </Link>
           </div>
-          <form action={signOut} className="border-t border-zinc-100 pt-1 dark:border-zinc-800">
+          <form action={signOut} onSubmit={() => clearActiveWorkoutSession()} className="border-t border-zinc-100 pt-1 dark:border-zinc-800">
             <button role="menuitem" type="submit" className="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40">
               Sign out
             </button>

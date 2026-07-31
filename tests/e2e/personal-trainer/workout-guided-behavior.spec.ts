@@ -226,6 +226,46 @@ test.describe('active workout guided behavior', () => {
     }
   })
 
+  test('persists pending set state instead of completing every saved row on reload', async ({ browser }) => {
+    const session = await newSignedInContext(browser, 'exerciseClient')
+    try {
+      await startWorkoutWithExercise(session.page)
+      await addStrengthSet(session.page, '60', '8')
+      await session.page.getByTitle('Completed — tap to undo').click()
+      await expect(session.page.getByTitle('Mark set done (starts rest)')).toBeVisible()
+
+      await session.page.reload()
+      await expect(session.page.getByTitle('Mark set done (starts rest)')).toBeVisible()
+      await expect(session.page.getByTitle('Completed — tap to undo')).toHaveCount(0)
+      await deleteWorkout(session.page)
+    } finally {
+      await session.context.close()
+    }
+  })
+
+  test('minimizes an active workout while its rest clock continues across app routes', async ({ browser }) => {
+    const session = await newSignedInContext(browser, 'exerciseClient')
+    try {
+      await startWorkoutWithExercise(session.page)
+      await addStrengthSet(session.page, '60', '8')
+      await session.page.getByRole('button', { name: /minimize/i }).click()
+
+      const dock = session.page.getByRole('complementary', { name: /active workout/i })
+      await expect(dock).toBeVisible()
+      const firstClock = await dock.textContent()
+      await session.page.goto('/workouts')
+      await expect(dock).toBeVisible()
+      await session.page.waitForTimeout(1_200)
+      await expect.poll(() => dock.textContent()).not.toBe(firstClock)
+
+      await dock.getByRole('link', { name: /resume/i }).click()
+      await expect(session.page.getByRole('button', { name: /minimize/i })).toBeVisible()
+      await deleteWorkout(session.page)
+    } finally {
+      await session.context.close()
+    }
+  })
+
   test('persists auto-rest off and does not start rest when a set is logged', async ({ browser }) => {
     const session = await newSignedInContext(browser, 'exerciseClient')
     try {
@@ -434,6 +474,35 @@ test.describe('active workout guided behavior', () => {
       expect(spoken.some((phrase) => /\. (?:1|2|3)$/.test(phrase))).toBe(false)
 
       await review.getByRole('button', { name: /leave pending/i }).click()
+      await deleteWorkout(session.page)
+    } finally {
+      await session.context.close()
+    }
+  })
+
+  test('guides only selected pending sets and allows Max on one selected set', async ({ browser }) => {
+    const session = await newSignedInContext(browser, 'exerciseClient')
+    try {
+      await startWorkoutWithExercise(session.page)
+      await addStrengthSet(session.page, '60', '1')
+      await addStrengthSet(session.page, '60', '1')
+      await addStrengthSet(session.page, '55', '1')
+      await session.page.getByTitle('Completed — tap to undo').last().click()
+      await session.page.getByTitle('Completed — tap to undo').last().click()
+
+      await session.page.getByRole('button', { name: /guide whole exercise/i }).click()
+      const setup = session.page.getByRole('dialog', { name: /guide exercise:/i })
+      await expect(setup.getByLabel('Guide set 1')).not.toBeChecked()
+      await expect(setup.getByLabel('Guide set 2')).toBeChecked()
+      await expect(setup.getByLabel('Guide set 3')).toBeChecked()
+      await setup.getByLabel('Guide set 2').uncheck()
+      await setup.getByLabel('Max mode for set 3').check()
+      await expect(setup.getByRole('button', { name: /start guide selected \(1\)/i })).toBeEnabled()
+      await setup.getByRole('button', { name: /start guide selected/i }).click()
+      await expect(session.page.getByText(/max mode · stop manually/i)).toBeVisible()
+      await session.page.getByRole('button', { name: /review & exit/i }).click()
+      await session.page.getByRole('dialog', { name: /review:/i }).getByRole('button', { name: /leave pending/i }).click()
+      await expect(session.page.getByTitle('Completed — tap to undo')).toHaveCount(1)
       await deleteWorkout(session.page)
     } finally {
       await session.context.close()

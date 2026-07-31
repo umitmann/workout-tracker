@@ -18,6 +18,7 @@ function dbSet(overrides = {}) {
     duration_minutes: overrides.duration_minutes ?? null,
     distance: overrides.distance ?? null,
     rest_seconds: overrides.rest_seconds ?? null,
+    is_completed: overrides.is_completed,
     exercises: overrides.exercises ?? { name: 'Squat', category: null },
   }
 }
@@ -67,15 +68,19 @@ test('§2.2: in-progress workout with no saved sets loads the expanded template'
   assert.equal(rows[0].done, false)
 })
 
-test('§2.3/§2.8: in-progress workout with saved sets loads from sets; template ignored even if newer', () => {
+test('§2.3/§2.8: in-progress workout restores each persisted completion state', () => {
   const rows = deriveInitialSets(
-    { status: 'in_progress', sets: [dbSet({ id: 1, weight: 60, reps: 8 })] },
+    { status: 'in_progress', sets: [
+      dbSet({ id: 1, weight: 60, reps: 8, is_completed: true }),
+      dbSet({ id: 2, weight: 55, reps: 10, is_completed: false }),
+    ] },
     template([routineExercise({ weight: 999, reps: 999 })]),
   )
-  assert.equal(rows.length, 1)
+  assert.equal(rows.length, 2)
   assert.equal(rows[0].weight, 60)
   assert.equal(rows[0].reps, 8)
   assert.equal(rows[0].done, true)
+  assert.equal(rows[1].done, false)
 })
 
 test('§2.1: fresh workout, no template, no sets → empty logger', () => {
@@ -86,11 +91,16 @@ test('in-progress workout with no sets and no template → empty logger', () => 
   assert.deepEqual(deriveInitialSets({ status: 'in_progress', sets: [] }, null), [])
 })
 
-test('saved sets carry rest_seconds and mark done:true, falling back exercise name to id when relation missing', () => {
+test('legacy in-progress rows fail safe to pending instead of randomly completing after reload', () => {
   const s = dbSet({ exercise_id: 99, rest_seconds: 45 })
   s.exercises = null
   const rows = deriveInitialSets({ status: 'in_progress', sets: [s] }, null)
   assert.equal(rows[0].exerciseName, '99')
   assert.equal(rows[0].rest_seconds, 45)
+  assert.equal(rows[0].done, false)
+})
+
+test('legacy completed-workout rows still render as completed', () => {
+  const rows = deriveInitialSets({ status: 'completed', sets: [dbSet()] }, null)
   assert.equal(rows[0].done, true)
 })

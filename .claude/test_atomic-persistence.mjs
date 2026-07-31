@@ -41,6 +41,20 @@ test('saveWorkoutProgress: RPC succeeds -> single rpc call, zero separate delete
   assert.equal(fake.mutationCount('sets', 'insert'), 0)
 })
 
+test('saveWorkoutProgress carries explicit pending/completed state into the atomic snapshot', async () => {
+  const fake = createFakeSupabaseClient({
+    user: { id: 'u1' },
+    selectResults: { workouts: { data: { id: 1 }, error: null } },
+    rpcResults: { save_workout_sets: { data: null, error: null } },
+  })
+  await saveWorkoutProgressCore(fake, 1, [
+    { exercise_id: 1, weight: 100, reps: 5, is_completed: true },
+    { exercise_id: 1, weight: 90, reps: 8, is_completed: false },
+  ])
+  const payload = fake.mutationCalls('save_workout_sets', 'rpc')[0].payload.p_sets
+  assert.deepEqual(payload.map((row) => row.is_completed), [true, false])
+})
+
 // ─── Fallback: RPC missing -> insert-before-delete, never emptier on failure ─
 
 test('saveWorkoutProgress: RPC missing -> falls back, inserting the new snapshot BEFORE deleting the old one', async () => {
