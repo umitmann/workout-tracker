@@ -2,10 +2,20 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
-const sql = await readFile(
-  new URL('../supabase/migrations/20260731000200_weekly_plans_and_readiness.sql', import.meta.url),
-  'utf8',
-)
+const [sql, phase22, combined] = await Promise.all([
+  readFile(
+    new URL('../supabase/migrations/20260731000200_weekly_plans_and_readiness.sql', import.meta.url),
+    'utf8',
+  ),
+  readFile(
+    new URL('../supabase/migrations/20260731000100_set_completion_state.sql', import.meta.url),
+    'utf8',
+  ),
+  readFile(
+    new URL('../supabase/manual/apply_phase22_and_23.sql', import.meta.url),
+    'utf8',
+  ),
+])
 
 function functionBlock(name) {
   const start = sql.indexOf(`create or replace function ${name}`)
@@ -81,4 +91,13 @@ test('all new public RPCs are authenticated-only and hardened', () => {
     ['public.get_my_daily_readiness', 'public.get_my_daily_readiness()'],
     ['public.set_my_daily_readiness', 'public.set_my_daily_readiness(smallint)'],
   ]) expectHardened(name, signature)
+})
+
+test('combined SQL Editor runner applies Phase 22 before 23 in one transaction', () => {
+  assert.equal((combined.match(/^begin;$/gmi) ?? []).length, 1)
+  assert.equal((combined.match(/^commit;$/gmi) ?? []).length, 1)
+  assert.ok(combined.indexOf('Phase 22: durable per-set completion state') < combined.indexOf('PT Phase 23'))
+  assert.ok(combined.includes(phase22.trim()))
+  assert.match(combined, /set_completion_column_created[\s\S]+weekly_plan_table_created/i)
+  assert.doesNotMatch(combined, /^\\i\b/gm, 'Supabase SQL Editor cannot resolve psql include commands')
 })

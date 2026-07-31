@@ -1094,6 +1094,12 @@ missing column on an older database as pending for an in-progress workout.
 **Ready for SQL Editor application** from
 [`20260731000200_weekly_plans_and_readiness.sql`](../supabase/migrations/20260731000200_weekly_plans_and_readiness.sql).
 
+If neither Phase 22 nor Phase 23 has been applied yet, use the single
+all-or-nothing SQL Editor runner
+[`apply_phase22_and_23.sql`](../supabase/manual/apply_phase22_and_23.sql)
+instead of running the two standalone files. It applies Phase 22 first, returns
+both verification rows, and commits only after Phase 23 succeeds.
+
 This additive migration leaves immutable workout-plan prescriptions intact and
 adds private `workout_plan_week_windows` metadata. An approved trainer can
 assign one to seven ordered template snapshots for a Monday–Sunday window,
