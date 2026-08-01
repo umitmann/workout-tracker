@@ -61,7 +61,8 @@ export async function getWorkoutWithSets(workoutId: number) {
       .from('sets')
       .select(SET_COLS(SET_COL_VARIANTS[0]))
       .eq('workout_id', workoutId)
-      .order('created_at', { ascending: true }),
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true }),
   ])
 
   if (workoutResult.error) {
@@ -83,6 +84,7 @@ export async function getWorkoutWithSets(workoutId: number) {
       .select(SET_COLS(SET_COL_VARIANTS[i]))
       .eq('workout_id', workoutId)
       .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
     sets = data
     error = nextError
   }
@@ -430,6 +432,68 @@ export async function getLastExercisePerformance(exerciseId: number): Promise<La
       distance: s.distance ?? null,
     })),
   }
+}
+
+export async function getLastExercisePerformances(
+  exerciseIds: number[],
+): Promise<Record<number, LastExercisePerformance | null>> {
+  const ids = [...new Set(exerciseIds.filter((id) => Number.isSafeInteger(id) && id > 0))].slice(0, 100)
+  const result: Record<number, LastExercisePerformance | null> = Object.fromEntries(ids.map((id) => [id, null]))
+  if (ids.length === 0) return result
+
+  const { supabase, user } = await getServerAuthContext()
+  if (!user) return result
+
+  const workoutsResult = await supabase
+    .from('workouts')
+    .select('id, date, sets!inner(exercise_id)')
+    .eq('user_id', user.id)
+    .eq('status', 'completed')
+    .in('sets.exercise_id', ids)
+    .order('date', { ascending: false })
+    .order('id', { ascending: false })
+
+  const workouts = requireQueryData(workoutsResult, 'load recent exercise performances') ?? []
+  const latestByExercise = new Map<number, { id: number; date: string }>()
+  for (const workout of workouts as any[]) {
+    for (const set of workout.sets ?? []) {
+      const exerciseId = Number(set.exercise_id)
+      if (ids.includes(exerciseId) && !latestByExercise.has(exerciseId)) {
+        latestByExercise.set(exerciseId, { id: Number(workout.id), date: String(workout.date) })
+      }
+    }
+  }
+
+  const workoutIds = [...new Set([...latestByExercise.values()].map((workout) => workout.id))]
+  if (workoutIds.length === 0) return result
+
+  const setsResult = await supabase
+    .from('sets')
+    .select('workout_id, exercise_id, weight, reps, duration_minutes, distance')
+    .in('workout_id', workoutIds)
+    .in('exercise_id', ids)
+    .order('id', { ascending: true })
+  const sets = requireQueryData(setsResult, 'load exercise performance sets') ?? []
+
+  for (const exerciseId of ids) {
+    const latest = latestByExercise.get(exerciseId)
+    if (!latest) continue
+    const matching = (sets as any[]).filter((set) => (
+      Number(set.exercise_id) === exerciseId && Number(set.workout_id) === latest.id
+    ))
+    if (matching.length === 0) continue
+    result[exerciseId] = {
+      date: latest.date,
+      sets: matching.map((set) => ({
+        weight: set.weight ?? null,
+        reps: set.reps ?? null,
+        duration_minutes: set.duration_minutes ?? null,
+        distance: set.distance ?? null,
+      })),
+    }
+  }
+
+  return result
 }
 
 // `today` is the caller's local calendar date (YYYY-MM-DD, from

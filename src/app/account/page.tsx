@@ -7,6 +7,7 @@ import { listMyTrainerRelationships } from '@/lib/trainerRelationshipDal'
 import { countTrainerRelationshipNotifications } from '@/lib/trainerRelationshipNotifications'
 import AccountProfileForm from './AccountProfileForm'
 import InstallAppCard from './InstallAppCard'
+import WorkoutPreferencesCard from './WorkoutPreferencesCard'
 
 export default async function AccountPage() {
   const { supabase, user } = await getServerAuthContext()
@@ -51,6 +52,7 @@ export default async function AccountPage() {
           <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">These settings are private except where you deliberately appear in the trainer directory.</p>
           <AccountProfileForm profile={profile} email={user.email ?? ''} timeZones={timeZones} />
         </section>
+        <WorkoutPreferencesCard />
         <InstallAppCard />
       </div>
     </AppShell>

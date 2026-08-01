@@ -13,7 +13,7 @@ export function buildAppNavigation({
 } = {}): AppNavigationItem[] {
   const items: AppNavigationItem[] = [
     { href: '/dashboard', label: 'Home', icon: 'home' },
-    { href: '/workouts', label: 'Plans', icon: 'calendar' },
+    { href: '/workouts', label: 'Templates', icon: 'calendar' },
     { href: '/routines', label: 'Exercises', icon: 'library' },
     {
       href: '/connections',

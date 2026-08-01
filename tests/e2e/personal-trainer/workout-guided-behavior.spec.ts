@@ -243,15 +243,24 @@ test.describe('active workout guided behavior', () => {
     }
   })
 
-  test('minimizes an active workout while its rest clock continues across app routes', async ({ browser }) => {
+  test('minimize saves open inputs, rest continues, and resume reloads the saved workout', async ({ browser }) => {
     const session = await newSignedInContext(browser, 'exerciseClient')
     try {
       await startWorkoutWithExercise(session.page)
       await addStrengthSet(session.page, '60', '8')
+
+      // Leave the editor visibly open: Minimize itself must commit these
+      // values instead of relying on an earlier blur or explicit Save.
+      await session.page.getByText('60 kg', { exact: true }).click()
+      const editor = session.page.getByRole('button', { name: /save and close set editor/i }).locator('xpath=../..')
+      await enterStepper(session.page, editor, 'Weight (kg)', '67')
+      await enterStepper(session.page, editor, 'Reps', '9')
+      await editor.getByRole('textbox', { name: /note for set 1/i }).fill('Resume keeps this note')
       await session.page.getByRole('button', { name: /minimize/i }).click()
 
       const dock = session.page.getByRole('complementary', { name: /active workout/i })
       await expect(dock).toBeVisible()
+      await expect(dock.getByText(/saved workout/i)).toBeVisible()
       const firstClock = await dock.textContent()
       await session.page.goto('/workouts')
       await expect(dock).toBeVisible()
@@ -260,6 +269,26 @@ test.describe('active workout guided behavior', () => {
 
       await dock.getByRole('link', { name: /resume/i }).click()
       await expect(session.page.getByRole('button', { name: /minimize/i })).toBeVisible()
+      await expect(session.page.getByText('67 kg', { exact: true })).toBeVisible()
+      await expect(session.page.getByText('9', { exact: true })).toBeVisible()
+      await session.page.getByText('67 kg', { exact: true }).click()
+      await expect(session.page.getByRole('textbox', { name: /note for set 1/i })).toHaveValue('Resume keeps this note')
+      await deleteWorkout(session.page)
+    } finally {
+      await session.context.close()
+    }
+  })
+
+  test('exposes one compact workout settings entry while keeping common rest control inline', async ({ browser }) => {
+    const session = await newSignedInContext(browser, 'exerciseClient')
+    try {
+      await startWorkoutWithExercise(session.page)
+      await expect(session.page.getByRole('switch', { name: /auto (on|off)/i })).toBeVisible()
+      await session.page.getByRole('button', { name: /workout settings/i }).click()
+      const settings = session.page.getByRole('dialog', { name: /workout settings/i })
+      await expect(settings.getByText(/this workout/i)).toBeVisible()
+      await expect(settings.getByText(/voice rep counter/i)).toBeVisible()
+      await settings.getByRole('button', { name: /^done$/i }).click()
       await deleteWorkout(session.page)
     } finally {
       await session.context.close()

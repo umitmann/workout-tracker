@@ -38,6 +38,9 @@ export default async function Dashboard({
   const now = new Date()
   const year = y ? Number(y) : now.getFullYear()
   const month = m ? Number(m) : now.getMonth() + 1
+  const readinessPromise = getTodayReadiness()
+    .then((value) => ({ value, available: true as const }))
+    .catch(() => ({ value: null, available: false as const }))
 
   const [
     { entries: workouts, previews: initialPreviews },
@@ -58,26 +61,19 @@ export default async function Dashboard({
     (relationship) => relationship.my_role === 'trainer',
   )
   const today = localDateStr()
-  let workoutPlans: Awaited<ReturnType<typeof listAttributedWorkoutPlanDetails>> = []
-  let planReadFailed = false
-  let todayReadiness: Awaited<ReturnType<typeof getTodayReadiness>> = null
-  let readinessAvailable = true
-  try {
-    workoutPlans = await listAttributedWorkoutPlanDetails(
+  const [planResult, readinessResult] = await Promise.all([
+    listAttributedWorkoutPlanDetails(
       startOfLocalWeek(today),
       dateNDaysAfter(today, 120),
       trainerRelationships,
-    )
-  } catch {
-    planReadFailed = true
-  }
-  try {
-    todayReadiness = await getTodayReadiness()
-  } catch {
-    // Rolling deploy compatibility: the dashboard stays usable before the
-    // additive readiness migration is installed in Supabase SQL Editor.
-    readinessAvailable = false
-  }
+    ).then((value) => ({ value, failed: false as const }))
+      .catch(() => ({ value: [] as Awaited<ReturnType<typeof listAttributedWorkoutPlanDetails>>, failed: true as const })),
+    readinessPromise,
+  ])
+  const workoutPlans = planResult.value
+  const planReadFailed = planResult.failed
+  const todayReadiness = readinessResult.value
+  const readinessAvailable = readinessResult.available
 
   const name = user.user_metadata?.full_name ?? user.user_metadata?.display_name ?? user.email ?? 'Athlete'
   const firstName = String(name).split(/\s|@/)[0]
@@ -117,7 +113,7 @@ export default async function Dashboard({
         <div className={`grid grid-cols-2 gap-3 ${hasTrainerRole ? 'sm:grid-cols-3 lg:grid-cols-5' : 'sm:grid-cols-3'}`}>
           <Link href="/workouts" className="flex min-h-20 flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-4 text-sm font-bold text-zinc-900 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
             <span aria-hidden="true" className="text-xl text-orange-600">◫</span>
-            Workout plans
+            Workout templates
           </Link>
           <Link href="/routines" className="flex min-h-20 flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-4 text-sm font-bold text-zinc-900 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
             <span aria-hidden="true" className="text-xl text-orange-600">⌁</span>

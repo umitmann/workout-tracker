@@ -27,6 +27,9 @@ export default function ExercisePickerSheet({
   onSelect,
   onInfoClick,
   onPerfClick,
+  loading = false,
+  loadError = false,
+  onRetry,
   onClose,
 }: {
   exercises: SlimExercise[]
@@ -37,6 +40,9 @@ export default function ExercisePickerSheet({
   onSelect: (exercise: SlimExercise) => void
   onInfoClick: (exerciseId: number) => void
   onPerfClick: (exerciseId: number, exerciseName: string, mode: PerfMode, category: string | null) => void
+  loading?: boolean
+  loadError?: boolean
+  onRetry?: () => void
   onClose: () => void
 }) {
   const [search, setSearch] = useState('')
@@ -278,7 +284,17 @@ export default function ExercisePickerSheet({
           </div>
         </div>
         <ul className="overflow-y-auto flex-1 min-h-0">
-          {filtered.length === 0 && listIsFiltered ? (
+          {loading ? (
+            <li role="status" className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+              <span className="size-8 animate-spin rounded-full border-2 border-zinc-300 border-t-orange-500" aria-hidden="true" />
+              <p className="text-sm font-semibold text-zinc-600 dark:text-zinc-300">Loading exercise library…</p>
+            </li>
+          ) : loadError ? (
+            <li role="alert" className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+              <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">The exercise library could not load.</p>
+              <button type="button" onClick={onRetry} className="min-h-11 rounded-xl bg-orange-600 px-4 text-sm font-bold text-white">Try again</button>
+            </li>
+          ) : filtered.length === 0 && listIsFiltered ? (
             <li className="flex flex-col items-center gap-3 py-10 px-4 text-center">
               <p className="text-sm text-zinc-500 dark:text-zinc-400">No exercises match your filters.</p>
               <button

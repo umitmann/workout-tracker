@@ -22,13 +22,13 @@ export default async function WorkoutsPage() {
 
   return (
     <AppShell
-      title="Workout plans"
+      title="Workout templates"
       eyebrow="Reusable templates"
       currentPath="/workouts"
       userName={userName}
       avatarUrl={avatarUrl}
       navigation={buildAppNavigation({ traineeNotifications: notifications.trainee, trainerNotifications: notifications.trainer, showTrainerTools: relationships.some((relationship) => relationship.my_role === 'trainer') })}
-      actions={<Link href="/workouts/new" className="inline-flex min-h-11 items-center rounded-xl bg-orange-600 px-4 text-sm font-bold text-white hover:bg-orange-700">New plan</Link>}
+      actions={<Link href="/workouts/new" className="inline-flex min-h-11 items-center rounded-xl bg-orange-600 px-4 text-sm font-bold text-white hover:bg-orange-700">New template</Link>}
       maxWidth="max-w-4xl"
     >
       <div>
@@ -43,7 +43,7 @@ export default async function WorkoutsPage() {
         <section className="mt-5 rounded-[1.5rem] border border-dashed border-zinc-300 bg-white/60 p-8 text-center dark:border-zinc-700 dark:bg-zinc-900/60">
           <p className="text-base font-bold text-zinc-900 dark:text-white">No workout templates yet</p>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-zinc-500 dark:text-zinc-400">Start with one session you enjoy and refine it over time.</p>
-          <Link href="/workouts/new" className="mt-5 inline-flex min-h-12 items-center rounded-xl bg-orange-600 px-5 text-sm font-bold text-white hover:bg-orange-700">Create your first plan</Link>
+          <Link href="/workouts/new" className="mt-5 inline-flex min-h-12 items-center rounded-xl bg-orange-600 px-5 text-sm font-bold text-white hover:bg-orange-700">Create your first template</Link>
         </section>
       ) : (
         <TemplateSwipeList templates={templates} />

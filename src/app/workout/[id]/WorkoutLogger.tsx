@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useTransition, useEffect, useMemo, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { saveWorkoutProgress, completeWorkout, deleteWorkout, SetPayload } from '@/app/actions/workouts'
 import { createSaveQueue, SaveState } from '@/lib/saveQueue'
-import { fetchExerciseDetails, fetchLastExercisePerformance, fetchBestExercisePerformance, fetchBestExercisePerformance60Days } from '@/app/actions/exercises'
+import { fetchAvailableExercises, fetchExerciseDetails, fetchLastExercisePerformance, fetchLastExercisePerformances, fetchBestExercisePerformance, fetchBestExercisePerformance60Days } from '@/app/actions/exercises'
 import { fetchUserTemplates, updateLinkedTemplateFromWorkout } from '@/app/actions/templates'
 import { fetchExerciseNotes, saveExerciseNote } from '@/app/actions/notes'
 import type { LastExercisePerformance, RoutineWithExercises } from '@/lib/dal'
@@ -47,6 +48,7 @@ import { buildClipboardEntries, clipboardEntriesToLocalSets } from '@/lib/clipbo
 import IconHitTarget from './IconHitTarget'
 import { localDateStr } from '@/lib/localDate'
 import { DistanceUnit, formatDistance, convertKmTo, readDistanceUnitPref, writeDistanceUnitPref } from '@/lib/distanceUnit'
+import { buildWorkoutNavigationSnapshot } from '@/lib/workoutNavigationSnapshot'
 import {
   DEFAULT_GUIDED_VOICE_SETTINGS,
   GuidedVoiceSettings,
@@ -198,6 +200,30 @@ function TempoStartSelector({
   )
 }
 
+function WorkoutVoiceSettingsPanel({
+  settings,
+  onChange,
+  techniqueCue,
+  onTechniqueCueChange,
+  showRestCues = false,
+}: {
+  settings: GuidedVoiceSettings
+  onChange: (settings: GuidedVoiceSettings) => void
+  techniqueCue?: string
+  onTechniqueCueChange?: (cue: string) => void
+  showRestCues?: boolean
+}) {
+  return (
+    <GuidedVoiceSettingsFields
+      settings={settings}
+      onChange={onChange}
+      techniqueCue={techniqueCue}
+      onTechniqueCueChange={onTechniqueCueChange}
+      showRestCues={showRestCues}
+    />
+  )
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function WorkoutLogger({
@@ -209,6 +235,7 @@ export default function WorkoutLogger({
   exercises: SlimExercise[]
   initialTemplate?: RoutineWithExercises | null
 }) {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const { clipboard, copy: copyToClipboard } = useWorkoutClipboard()
   const [copied, setCopied] = useState(false)
@@ -274,6 +301,9 @@ export default function WorkoutLogger({
   // Exercise picker filter state
   const [pickerActiveMuscles, setPickerActiveMuscles] = useState<string[]>([])
   const [pickerActiveCategories, setPickerActiveCategories] = useState<string[]>([])
+  const [exerciseCatalog, setExerciseCatalog] = useState<SlimExercise[]>(exercises)
+  const [catalogState, setCatalogState] = useState<'idle' | 'loading' | 'ready' | 'error'>(exercises.length > 0 ? 'ready' : 'idle')
+  const catalogLoadRef = useRef<Promise<SlimExercise[]> | null>(null)
 
   // Guided set (DRUH tempo timer) + rest timer — persisted so they don't reset.
   const [tempo, setTempo] = useState<TempoConfig>(() => readStored('wt.tempo', { down: 3, rest: 1, up: 2, hold: 1 }))
@@ -437,6 +467,7 @@ export default function WorkoutLogger({
 
   // Sheets & modals
   const [showPicker, setShowPicker] = useState(false)
+  const [showWorkoutSettings, setShowWorkoutSettings] = useState(false)
   const [showImportPicker, setShowImportPicker] = useState(false)
   // Tile 1: Back on an active workout with ≥1 set opens a sheet with exactly
   // Save & leave / Delete workout — leaving never implies lost data. Delete
@@ -444,8 +475,6 @@ export default function WorkoutLogger({
   const [showLeaveSheet, setShowLeaveSheet] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDiscardEditsPrompt, setShowDiscardEditsPrompt] = useState(false)
-  const [showSaveWarning, setShowSaveWarning] = useState(false)
-  const [savedOnce, setSavedOnce] = useState(false)
   const [infoExercise, setInfoExercise] = useState<ExerciseDetails | null>(null)
   const [infoLoading, setInfoLoading] = useState(false)
   type PerfMode = 'last' | 'best' | 'best60'
@@ -529,14 +558,20 @@ export default function WorkoutLogger({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workout.id, workout.date, workout.status, localSets, restForSet, restStartedAt, restMode, activeRestTarget])
 
-  // Fetch last-session performance for each exercise present, once per exercise.
+  // Fetch all visible exercises' most recent sessions in one action. The old
+  // one-action-per-exercise path made larger workouts wait on an avoidable N+1.
   const exerciseKey = exerciseOrder.join(',')
   useEffect(() => {
-    exerciseOrder.forEach((id) => {
-      if (id in lastPerf) return
-      setLastPerf((prev) => ({ ...prev, [id]: null })) // mark in-flight to avoid dupes
-      fetchLastExercisePerformance(id).then((data) => setLastPerf((prev) => ({ ...prev, [id]: data })))
-    })
+    const missingPerformanceIds = exerciseOrder.filter((id) => !(id in lastPerf))
+    if (missingPerformanceIds.length > 0) {
+      setLastPerf((prev) => ({
+        ...prev,
+        ...Object.fromEntries(missingPerformanceIds.map((id) => [id, null])),
+      }))
+      fetchLastExercisePerformances(missingPerformanceIds).then((map) => (
+        setLastPerf((prev) => ({ ...prev, ...map }))
+      ))
+    }
     const missingNotes = exerciseOrder.filter((id) => !(id in notes))
     if (missingNotes.length > 0) {
       fetchExerciseNotes(missingNotes).then((map) =>
@@ -586,6 +621,45 @@ export default function WorkoutLogger({
   }
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
+
+  function exerciseFromSet(set: LocalSet): SlimExercise {
+    return exerciseCatalog.find((exercise) => exercise.id === set.exerciseId) ?? {
+      id: set.exerciseId,
+      name: set.exerciseName,
+      category: set.exerciseCategory,
+      equipment: null,
+      muscles: null,
+      muscles_secondary: null,
+      muscles_detailed: null,
+      muscles_secondary_detailed: null,
+    }
+  }
+
+  function loadExerciseCatalog(): Promise<SlimExercise[]> {
+    if (catalogState === 'ready') return Promise.resolve(exerciseCatalog)
+    if (catalogLoadRef.current) return catalogLoadRef.current
+    setCatalogState('loading')
+    const request = fetchAvailableExercises()
+      .then((items) => {
+        const catalog = items as SlimExercise[]
+        setExerciseCatalog(catalog)
+        setCatalogState('ready')
+        return catalog
+      })
+      .catch((error) => {
+        setCatalogState('error')
+        throw error
+      })
+      .finally(() => { catalogLoadRef.current = null })
+    catalogLoadRef.current = request
+    return request
+  }
+
+  function openExercisePicker() {
+    autoCommitAddForm()
+    setShowPicker(true)
+    void loadExerciseCatalog().catch(() => undefined)
+  }
 
   function handleSelectExercise(ex: SlimExercise) {
     // Tile 9: switching exercises leaves behind whatever is typed in the
@@ -681,7 +755,6 @@ export default function WorkoutLogger({
     setDistance(newSet.distance != null ? String(newSet.distance) : '')
     setAddError(null)
     setAddFormDirty(false)
-    setSavedOnce(true)
     persist(nextSets)
   }
 
@@ -696,17 +769,10 @@ export default function WorkoutLogger({
     })
   }
 
-  // Destructive list operations such as delete/paste remain locally staged so
-  // they can be reviewed before Save. Value edits autosave at their call sites
-  // because a second Save tap made completed-set adjustments easy to lose.
-  function markDirty() {
-    saveQueueRef.current.markDirty(String(workout.id))
-    setSaveState(saveQueueRef.current.getState(String(workout.id)))
-  }
-
   function handleDeleteSet(localId: string) {
-    setLocalSets((prev) => deleteSetOp(prev, localId))
-    markDirty()
+    const nextSets = deleteSetOp(localSets, localId)
+    setLocalSets(nextSets)
+    persist(nextSets)
   }
 
   // ADR-0008 (WP-09): two-tap confirm for the set-delete ✕, mirroring the
@@ -735,7 +801,6 @@ export default function WorkoutLogger({
       return { ...s, done: !s.done }
     })
     setLocalSets(nextSets)
-    setSavedOnce(true)
     persist(nextSets)
     if (becameDone && autoStartRest && startsRestOnComplete(category)) startRestFor(localId)
   }
@@ -790,8 +855,7 @@ export default function WorkoutLogger({
 
   // Open the adjustable guided setup (tempo/reps/weight) for an existing set.
   function openGuidedSetupForSet(s: LocalSet) {
-    const ex = exercises.find((e) => e.id === s.exerciseId)
-    if (!ex) return
+    const ex = exerciseFromSet(s)
     applyPtTempo(s.exerciseId)
     setGuidedSetup({
       exercise: ex,
@@ -823,7 +887,6 @@ export default function WorkoutLogger({
     }
     nextSets = updateSetNote(nextSets, s.localId, editSetNote)
     setLocalSets(nextSets)
-    setSavedOnce(true)
     setEditingId(null)
     persist(nextSets)
     if (autoStartRest && startsRestOnComplete(s.exerciseCategory)) startRestFor(s.localId)
@@ -831,8 +894,7 @@ export default function WorkoutLogger({
 
   function guidedFromEdit(s: LocalSet) {
     saveEditSet(s.localId)
-    const ex = exercises.find((e) => e.id === s.exerciseId)
-    if (!ex) return
+    const ex = exerciseFromSet(s)
     applyPtTempo(s.exerciseId)
     setGuidedSetup({
       exercise: ex,
@@ -862,7 +924,6 @@ export default function WorkoutLogger({
       )
       nextSets = setsAfterRestRestart(nextSets)
       setLocalSets(nextSets)
-      setSavedOnce(true)
       persist(nextSets)
       if (autoStartRest) beginFreshRest(targetId)
       return
@@ -890,7 +951,6 @@ export default function WorkoutLogger({
     }
     const nextSets = setsAfterRestRestart([...localSets, newSet])
     setLocalSets(nextSets)
-    setSavedOnce(true)
     setRunningDruh(null)
     setSelectedExercise(null)
     persist(nextSets)
@@ -963,7 +1023,7 @@ export default function WorkoutLogger({
     const selectedRows = selectedGuideRows(guideSetup.rows)
     if (selectedRows.length === 0) return
     const exerciseId = guideSetup.exerciseId
-    const category = exercises.find((e) => e.id === exerciseId)?.category ?? null
+    const category = localSets.find((set) => set.exerciseId === exerciseId)?.exerciseCategory ?? null
 
     // Build the exercise's set list from the setup rows (reuse existing sets by
     // localId, create new ones for added rows).
@@ -1097,7 +1157,6 @@ export default function WorkoutLogger({
     let nextSets = mergeGuideResults(localSets, guideReview.results)
     if (restOwner && autoStartRest) nextSets = setsAfterRestRestart(nextSets)
     setLocalSets(nextSets)
-    setSavedOnce(true)
     persist(nextSets)
     setGuideReview(null)
     if (restOwner && autoStartRest) {
@@ -1214,7 +1273,7 @@ export default function WorkoutLogger({
     autoCommitAddForm()
     if (workout.status === 'completed') {
       if (isEditing) { setShowDiscardEditsPrompt(true); return }
-      window.location.href = '/dashboard'
+      router.push('/dashboard')
       return
     }
     // Tile 1: every active workout, including a newly-created empty one,
@@ -1223,75 +1282,57 @@ export default function WorkoutLogger({
     setShowLeaveSheet(true)
   }
 
-  // Flushes open, non-completion inputs into one snapshot. `done` is never
-  // changed here: minimizing/switching pages must not complete a set.
-  function snapshotForMinimize(): LocalSet[] {
-    let snapshot = localSets
-    if (editingId) {
-      const target = snapshot.find((set) => set.localId === editingId)
-      if (target) {
-        const isCardio = target.exerciseCategory === 'cardio'
-        const fields = resolveEditFields(
-          { weight: editWeight, reps: editReps, duration_minutes: editDuration, distance: editDistance },
-          target,
-          isCardio,
-        )
-        snapshot = applyEdit(snapshot, target.localId, fields)
-        if (!isCardio) {
-          snapshot = applySetValueEdit(
-            snapshot,
-            target.localId,
-            { weight: fields.weight, reps: fields.reps },
-            setValueModes[target.exerciseId] ?? inferSetValueMode(snapshot, target.exerciseId),
-          )
-        }
-        snapshot = updateSetNote(snapshot, target.localId, editSetNote)
-      }
-    }
-    if (selectedExercise) {
-      const pending = commitPending(
-        { weight, reps, duration_minutes: duration, distance },
-        {
-          localId: crypto.randomUUID(),
-          exerciseId: selectedExercise.id,
-          exerciseName: selectedExercise.name,
-          exerciseCategory: selectedExercise.category,
-        },
-        selectedExercise.category === 'cardio',
-        addFormDirty,
-      )
-      if (pending) snapshot = addSetOp(snapshot, pending)
-    }
+  // One final snapshot contract for Minimize, Save & leave, Done and update
+  // template. Visible inputs are committed, but completion is never inferred.
+  function snapshotForNavigation(): LocalSet[] {
+    const editingSet = editingId ? localSets.find((set) => set.localId === editingId) : null
+    return buildWorkoutNavigationSnapshot(localSets, {
+      edit: editingSet ? {
+        localId: editingSet.localId,
+        fields: { weight: editWeight, reps: editReps, duration_minutes: editDuration, distance: editDistance },
+        note: editSetNote,
+        valueMode: setValueModes[editingSet.exerciseId] ?? inferSetValueMode(localSets, editingSet.exerciseId),
+      } : null,
+      pending: selectedExercise ? {
+        fields: { weight, reps, duration_minutes: duration, distance },
+        exercise: selectedExercise,
+        wasEdited: addFormDirty,
+        localId: crypto.randomUUID(),
+      } : null,
+    })
+  }
+
+  async function flushNavigationSnapshot(): Promise<LocalSet[] | null> {
+    const snapshot = snapshotForNavigation()
+    setLocalSets(snapshot)
+    setEditingId(null)
+    setAddFormDirty(false)
+    const key = String(workout.id)
+    await saveQueueRef.current.enqueue(key, snapshot)
+    await saveQueueRef.current.idle(key)
+    const state = saveQueueRef.current.getState(key)
+    setSaveState(state)
+    if (state.pending || state.dirty || state.error) return null
     return snapshot
   }
 
   async function handleMinimize() {
     if (minimizing) return
     setMinimizing(true)
-    const snapshot = snapshotForMinimize()
-    setLocalSets(snapshot)
-    setEditingId(null)
-    setAddFormDirty(false)
-    const key = String(workout.id)
-    await saveQueueRef.current.enqueue(key, snapshot)
-    const state = saveQueueRef.current.getState(key)
-    setSaveState(state)
-    if (state.dirty || state.error) {
+    const snapshot = await flushNavigationSnapshot()
+    if (!snapshot) {
       setMinimizing(false)
       return
     }
-    window.location.href = '/dashboard'
+    router.push('/dashboard')
   }
 
   async function handleUpdateNextTime() {
     if (!workout.template_id || nextTimeState === 'saving') return
     setNextTimeState('saving')
     setNextTimeMessage(null)
-    const key = String(workout.id)
-    await saveQueueRef.current.enqueue(key, localSets)
-    const state = saveQueueRef.current.getState(key)
-    setSaveState(state)
-    if (state.dirty || state.error) {
+    const snapshot = await flushNavigationSnapshot()
+    if (!snapshot) {
       setNextTimeState('error')
       setNextTimeMessage('Save this workout first, then try again.')
       return
@@ -1314,12 +1355,13 @@ export default function WorkoutLogger({
   // save-state banner instead of navigating away from an unsaved edit.
   async function handleSaveAndLeave() {
     setShowLeaveSheet(false)
-    const key = String(workout.id)
-    await saveQueueRef.current.enqueue(key, localSets)
-    const state = saveQueueRef.current.getState(key)
-    setSaveState(state)
-    if (state.dirty || state.error) return
-    window.location.href = '/dashboard'
+    setMinimizing(true)
+    const snapshot = await flushNavigationSnapshot()
+    if (!snapshot) {
+      setMinimizing(false)
+      return
+    }
+    router.push('/dashboard')
   }
 
   function handleRequestDeleteWorkout() {
@@ -1378,24 +1420,6 @@ export default function WorkoutLogger({
     }
   }
 
-  function buildPayload(): SetPayload[] {
-    return localSets.map(toPayload)
-  }
-
-  function handleSaveProgress() {
-    if (!savedOnce) {
-      setShowSaveWarning(true)
-      return
-    }
-    persist(localSets)
-  }
-
-  function confirmSaveProgress() {
-    setSavedOnce(true)
-    setShowSaveWarning(false)
-    persist(localSets)
-  }
-
   // Completing is a distinct server action (not a saveWorkoutProgress
   // snapshot) but must obey the same contract: never overlap an in-flight
   // autosave for this workout (ADR-0004 §2), inspect the result, and on
@@ -1410,18 +1434,14 @@ export default function WorkoutLogger({
   // is what clears dirty/error and re-enables Done.
   function handleComplete() {
     startTransition(async () => {
-      await saveQueueRef.current.idle(String(workout.id))
-      const state = saveQueueRef.current.getState(String(workout.id))
-      if (state.dirty || state.error) {
-        setSaveState(state) // surface the notice/strip if it isn't already visible
-        return
-      }
+      const snapshot = await flushNavigationSnapshot()
+      if (!snapshot) return
       // Unlike persist(), this bypasses the queue's try/catch — a transport
       // failure REJECTS rather than returning {error}, and an unhandled
       // rejection here would be the silent Done-failure ADR-0004 forbids.
       try {
         clearActiveWorkoutSession(workout.id)
-        const result = await completeWorkout(workout.id, buildPayload())
+        const result = await completeWorkout(workout.id, snapshot.map(toPayload))
         if (result?.error) {
           publishActiveSession()
           setSaveState({ dirty: true, pending: false, error: result.error, retrying: false })
@@ -1443,9 +1463,10 @@ export default function WorkoutLogger({
   // Either way an armed delete-confirm's localId no longer resolves, so it's
   // cleared alongside.
   function applyIncomingSets(incoming: LocalSet[], mode: MergeMode) {
-    setLocalSets((prev) => mergeIncomingSets(prev, incoming, mode))
+    const nextSets = mergeIncomingSets(localSets, incoming, mode)
+    setLocalSets(nextSets)
     setPendingDeleteId(null)
-    markDirty()
+    persist(nextSets)
   }
 
   function handlePasteRequest() {
@@ -1485,8 +1506,9 @@ export default function WorkoutLogger({
   }
 
   function moveExercise(exerciseId: number, direction: 'up' | 'down') {
-    setLocalSets((prev) => reorderExercise(prev, exerciseId, direction))
-    markDirty()
+    const nextSets = reorderExercise(localSets, exerciseId, direction)
+    setLocalSets(nextSets)
+    persist(nextSets)
   }
 
   // ─── Add-set form (rendered inline or at bottom) ──────────────────────────
@@ -1510,7 +1532,7 @@ export default function WorkoutLogger({
         <div className="flex items-center justify-between">
           <p className="text-xs font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-600">Adding set</p>
           <button
-            onClick={() => { autoCommitAddForm(); setShowPicker(true) }}
+            onClick={openExercisePicker}
             className="text-xs font-bold text-orange-500 hover:text-orange-600 transition-colors"
           >
             change
@@ -1634,7 +1656,7 @@ export default function WorkoutLogger({
       <div className="min-h-screen bg-zinc-50 dark:bg-black">
         <header className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 border-b border-zinc-200 bg-white px-4 py-4 dark:border-zinc-800 dark:bg-zinc-950 sm:grid-cols-[1fr_auto_1fr] sm:px-6">
           <button
-            onClick={() => { window.location.href = '/dashboard' }}
+            onClick={() => { router.push('/dashboard') }}
             className="text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"
           >
             ← Back
@@ -1646,10 +1668,9 @@ export default function WorkoutLogger({
           <div className="col-span-2 flex flex-wrap items-center justify-end gap-2 sm:col-span-1 sm:justify-self-end">
             {hasCardioSets && (
               <button
-                onClick={() => setDistanceUnit((u) => (u === 'km' ? 'm' : 'km'))}
-                title="Toggle distance unit"
-                aria-label={`Distance unit: ${distanceUnit}. Tap to switch to ${distanceUnit === 'km' ? 'm' : 'km'}`}
-                className="rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+                onClick={() => setDistanceUnit((unit) => (unit === 'km' ? 'm' : 'km'))}
+                aria-label={`Distance unit: ${distanceUnit}`}
+                className="rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-bold uppercase text-zinc-600 dark:border-zinc-700 dark:text-zinc-400"
               >
                 {distanceUnit}
               </button>
@@ -1822,16 +1843,14 @@ export default function WorkoutLogger({
           <h1 className="text-sm font-bold text-zinc-900 dark:text-white">{dateLabel}</h1>
         </div>
         <div className="col-span-2 flex flex-wrap items-center justify-end gap-2 sm:col-span-1 sm:justify-self-end">
-          {hasCardioSets && (
-            <button
-              onClick={() => setDistanceUnit((u) => (u === 'km' ? 'm' : 'km'))}
-              title="Toggle distance unit"
-              aria-label={`Distance unit: ${distanceUnit}. Tap to switch to ${distanceUnit === 'km' ? 'm' : 'km'}`}
-              className="rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
-            >
-              {distanceUnit}
-            </button>
-          )}
+          <button
+            type="button"
+            aria-label="Workout settings"
+            onClick={() => setShowWorkoutSettings(true)}
+            className="rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-bold text-zinc-600 transition-colors hover:border-orange-400 hover:text-orange-500 dark:border-zinc-700 dark:text-zinc-400"
+          >
+            Settings
+          </button>
           {localSets.length > 0 && (
             <button
               onClick={handleCopy}
@@ -1851,13 +1870,9 @@ export default function WorkoutLogger({
             {minimizing ? 'Saving…' : 'Minimize'}
           </button>
 
-          <button
-            onClick={handleSaveProgress}
-            disabled={isPending}
-            className="rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-zinc-500 disabled:opacity-40 transition-colors"
-          >
-            Save
-          </button>
+          <span role="status" className={`px-1 text-xs font-bold ${saveState.error ? 'text-red-600' : saveState.pending || saveState.retrying ? 'text-amber-600' : saveState.dirty ? 'text-zinc-500' : 'text-emerald-600'}`}>
+            {saveState.error ? 'Not saved' : saveState.pending || saveState.retrying ? 'Saving…' : saveState.dirty ? 'Unsaved' : 'Saved'}
+          </span>
           <button
             onClick={handleComplete}
             // D6: Done must not fire over unsaved data — block while a save
@@ -1943,24 +1958,19 @@ export default function WorkoutLogger({
                 type="button"
                 role="switch"
                 aria-checked={autoStartRest}
+                aria-label={`Auto ${autoStartRest ? 'on' : 'off'}`}
                 onClick={() => setAutoStartRest((enabled) => !enabled)}
-                className={`rounded-full border px-3 py-1.5 font-bold uppercase tracking-wide transition-colors ${autoStartRest ? 'border-orange-400 bg-orange-50 text-orange-600 dark:bg-orange-950/20 dark:text-orange-400' : 'border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400'}`}
+                className={`rounded-full border px-3 py-1.5 font-bold transition-colors ${autoStartRest ? 'border-orange-400 bg-orange-50 text-orange-700 dark:bg-orange-950/20 dark:text-orange-300' : 'border-zinc-200 text-zinc-500 dark:border-zinc-700'}`}
               >
-                Auto {autoStartRest ? 'on' : 'off'}
+                Auto rest {autoStartRest ? 'on' : 'off'}
               </button>
               <button
-                onClick={() => setRestMode((m) => (m === 'fixed' ? 'variable' : 'fixed'))}
-                className="rounded-full border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
+                type="button"
+                onClick={() => setShowWorkoutSettings(true)}
+                className="rounded-full border border-zinc-200 px-3 py-1.5 font-bold text-zinc-600 transition-colors hover:border-orange-400 hover:text-orange-500 dark:border-zinc-700 dark:text-zinc-400"
               >
-                {restMode === 'fixed' ? 'Fixed' : 'Variable'}
+                {restMode === 'fixed' ? `${restTarget}s countdown` : 'Count up'} · Settings
               </button>
-              {restMode === 'fixed' && (
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setRestTarget((t) => Math.max(5, t - 5))} className="rounded-full border border-zinc-200 dark:border-zinc-700 w-8 py-1.5 font-bold text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors">−5</button>
-                  <span className="font-black tabular-nums text-zinc-700 dark:text-zinc-300 w-12 text-center">{restTarget}s</span>
-                  <button onClick={() => setRestTarget((t) => t + 5)} className="rounded-full border border-zinc-200 dark:border-zinc-700 w-8 py-1.5 font-bold text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors">+5</button>
-                </div>
-              )}
               {localSets.length > 0 && (
                 <button
                   onClick={() => startRestFor(localSets[localSets.length - 1].localId)}
@@ -2036,8 +2046,8 @@ export default function WorkoutLogger({
               </button>
               <IconHitTarget
                 onClick={() => {
-                  const ex = exercises.find((e) => e.id === exerciseId)
-                  if (ex) handleSelectExercise(ex)
+                  const set = localSets.find((item) => item.exerciseId === exerciseId)
+                  if (set) handleSelectExercise(exerciseFromSet(set))
                 }}
                 title="Quick-add a set"
               >
@@ -2352,7 +2362,7 @@ export default function WorkoutLogger({
         {/* Add exercise button — always visible unless a new exercise form is showing */}
         {(!selectedExercise || exerciseOrder.includes(selectedExercise.id)) && (
           <button
-            onClick={() => setShowPicker(true)}
+            onClick={openExercisePicker}
             className="flex items-center justify-center gap-2 w-full rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 py-5 text-sm font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 hover:border-orange-400 hover:text-orange-500 transition-colors"
           >
             + Add exercise
@@ -2389,10 +2399,84 @@ export default function WorkoutLogger({
         />
       )}
 
+      {showWorkoutSettings && (
+        <Modal
+          title="Workout settings"
+          onClose={() => setShowWorkoutSettings(false)}
+          backdropClassName="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 px-4"
+          panelClassName="flex max-h-[88vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl outline-none dark:bg-zinc-900"
+        >
+          <>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-orange-500">This workout</p>
+              <h3 className="mt-1 text-lg font-black text-zinc-900 dark:text-white">Workout settings</h3>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">Changes save on this device and become your defaults.</p>
+            </div>
+
+            <label className="flex min-h-14 items-center justify-between gap-4 rounded-xl border border-zinc-200 px-3 dark:border-zinc-700">
+              <span>
+                <span className="block text-sm font-bold text-zinc-800 dark:text-zinc-200">Auto-start rest</span>
+                <span className="block text-xs text-zinc-500">After completing a strength set.</span>
+              </span>
+              <input type="checkbox" role="switch" checked={autoStartRest} onChange={(event) => setAutoStartRest(event.target.checked)} className="size-5 accent-orange-500" />
+            </label>
+
+            <div className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
+              <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Rest timer</p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setRestMode('fixed')} className={`min-h-11 rounded-xl border text-sm font-bold ${restMode === 'fixed' ? 'border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300' : 'border-zinc-200 text-zinc-500 dark:border-zinc-700'}`}>Countdown</button>
+                <button type="button" onClick={() => setRestMode('variable')} className={`min-h-11 rounded-xl border text-sm font-bold ${restMode === 'variable' ? 'border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300' : 'border-zinc-200 text-zinc-500 dark:border-zinc-700'}`}>Count up</button>
+              </div>
+              {restMode === 'fixed' && (
+                <label className="mt-3 flex items-center justify-between text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+                  Default rest
+                  <select value={restTarget} onChange={(event) => setRestTarget(Number(event.target.value))} className="min-h-11 rounded-xl border border-zinc-300 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950">
+                    {[30, 45, 60, 75, 90, 120, 150, 180].map((seconds) => <option key={seconds} value={seconds}>{seconds}s</option>)}
+                  </select>
+                </label>
+              )}
+            </div>
+
+            <label className="flex min-h-14 items-center justify-between gap-4 rounded-xl border border-zinc-200 px-3 dark:border-zinc-700">
+              <span>
+                <span className="block text-sm font-bold text-zinc-800 dark:text-zinc-200">Rest between guided sets</span>
+                <span className="block text-xs text-zinc-500">Uses the same main rest timer.</span>
+              </span>
+              <input type="checkbox" role="switch" checked={guideRestBetweenSets} onChange={(event) => setGuideRestBetweenSets(event.target.checked)} className="size-5 accent-orange-500" />
+            </label>
+
+            <div className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
+              <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Distance unit</p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {(['km', 'm'] as const).map((unit) => (
+                  <button key={unit} type="button" onClick={() => setDistanceUnit(unit)} className={`min-h-11 rounded-xl border text-sm font-bold uppercase ${distanceUnit === unit ? 'border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300' : 'border-zinc-200 text-zinc-500 dark:border-zinc-700'}`}>{unit}</button>
+                ))}
+              </div>
+            </div>
+
+            <WorkoutVoiceSettingsPanel
+              settings={guideVoiceSettings}
+              onChange={setGuideVoiceSettings}
+              techniqueCue={guideTechniqueCues[guidedSetup?.exercise.id ?? guideSetup?.exerciseId ?? -1] ?? ''}
+              onTechniqueCueChange={(cue) => {
+                const exerciseId = guidedSetup?.exercise.id ?? guideSetup?.exerciseId
+                if (exerciseId != null) updateGuideTechniqueCue(exerciseId, cue)
+              }}
+              showRestCues
+            />
+
+            <button type="button" onClick={() => setShowWorkoutSettings(false)} className="min-h-12 rounded-xl bg-orange-600 px-4 text-sm font-black text-white hover:bg-orange-700">Done</button>
+          </>
+        </Modal>
+      )}
+
       {/* Exercise picker */}
       {showPicker && (
         <ExercisePickerSheet
-          exercises={exercises}
+          exercises={exerciseCatalog}
+          loading={catalogState === 'loading'}
+          loadError={catalogState === 'error'}
+          onRetry={() => { void loadExerciseCatalog().catch(() => undefined) }}
           activeMuscles={pickerActiveMuscles}
           onMusclesChange={setPickerActiveMuscles}
           activeCategories={pickerActiveCategories}
@@ -2445,42 +2529,6 @@ export default function WorkoutLogger({
                 </li>
               ))}
             </ul>
-          </>
-        </Modal>
-      )}
-
-      {/* Save progress warning */}
-      {showSaveWarning && (
-        <Modal
-          title="Progress won't be tracked"
-          onClose={() => setShowSaveWarning(false)}
-          destructive
-          backdropClassName="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] px-4"
-          panelClassName="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl outline-none"
-        >
-          <>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-orange-500 mb-1">Heads up</p>
-              <h3 className="text-base font-bold text-zinc-900 dark:text-white">Progress won&apos;t be tracked</h3>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                Sets are saved but this workout won&apos;t count toward exercise history. Hit <strong>Done</strong> when you finish to track your progress.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowSaveWarning(false)}
-                className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 py-2.5 text-sm font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmSaveProgress}
-                disabled={isPending}
-                className="flex-1 rounded-xl bg-zinc-800 dark:bg-zinc-700 py-2.5 text-sm font-bold text-white hover:bg-zinc-700 transition-colors disabled:opacity-40"
-              >
-                Save anyway
-              </button>
-            </div>
           </>
         </Modal>
       )}
@@ -2713,7 +2761,7 @@ export default function WorkoutLogger({
               </div>
             </div>
             <TempoStartSelector value={tempoStartPhase} onChange={setTempoStartPhase} />
-            <GuidedVoiceSettingsFields
+            <WorkoutVoiceSettingsPanel
               settings={guideVoiceSettings}
               onChange={setGuideVoiceSettings}
               techniqueCue={guideTechniqueCues[guidedSetup.exercise.id] ?? ''}
@@ -2850,7 +2898,7 @@ export default function WorkoutLogger({
               />
             </label>
 
-            <GuidedVoiceSettingsFields
+            <WorkoutVoiceSettingsPanel
               settings={guideVoiceSettings}
               onChange={setGuideVoiceSettings}
               techniqueCue={guideTechniqueCues[guideSetup.exerciseId] ?? ''}

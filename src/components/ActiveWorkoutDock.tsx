@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import {
@@ -31,6 +30,7 @@ function subscribeActiveWorkout(onStoreChange: () => void) {
 export default function ActiveWorkoutDock() {
   const pathname = usePathname()
   const [, tick] = useState(0)
+  const [resuming, setResuming] = useState(false)
   const rawSession = useSyncExternalStore(
     subscribeActiveWorkout,
     readActiveWorkoutSessionRaw,
@@ -60,17 +60,19 @@ export default function ActiveWorkoutDock() {
     >
       <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-orange-600 text-lg" aria-hidden="true">↗</span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[0.65rem] font-black uppercase tracking-[0.18em] text-orange-400">Workout minimized</span>
+        <span className="block text-[0.65rem] font-black uppercase tracking-[0.18em] text-orange-400">Saved workout</span>
         <span className="block truncate text-sm font-bold">
           {rest ? `${rest.mode === 'fixed' ? 'Rest' : 'Resting'} · ${clock(restClockSeconds(rest))}` : 'Workout in progress'}
         </span>
       </span>
-      <Link
+      <a
         href={`/workout/${session.workoutId}`}
+        onClick={() => setResuming(true)}
+        aria-busy={resuming}
         className="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-white px-4 text-sm font-black text-zinc-950 hover:bg-orange-50"
       >
-        Resume
-      </Link>
+        {resuming ? 'Loading…' : 'Resume'}
+      </a>
     </aside>
   )
 }
