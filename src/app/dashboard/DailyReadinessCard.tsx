@@ -27,7 +27,7 @@ export default function DailyReadinessCard({
         </div>
 
         {available ? (
-          <form action={action} aria-label="Choose how you feel" className="grid grid-cols-5 gap-1.5 sm:gap-2">
+          <form action={action} aria-label="Choose how you feel" className="flex max-w-full gap-2 overflow-x-auto pb-1">
             {READINESS_OPTIONS.map((option) => (
               <button
                 key={option.value}
@@ -37,7 +37,7 @@ export default function DailyReadinessCard({
                 aria-label={option.label}
                 aria-pressed={selected === option.value}
                 disabled={pending}
-                className={`group flex min-h-14 min-w-12 flex-col items-center justify-center rounded-xl border px-1 transition disabled:opacity-60 ${selected === option.value ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-500/20 dark:bg-orange-950/50' : 'border-zinc-200 hover:border-orange-300 hover:bg-orange-50/60 dark:border-zinc-700 dark:hover:bg-orange-950/30'}`}
+                className={`group flex min-h-14 min-w-14 flex-col items-center justify-center rounded-xl border px-1 transition disabled:opacity-60 ${selected === option.value ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-500/20 dark:bg-orange-950/50' : 'border-zinc-200 hover:border-orange-300 hover:bg-orange-50/60 dark:border-zinc-700 dark:hover:bg-orange-950/30'}`}
               >
                 <span aria-hidden="true" className="text-2xl transition group-hover:scale-110">{option.emoji}</span>
                 <span className="mt-0.5 text-[0.62rem] font-bold text-zinc-500 dark:text-zinc-400">{option.label}</span>

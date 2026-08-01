@@ -80,7 +80,6 @@ export default async function Dashboard({
   const avatar = typeof user.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : null
   const myPtLabel = trainerNotificationLabel('My PT', trainerNotifications.trainee)
   const ptRequestsLabel = trainerNotificationLabel('PT Requests', trainerNotifications.trainer)
-
   return (
     <AppShell
       title="Today"
@@ -95,53 +94,45 @@ export default async function Dashboard({
         isPlatformAdmin,
       })}
     >
-      <section className="overflow-hidden rounded-[1.75rem] bg-zinc-950 p-6 text-white shadow-xl shadow-zinc-950/10 dark:bg-zinc-900 sm:p-8">
-        <div className="grid items-end gap-7 sm:grid-cols-[minmax(0,1fr)_auto]">
+      <section className="overflow-hidden rounded-[1.5rem] bg-zinc-950 p-5 text-white shadow-lg shadow-zinc-950/10 dark:bg-zinc-900 sm:p-7">
+        <div className="grid items-center gap-5 sm:grid-cols-[minmax(0,1fr)_auto]">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-400">{new Intl.DateTimeFormat('en', { weekday: 'long', day: 'numeric', month: 'long' }).format(now)}</p>
-            <h2 className="mt-3 text-3xl font-black tracking-[-0.035em] sm:text-4xl">{greeting()}, {firstName}.</h2>
-            <p className="mt-3 max-w-lg text-sm leading-6 text-zinc-300">Start today’s session, or review the plan your trainer prepared before you move.</p>
+            <h2 className="mt-2 text-2xl font-black tracking-[-0.035em] sm:text-3xl">{greeting()}, {firstName}.</h2>
+            <p className="mt-2 max-w-lg text-sm leading-6 text-zinc-300">See what is due, then start training.</p>
           </div>
           <StartWorkoutButton />
         </div>
       </section>
 
+      <div className="mt-5">
+        <WorkoutPlanAgenda plans={workoutPlans} loadFailed={planReadFailed} />
+      </div>
+
       <DailyReadinessCard initial={todayReadiness} available={readinessAvailable} />
 
-      <section aria-labelledby="quick-actions-title" className="mt-6">
-        <h2 id="quick-actions-title" className="sr-only">Quick actions</h2>
-        <div className={`grid grid-cols-2 gap-3 ${hasTrainerRole ? 'sm:grid-cols-3 lg:grid-cols-5' : 'sm:grid-cols-3'}`}>
-          <Link href="/workouts" className="flex min-h-20 flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-4 text-sm font-bold text-zinc-900 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
-            <span aria-hidden="true" className="text-xl text-orange-600">◫</span>
-            Workout templates
-          </Link>
-          <Link href="/routines" className="flex min-h-20 flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-4 text-sm font-bold text-zinc-900 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
-            <span aria-hidden="true" className="text-xl text-orange-600">⌁</span>
-            Exercise library
-          </Link>
-          <Link href="/connections" className="relative flex min-h-20 flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-4 text-sm font-bold text-zinc-900 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
-            <span aria-hidden="true" className="text-xl text-orange-600">◎</span>
-            {myPtLabel}
-          </Link>
+      {(trainerNotifications.trainee > 0 || hasTrainerRole) && (
+        <section aria-label="Coaching updates" className="mt-4 flex flex-wrap gap-2">
+          {trainerNotifications.trainee > 0 && (
+            <Link href="/connections" className="inline-flex min-h-11 items-center rounded-xl border border-orange-300 bg-orange-50 px-4 text-sm font-bold text-orange-800 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200">
+              {myPtLabel}
+            </Link>
+          )}
           {hasTrainerRole && (
             <>
-              <Link href="/trainer/connections" className="relative flex min-h-20 flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-4 text-sm font-bold text-zinc-900 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
-                <span aria-hidden="true" className="text-xl text-orange-600">◇</span>
+              <Link href="/trainer/connections" className="inline-flex min-h-11 items-center rounded-xl border border-zinc-300 bg-white px-4 text-sm font-bold text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
                 {ptRequestsLabel}
               </Link>
-              <Link href="/trainer/clients" className="relative flex min-h-20 flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-4 text-sm font-bold text-zinc-900 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-white">
-                <span aria-hidden="true" className="text-xl text-orange-600">◉</span>
+              <Link href="/trainer/clients" className="inline-flex min-h-11 items-center rounded-xl border border-zinc-300 bg-white px-4 text-sm font-bold text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
                 Clients
               </Link>
             </>
           )}
-        </div>
-      </section>
+        </section>
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(19rem,.75fr)]">
         <div className="flex min-w-0 flex-col gap-6">
-          <WorkoutPlanAgenda plans={workoutPlans} loadFailed={planReadFailed} />
-
           <section aria-labelledby="training-calendar-heading" className="rounded-[1.5rem] border border-zinc-200/80 bg-white p-5 shadow-sm shadow-zinc-950/5 dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
             <div className="mb-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600 dark:text-orange-400">Training history</p>

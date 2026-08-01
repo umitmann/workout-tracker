@@ -70,6 +70,7 @@ import {
   selectedGuideRows,
   setAllSelectedMaxMode,
 } from '@/lib/guideSetSelection'
+import { effortLabel, previousSetLabel } from '@/lib/workoutLogPresentation'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -124,10 +125,9 @@ function writeStored(key: string, value: unknown) {
   }
 }
 
-// Tile 10c: always-visible 1-5 difficulty chip for a non-cardio set row —
-// blank until tapped, editable after the fact, never required. `onSelect`
-// omitted renders a read-only variant (completed view): the numbers still
-// show which one (if any) was picked, but nothing is tappable.
+// Effort is optional secondary metadata. Keep one clear 44px entry point in
+// the logging flow and reveal the full scale only after the athlete asks for
+// it; five always-visible 20px circles were both cramped and inaccessible.
 function DifficultyChip({
   value,
   onSelect,
@@ -135,33 +135,39 @@ function DifficultyChip({
   value: number | null
   onSelect?: (n: number) => void
 }) {
+  const [expanded, setExpanded] = useState(false)
   const readOnly = !onSelect
   if (readOnly && value == null) return null
+  if (readOnly) {
+    return <span title={`Difficulty ${value} of 5`} className="inline-flex min-h-7 items-center rounded-full bg-zinc-100 px-2 text-xs font-bold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">{effortLabel(value)}</span>
+  }
   return (
-    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-      {!readOnly && (
-        <span className="text-[0.65rem] font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 mr-0.5">
-          Difficulty
-        </span>
+    <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((visible) => !visible)}
+        className="min-h-11 rounded-xl border border-zinc-300 px-3 text-sm font-bold text-zinc-700 hover:border-orange-400 hover:text-orange-600 dark:border-zinc-700 dark:text-zinc-200"
+      >
+        {effortLabel(value)}
+      </button>
+      {expanded && (
+        <fieldset className="workout-effort-scale flex items-center gap-1">
+          <legend className="sr-only">Rate effort from 1 to 5</legend>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => { onSelect?.(n); setExpanded(false) }}
+              title={`Difficulty ${n} of 5`}
+              aria-pressed={value === n}
+              className={`workout-effort-choice grid min-h-11 min-w-11 flex-1 place-items-center rounded-xl border text-sm font-black transition-colors ${value === n ? 'border-orange-500 bg-orange-500 text-white' : 'border-zinc-300 text-zinc-600 hover:border-orange-400 dark:border-zinc-700 dark:text-zinc-300'}`}
+            >
+              {n}
+            </button>
+          ))}
+        </fieldset>
       )}
-      {[1, 2, 3, 4, 5]
-        .filter((n) => !readOnly || n === value)
-        .map((n) => (
-          <button
-            key={n}
-            type="button"
-            disabled={readOnly}
-            onClick={() => onSelect?.(n)}
-            title={`Difficulty ${n}${readOnly ? '' : ' of 5'}`}
-            className={`w-5 h-5 rounded-full border text-[0.65rem] font-bold flex items-center justify-center leading-none transition-colors ${
-              value === n
-                ? 'bg-orange-500 border-orange-500 text-white'
-                : 'border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-600 hover:border-orange-400 hover:text-orange-500'
-            } ${readOnly ? 'cursor-default' : ''}`}
-          >
-            {n}
-          </button>
-        ))}
     </div>
   )
 }
@@ -436,16 +442,6 @@ export default function WorkoutLogger({
     beginRest(localId, 0)
   }
 
-  // The explicit Start rest control always restarts. If another timer was
-  // running, persist its actual elapsed duration before beginning at 0:00.
-  function forceRestartRestFor(localId: string) {
-    const nextSets = setsAfterRestRestart(localSets)
-    if (nextSets !== localSets) {
-      setLocalSets(nextSets)
-      persist(nextSets)
-    }
-    beginFreshRest(localId)
-  }
   // exerciseId currently being guided as a whole (full-screen set→rest→set…)
   const [guidingExerciseId, setGuidingExerciseId] = useState<number | null>(null)
   const [guidingSets, setGuidingSets] = useState<GuideSet[] | null>(null)
@@ -467,6 +463,7 @@ export default function WorkoutLogger({
 
   // Sheets & modals
   const [showPicker, setShowPicker] = useState(false)
+  const [showWorkoutActions, setShowWorkoutActions] = useState(false)
   const [showWorkoutSettings, setShowWorkoutSettings] = useState(false)
   const [showImportPicker, setShowImportPicker] = useState(false)
   // Tile 1: Back on an active workout with ≥1 set opens a sheet with exactly
@@ -489,6 +486,7 @@ export default function WorkoutLogger({
   const [minimizing, setMinimizing] = useState(false)
   const [nextTimeState, setNextTimeState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [nextTimeMessage, setNextTimeMessage] = useState<string | null>(null)
+  const [expandedSetActionsId, setExpandedSetActionsId] = useState<string | null>(null)
 
   // Warn on browser tab close / refresh — for active workouts with sets, and
   // unconditionally while a save has failed or is still pending (ADR-0004:
@@ -1394,18 +1392,6 @@ export default function WorkoutLogger({
     setIsEditing(false)
   }
 
-  function fmtLastPerf(p: LastExercisePerformance | null | undefined): string | null {
-    if (!p || !p.sets.length) return null
-    return p.sets
-      .map((s) => {
-        if (s.weight != null && s.reps != null) return `${s.weight}×${s.reps}`
-        if (s.weight != null) return `${s.weight}kg`
-        if (s.reps != null) return `${s.reps}`
-        return '—'
-      })
-      .join(' · ')
-  }
-
   function toPayload(s: LocalSet): SetPayload {
     return {
       exercise_id: s.exerciseId,
@@ -1828,64 +1814,54 @@ export default function WorkoutLogger({
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
-      {/* Header */}
-      <header className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 border-b border-zinc-200 bg-white px-4 py-4 dark:border-zinc-800 dark:bg-zinc-950 sm:grid-cols-[1fr_auto_1fr] sm:px-6">
+      {/* One compact app bar: navigation, session state, and the two actions
+          needed mid-workout. Copy/settings remain available under More. */}
+      <header className="workout-header border-b border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950 sm:px-6">
+        <div className="workout-header-row mx-auto flex max-w-lg items-center gap-1.5">
         <button
           onClick={handleBack}
-          className="text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"
+          aria-label="Back"
+          className="workout-header-square grid min-h-12 min-w-12 place-items-center rounded-xl text-xl text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
         >
-          ← Back
+          ←
         </button>
-        <div className="justify-self-end text-right sm:justify-self-auto sm:text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-orange-500">
+        <div className="workout-header-title min-w-0 flex-1 px-1">
+          <p className="truncate text-[0.65rem] font-bold uppercase tracking-widest text-orange-600 dark:text-orange-400">
             {workout.status === 'completed' && isEditing ? 'Editing' : 'Active'}
           </p>
-          <h1 className="text-sm font-bold text-zinc-900 dark:text-white">{dateLabel}</h1>
+          <div className="flex min-w-0 items-center gap-2">
+            <h1 className="truncate text-sm font-bold text-zinc-900 dark:text-white">{dateLabel}</h1>
+            <span role="status" className={`shrink-0 text-[0.65rem] font-bold ${saveState.error ? 'text-red-600' : saveState.pending || saveState.retrying ? 'text-amber-600' : saveState.dirty ? 'text-zinc-600 dark:text-zinc-300' : 'text-emerald-600'}`}>
+              {saveState.error ? 'Not saved' : saveState.pending || saveState.retrying ? 'Saving…' : saveState.dirty ? 'Unsaved' : 'Saved'}
+            </span>
+          </div>
         </div>
-        <div className="col-span-2 flex flex-wrap items-center justify-end gap-2 sm:col-span-1 sm:justify-self-end">
-          <button
-            type="button"
-            aria-label="Workout settings"
-            onClick={() => setShowWorkoutSettings(true)}
-            className="rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-bold text-zinc-600 transition-colors hover:border-orange-400 hover:text-orange-500 dark:border-zinc-700 dark:text-zinc-400"
-          >
-            Settings
-          </button>
-          {localSets.length > 0 && (
-            <button
-              onClick={handleCopy}
-              className="rounded-full border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
-            >
-              {copied ? 'Copied!' : 'Copy'}
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={handleMinimize}
-            disabled={minimizing || isPending}
-            title="Keep this workout and rest timer running while you use the app"
-            className="rounded-full border border-orange-300 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-orange-600 transition-colors hover:bg-orange-50 disabled:opacity-40 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-950/30"
-          >
-            {minimizing ? 'Saving…' : 'Minimize'}
-          </button>
-
-          <span role="status" className={`px-1 text-xs font-bold ${saveState.error ? 'text-red-600' : saveState.pending || saveState.retrying ? 'text-amber-600' : saveState.dirty ? 'text-zinc-500' : 'text-emerald-600'}`}>
-            {saveState.error ? 'Not saved' : saveState.pending || saveState.retrying ? 'Saving…' : saveState.dirty ? 'Unsaved' : 'Saved'}
-          </span>
-          <button
-            onClick={handleComplete}
-            // D6: Done must not fire over unsaved data — block while a save
-            // is in flight/retrying, dirty (unsaved local edit), or has
-            // failed all its retries. handleComplete re-checks this after
-            // idle() too, so this is belt-and-suspenders against a stale
-            // disabled prop, not the sole guard.
-            disabled={isPending || saveState.pending || saveState.dirty || !!saveState.error}
-            title={saveState.error ? 'Fix the save error before completing' : saveState.dirty ? 'Waiting for changes to save' : undefined}
-            className="rounded-full bg-orange-500 hover:bg-orange-600 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-white disabled:opacity-40 transition-colors"
-          >
-            {isPending ? '…' : 'Done'}
-          </button>
+        <button
+          type="button"
+          onClick={handleMinimize}
+          disabled={minimizing || isPending}
+          aria-label="Minimize workout and browse app"
+          title="Keep this workout and rest timer running while you use the app"
+          className="workout-header-action min-h-12 rounded-xl px-2.5 text-xs font-bold text-orange-700 transition-colors hover:bg-orange-50 disabled:opacity-40 dark:text-orange-300 dark:hover:bg-orange-950/30 sm:px-3"
+        >
+          {minimizing ? 'Saving…' : 'Browse'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowWorkoutActions(true)}
+          aria-label="More workout actions"
+          className="workout-header-square grid min-h-12 min-w-12 place-items-center rounded-xl text-xl font-black text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        >
+          ⋯
+        </button>
+        <button
+          onClick={handleComplete}
+          disabled={isPending || saveState.pending || saveState.dirty || !!saveState.error}
+          title={saveState.error ? 'Fix the save error before completing' : saveState.dirty ? 'Waiting for changes to save' : undefined}
+          className="workout-header-action min-h-12 rounded-xl bg-orange-600 px-3 text-xs font-black uppercase tracking-wide text-white transition-colors hover:bg-orange-700 disabled:opacity-40"
+        >
+          {isPending ? '…' : 'Done'}
+        </button>
         </div>
       </header>
 
@@ -1923,60 +1899,47 @@ export default function WorkoutLogger({
         </div>
       )}
 
-      <main className="mx-auto flex max-w-lg flex-col gap-6 px-4 py-6 sm:px-6">
+      <main className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
 
         {/* Rest — sticky at top; see shouldStickRestBar (finding L2, commit
             91d70ae) for when it drops out of sticky vs. stays pinned. */}
-        <div className={`${shouldStickRestBar(fieldFocused, restForSet !== null) ? 'sticky top-0' : ''} z-20 -mx-4 px-4 py-2 bg-zinc-50/95 dark:bg-black/95 backdrop-blur border-b border-zinc-200/60 dark:border-zinc-800/60 sm:-mx-6 sm:px-6`}>
+        <div aria-label="Rest timer" className={`workout-rest-bar ${shouldStickRestBar(fieldFocused, restForSet !== null) ? 'sticky top-0' : ''} z-20 -mx-4 border-b border-zinc-200/70 bg-zinc-50/95 px-4 py-2 backdrop-blur dark:border-zinc-800/70 dark:bg-black/95 sm:-mx-6 sm:px-6`}>
           {restForSet !== null ? (
-            <div className="flex flex-col gap-1.5">
-              <RestTimer
-                key={`${restForSet}:${restNonce}`}
-                initialMode={restMode}
-                initialTarget={activeRestTarget}
-                initialElapsed={restInitialElapsed}
-                onDone={finishRest}
-                onSettingsChange={(m, t) => { setRestMode(m); setRestTarget(t) }}
-              />
-              {/* The ONE deliberate restart, even while a rest is already running
-                  (D5/Tile 6): logs the current elapsed to its set, then starts a
-                  fresh 0:00 timer. Every other completion path is idle-gated and
-                  leaves a running rest untouched. */}
-              {localSets.length > 0 && (
-                <button
-                  onClick={() => forceRestartRestFor(localSets[localSets.length - 1].localId)}
-                  className="self-end rounded-full bg-orange-500 hover:bg-orange-600 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-white transition-colors"
-                >
-                  Start rest
-                </button>
-              )}
-            </div>
+            <RestTimer
+              key={`${restForSet}:${restNonce}`}
+              initialMode={restMode}
+              initialTarget={activeRestTarget}
+              initialElapsed={restInitialElapsed}
+              onDone={finishRest}
+              onSettingsChange={(m, t) => { setRestMode(m); setRestTarget(t) }}
+            />
           ) : (
-            <div className="flex items-center gap-2 text-xs flex-wrap">
-              <span className="font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Rest</span>
+            <div className="workout-rest-controls grid min-h-12 grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-1.5 text-xs">
+              <span className="workout-rest-label font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-300">Rest</span>
               <button
                 type="button"
                 role="switch"
                 aria-checked={autoStartRest}
                 aria-label={`Auto ${autoStartRest ? 'on' : 'off'}`}
                 onClick={() => setAutoStartRest((enabled) => !enabled)}
-                className={`rounded-full border px-3 py-1.5 font-bold transition-colors ${autoStartRest ? 'border-orange-400 bg-orange-50 text-orange-700 dark:bg-orange-950/20 dark:text-orange-300' : 'border-zinc-200 text-zinc-500 dark:border-zinc-700'}`}
+                className={`workout-rest-action min-h-11 rounded-xl border px-2 font-bold transition-colors ${autoStartRest ? 'border-orange-400 bg-orange-50 text-orange-700 dark:bg-orange-950/20 dark:text-orange-300' : 'border-zinc-300 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300'}`}
               >
-                Auto rest {autoStartRest ? 'on' : 'off'}
+                Auto {autoStartRest ? 'on' : 'off'}
               </button>
               <button
                 type="button"
                 onClick={() => setShowWorkoutSettings(true)}
-                className="rounded-full border border-zinc-200 px-3 py-1.5 font-bold text-zinc-600 transition-colors hover:border-orange-400 hover:text-orange-500 dark:border-zinc-700 dark:text-zinc-400"
+                aria-label="Workout settings"
+                className="workout-rest-action min-h-11 truncate rounded-xl border border-zinc-300 px-2 font-bold text-zinc-700 transition-colors hover:border-orange-400 hover:text-orange-600 dark:border-zinc-700 dark:text-zinc-300"
               >
-                {restMode === 'fixed' ? `${restTarget}s countdown` : 'Count up'} · Settings
+                {restMode === 'fixed' ? `${restTarget}s` : 'Count up'}
               </button>
               {localSets.length > 0 && (
                 <button
                   onClick={() => startRestFor(localSets[localSets.length - 1].localId)}
-                  className="ml-auto rounded-full bg-orange-500 hover:bg-orange-600 px-4 py-1.5 font-bold uppercase tracking-wide text-white transition-colors"
+                  className="workout-rest-action min-h-11 rounded-xl bg-orange-600 px-3 font-bold text-white transition-colors hover:bg-orange-700"
                 >
-                  Start rest
+                  Start
                 </button>
               )}
             </div>
@@ -1987,99 +1950,77 @@ export default function WorkoutLogger({
         {exerciseOrder.map((exerciseId, exIdx) => {
           const group = grouped[exerciseId]
           return (
-          <div key={exerciseId} className="flex flex-col gap-2">
-            {/* Row 1: title + info/history icon buttons (44px hit areas, ADR-0008) */}
-            <div className="flex min-w-0 flex-wrap items-center gap-1">
-              <h2 className="min-w-0 basis-24 flex-1 truncate text-sm font-bold uppercase tracking-wide text-zinc-900 dark:text-white">{group.name}</h2>
-              <IconHitTarget onClick={() => handleInfoClick(exerciseId)} title="Exercise info">
-                <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors text-xs font-bold flex items-center justify-center leading-none">
-                  i
-                </span>
-              </IconHitTarget>
-              <IconHitTarget onClick={() => handlePerfClick(exerciseId, group.name, 'last', group.sets[0]?.exerciseCategory ?? null)} title="Last session">
-                <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none">
-                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <circle cx="6" cy="6" r="5" />
-                    <path d="M6 3v3l1.5 1.5" />
-                  </svg>
-                </span>
-              </IconHitTarget>
-              <IconHitTarget onClick={() => handlePerfClick(exerciseId, group.name, 'best', group.sets[0]?.exerciseCategory ?? null)} title="Best session">
-                <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none">
-                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M3.5 1.5h5v3.5a2.5 2.5 0 0 1-5 0V1.5z" />
-                    <path d="M6 7v1.5" />
-                    <path d="M4 9h4" />
-                    <path d="M1.5 2.5h2" />
-                    <path d="M8.5 2.5h2" />
-                  </svg>
-                </span>
-              </IconHitTarget>
-              <IconHitTarget onClick={() => handlePerfClick(exerciseId, group.name, 'best60', group.sets[0]?.exerciseCategory ?? null)} title="Best · 60 days">
-                <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-orange-400 hover:text-orange-500 transition-colors flex items-center justify-center leading-none">
-                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M7 1.5L3.5 6.5H6.5L5 10.5" />
-                  </svg>
-                </span>
-              </IconHitTarget>
+          <section key={exerciseId} className="relative flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-4">
+            <div className="flex min-w-0 items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-base font-black text-zinc-950 dark:text-white">{group.name}</h2>
+                <p className="mt-0.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                  {group.sets.filter((set) => set.done).length}/{group.sets.length} sets complete
+                </p>
+              </div>
+              <button type="button" onClick={() => handleInfoClick(exerciseId)} title="Exercise info" aria-label={`Exercise details for ${group.name}`} className="grid min-h-11 min-w-11 place-items-center rounded-xl text-lg font-bold text-zinc-500 hover:bg-zinc-100 hover:text-orange-600 dark:text-zinc-300 dark:hover:bg-zinc-800">ⓘ</button>
+              <details className="group/actions relative">
+                <summary aria-label={`More exercise actions for ${group.name}`} className="grid min-h-11 min-w-11 cursor-pointer list-none place-items-center rounded-xl text-xl font-black text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 [&::-webkit-details-marker]:hidden">⋯</summary>
+                <div className="absolute right-0 top-full z-30 mt-1 flex w-56 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+                  <button type="button" onClick={() => handleInfoClick(exerciseId)} title="Exercise info" className="min-h-11 rounded-lg px-3 text-left text-sm font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800">Exercise details</button>
+                  <button type="button" onClick={() => handlePerfClick(exerciseId, group.name, 'last', group.sets[0]?.exerciseCategory ?? null)} title="Last session" className="min-h-11 rounded-lg px-3 text-left text-sm font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800">Last session</button>
+                  <button type="button" onClick={() => handlePerfClick(exerciseId, group.name, 'best', group.sets[0]?.exerciseCategory ?? null)} title="Best session" className="min-h-11 rounded-lg px-3 text-left text-sm font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800">Best session</button>
+                  <button type="button" onClick={() => handlePerfClick(exerciseId, group.name, 'best60', group.sets[0]?.exerciseCategory ?? null)} title="Best · 60 days" className="min-h-11 rounded-lg px-3 text-left text-sm font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800">Best in 60 days</button>
+                  <button type="button" onClick={() => setEditingNote({ exerciseId, name: group.name, text: notes[exerciseId] ?? '' })} className="min-h-11 rounded-lg px-3 text-left text-sm font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800">{notes[exerciseId] ? 'Edit exercise note' : 'Add exercise note'}</button>
+                  {exerciseOrder.length > 1 && (
+                    <div className="grid grid-cols-2 gap-1 border-t border-zinc-200 pt-1 dark:border-zinc-700">
+                      <button type="button" onClick={() => moveExercise(exerciseId, 'up')} disabled={exIdx === 0} title="Move exercise up" className="min-h-11 rounded-lg text-sm font-bold hover:bg-zinc-100 disabled:opacity-30 dark:hover:bg-zinc-800">↑ Up</button>
+                      <button type="button" onClick={() => moveExercise(exerciseId, 'down')} disabled={exIdx === exerciseOrder.length - 1} title="Move exercise down" className="min-h-11 rounded-lg text-sm font-bold hover:bg-zinc-100 disabled:opacity-30 dark:hover:bg-zinc-800">↓ Down</button>
+                    </div>
+                  )}
+                </div>
+              </details>
             </div>
 
-            {/* Row 2: reorder + guide-all + quick-add — own row so 44px targets fit on a 360px viewport */}
-            <div className="flex items-center justify-end gap-1">
-              {exerciseOrder.length > 1 && (
-                <>
-                  <IconHitTarget onClick={() => moveExercise(exerciseId, 'up')} disabled={exIdx === 0} title="Move exercise up">
-                    <span className="flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white text-base leading-none">↑</span>
-                  </IconHitTarget>
-                  <IconHitTarget onClick={() => moveExercise(exerciseId, 'down')} disabled={exIdx === exerciseOrder.length - 1} title="Move exercise down">
-                    <span className="flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white text-base leading-none">↓</span>
-                  </IconHitTarget>
-                </>
-              )}
+            <div className="grid grid-cols-2 gap-2">
               <button
+                type="button"
                 onClick={() => openGuideSetup(exerciseId)}
                 title="Guide whole exercise (all sets, with rests)"
                 aria-label="Guide whole exercise"
-                className="flex min-h-11 items-center gap-1 rounded-full border border-orange-400 px-3 text-xs font-bold leading-none text-orange-500 transition-colors hover:bg-orange-500 hover:text-white"
+                className="min-h-11 rounded-xl border border-orange-400 px-3 text-sm font-bold text-orange-600 transition hover:bg-orange-50 dark:text-orange-300 dark:hover:bg-orange-950/30"
               >
-                ▶ All
+                Guide sets
               </button>
-              <IconHitTarget
+              <button
+                type="button"
                 onClick={() => {
                   const set = localSets.find((item) => item.exerciseId === exerciseId)
                   if (set) handleSelectExercise(exerciseFromSet(set))
                 }}
                 title="Quick-add a set"
+                className="min-h-11 rounded-xl bg-zinc-100 px-3 text-sm font-black text-zinc-700 hover:bg-orange-500 hover:text-white dark:bg-zinc-800 dark:text-zinc-200"
               >
-                <span className="flex items-center justify-center h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-orange-500 hover:text-white transition-colors text-lg leading-none">
-                  +
-                </span>
-              </IconHitTarget>
+                + Add set
+              </button>
             </div>
 
-            {fmtLastPerf(lastPerf[exerciseId]) && (
-              <p className="text-xs font-medium text-zinc-400 dark:text-zinc-500">
-                <span className="uppercase tracking-wide font-bold">Last:</span> {fmtLastPerf(lastPerf[exerciseId])}
-              </p>
-            )}
-            {/* Personal note */}
+            {/* Personal note stays visible only when it contains useful context. */}
             {notes[exerciseId] ? (
               <button
                 onClick={() => setEditingNote({ exerciseId, name: group.name, text: notes[exerciseId] })}
-                className="text-left text-xs rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 px-3 py-2 text-amber-800 dark:text-amber-300"
+                className="rounded-xl bg-amber-50 px-3 py-2 text-left text-xs font-medium text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
               >
-                📝 {notes[exerciseId]}
+                <span className="font-bold">Exercise note:</span> {notes[exerciseId]}
               </button>
-            ) : (
-              <button
-                onClick={() => setEditingNote({ exerciseId, name: group.name, text: '' })}
-                className="self-start text-xs font-semibold text-zinc-400 hover:text-orange-500 transition-colors"
-              >
-                📝 Add note
-              </button>
-            )}
+            ) : null}
 
-            <div className="flex flex-col gap-1.5">
+            <div className="workout-log-table flex flex-col gap-1.5">
+              <div
+                data-testid="set-log-header"
+                className="workout-log-grid grid items-center gap-1 px-1 text-center text-[0.62rem] font-bold uppercase tracking-wide text-zinc-600 dark:text-zinc-400"
+              >
+                <span>Set</span>
+                <span className="workout-log-previous">Previous</span>
+                <span>{group.sets[0]?.exerciseCategory === 'cardio' ? 'Min' : 'kg'}</span>
+                <span>{group.sets[0]?.exerciseCategory === 'cardio' ? 'Dist.' : 'Reps'}</span>
+                <span>Done</span>
+              </div>
               {group.sets.map((s, i) =>
                 editingId === s.localId ? (
                   <div
@@ -2153,15 +2094,12 @@ export default function WorkoutLogger({
                       />
                     </label>
                     {s.exerciseCategory !== 'cardio' && (
-                      <label className="col-span-2 flex min-h-11 items-center justify-between gap-3 rounded-lg bg-zinc-50 px-3 text-sm dark:bg-zinc-800">
-                        <span>
-                          <span className="block font-bold">Different values per set</span>
-                          <span className="block text-xs text-zinc-500">
-                            {(setValueModes[s.exerciseId] ?? inferSetValueMode(localSets, s.exerciseId)) === 'uniform'
-                              ? 'Weight and reps update all sets.'
-                              : 'Only this set is changed.'}
-                          </span>
-                        </span>
+                      <fieldset className="relative col-span-2 rounded-xl bg-zinc-50 p-2 dark:bg-zinc-800">
+                        <legend className="px-1 text-xs font-bold text-zinc-700 dark:text-zinc-200">Apply weight and reps to</legend>
+                        {/* Retain the native switch contract for assistive tech and
+                            automation while the visible segmented control explains
+                            the consequence in plain language. Its hit area sits over
+                            the matching "This set only" choice. */}
                         <input
                           aria-label="Different values per set"
                           type="checkbox"
@@ -2170,29 +2108,48 @@ export default function WorkoutLogger({
                             ...current,
                             [s.exerciseId]: event.target.checked ? 'per-set' : 'uniform',
                           }))}
-                          className="size-5 accent-orange-500"
+                          className="absolute bottom-4 right-4 z-10 size-5 opacity-0"
                         />
-                      </label>
+                        <div className="mt-1 grid grid-cols-2 gap-1">
+                          {([
+                            { value: 'uniform' as const, label: 'All sets' },
+                            { value: 'per-set' as const, label: 'This set only' },
+                          ]).map((option) => {
+                            const active = (setValueModes[s.exerciseId] ?? inferSetValueMode(localSets, s.exerciseId)) === option.value
+                            return (
+                              <button
+                                key={option.value}
+                                type="button"
+                                aria-pressed={active}
+                                onClick={() => setSetValueModes((current) => ({ ...current, [s.exerciseId]: option.value }))}
+                                className={`min-h-11 rounded-lg border text-sm font-bold ${active ? 'border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300' : 'border-zinc-300 bg-white text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'}`}
+                              >
+                                {option.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </fieldset>
                     )}
-                    <div className="col-span-2 flex flex-wrap items-center justify-end gap-2">
+                    <div className="col-span-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {s.exerciseCategory !== 'cardio' && (
                         <button
                           onMouseDown={(e) => { e.preventDefault(); guidedFromEdit(s) }}
                           title="Guided set (adjust tempo, reps, weight)"
                           aria-label="Start guided set"
-                          className="shrink-0 rounded-md border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/20 px-2 py-1 text-xs font-bold transition-colors leading-none"
+                          className="min-h-11 rounded-xl border border-orange-400 px-3 text-sm font-bold text-orange-600 transition-colors hover:bg-orange-50 dark:text-orange-300 dark:hover:bg-orange-950/20"
                         >
-                          ▶ Guided
+                          Guide set
                         </button>
                       )}
                       <button
                         onMouseDown={(e) => { e.preventDefault(); completeFromEdit(s) }}
                         title="Complete this set"
-                        className="shrink-0 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1 text-xs font-bold transition-colors leading-none"
+                        className="min-h-11 rounded-xl bg-emerald-600 px-3 text-sm font-bold text-white transition-colors hover:bg-emerald-700"
                       >
-                        ✓ Complete
+                        Complete
                       </button>
-                      <button aria-label="Save and close set editor" onClick={() => saveEditSet(s.localId)} className="text-zinc-300 dark:text-zinc-700 hover:text-orange-500 transition-colors text-sm shrink-0">✓</button>
+                      <button aria-label="Save and close set editor" onClick={() => saveEditSet(s.localId)} className="min-h-11 rounded-xl border border-zinc-300 px-3 text-sm font-bold text-zinc-700 hover:border-orange-400 dark:border-zinc-700 dark:text-zinc-200">Close</button>
                     </div>
                   </div>
                   {s.exerciseCategory !== 'cardio' && (
@@ -2204,84 +2161,76 @@ export default function WorkoutLogger({
                 ) : (
                   <div key={s.localId} className="flex flex-col gap-1.5">
                     <div
-                      className={`flex flex-wrap items-center gap-2 rounded-xl border px-3 py-3 cursor-pointer transition-colors ${
-                        s.done
-                          ? 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-orange-400 dark:hover:border-orange-500'
-                          : 'bg-zinc-50/60 dark:bg-zinc-900/40 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-orange-400'
-                      }`}
-                      onClick={() => startEditSet(s)}
+                      data-testid="set-log-row"
+                      className={`workout-log-grid grid min-h-14 items-center gap-1 rounded-xl px-1 text-center transition-colors ${s.done ? 'bg-emerald-50 dark:bg-emerald-950/25' : 'bg-zinc-50 dark:bg-zinc-950/50'}`}
                     >
                       <button
-                        onClick={(e) => { e.stopPropagation(); toggleDone(s.localId) }}
-                        title={s.done ? 'Completed — tap to undo' : 'Mark set done (starts rest)'}
-                        className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${
-                          s.done
-                            ? 'bg-emerald-500 border-emerald-500 text-white'
-                            : 'border-zinc-300 dark:border-zinc-600 text-transparent hover:border-emerald-400'
-                        }`}
+                        type="button"
+                        aria-label={`More options for set ${i + 1}`}
+                        aria-expanded={expandedSetActionsId === s.localId}
+                        onClick={() => setExpandedSetActionsId((current) => current === s.localId ? null : s.localId)}
+                        className="workout-log-set-button min-h-11 rounded-lg text-xs font-black text-zinc-600 hover:bg-white hover:text-orange-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
                       >
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6l3 3 5-6" /></svg>
+                        #{i + 1}
                       </button>
-                      <span className="text-xs font-bold text-zinc-400 dark:text-zinc-600">#{i + 1}</span>
-                      {s.exerciseCategory === 'cardio' ? (
-                        <>
-                          <div className="min-w-12 flex-1">
-                            <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Duration</p>
-                            <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                              {s.duration_minutes != null ? `${s.duration_minutes} min` : '—'}
-                            </p>
-                          </div>
-                          <div className="min-w-12 flex-1">
-                            <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Distance</p>
-                            <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                              {distanceLabel(s.distance) ?? '—'}
-                            </p>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="min-w-12 flex-1">
-                            <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Weight</p>
-                            <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                              {s.weight != null ? `${s.weight} kg` : '—'}
-                            </p>
-                          </div>
-                          <div className="min-w-12 flex-1">
-                            <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-600 leading-none mb-0.5">Reps</p>
-                            <p className="text-sm font-bold text-zinc-900 dark:text-white">
-                              {s.reps != null ? s.reps : '—'}
-                            </p>
-                          </div>
-                        </>
-                      )}
-                      <div className="ml-auto flex items-center justify-end gap-0.5">
-                        {!s.done && s.exerciseCategory !== 'cardio' && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); openGuidedSetupForSet(s) }}
-                            title="Guided set (adjust tempo, reps, weight)"
-                            className="shrink-0 rounded-md border border-orange-400 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950/20 px-2 py-1 text-xs font-bold transition-colors leading-none"
-                          >
-                            ▶
-                          </button>
-                        )}
-                        <IconHitTarget
-                          onClick={(e) => { e.stopPropagation(); handleDeleteTap(s.localId) }}
-                          title="Delete set"
-                        >
-                          <span className="text-zinc-300 hover:text-red-500 dark:text-zinc-700 dark:hover:text-red-500 transition-colors">✕</span>
-                        </IconHitTarget>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handlePerfClick(exerciseId, group.name, 'last', s.exerciseCategory)}
+                        aria-label={`Previous performance for set ${i + 1}`}
+                        className="workout-log-previous min-h-11 truncate rounded-lg px-0.5 text-xs font-semibold text-zinc-600 hover:bg-white hover:text-orange-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        {previousSetLabel(lastPerf[exerciseId], i, s.exerciseCategory)}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => startEditSet(s)}
+                        aria-label={s.exerciseCategory === 'cardio' ? `Edit duration for set ${i + 1}` : `Edit weight for set ${i + 1}`}
+                        className="min-h-11 rounded-lg text-sm font-black text-zinc-950 hover:bg-white hover:text-orange-600 dark:text-white dark:hover:bg-zinc-800"
+                      >
+                        {s.exerciseCategory === 'cardio'
+                          ? s.duration_minutes ?? '—'
+                          : s.weight != null ? <>{s.weight}<span className="text-[0.55rem] font-bold text-zinc-500"> kg</span></> : '—'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => startEditSet(s)}
+                        aria-label={s.exerciseCategory === 'cardio' ? `Edit distance for set ${i + 1}` : `Edit reps for set ${i + 1}`}
+                        className="min-h-11 truncate rounded-lg px-0.5 text-sm font-black text-zinc-950 hover:bg-white hover:text-orange-600 dark:text-white dark:hover:bg-zinc-800"
+                      >
+                        {s.exerciseCategory === 'cardio' ? distanceLabel(s.distance) ?? '—' : s.reps ?? '—'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleDone(s.localId)}
+                        aria-label={s.done ? `Mark set ${i + 1} not done` : `Mark set ${i + 1} done`}
+                        title={s.done ? 'Completed — tap to undo' : 'Mark set done (starts rest)'}
+                        className={`workout-log-done-button mx-auto grid min-h-11 min-w-11 place-items-center rounded-xl border-2 transition-colors ${s.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-zinc-300 text-transparent hover:border-emerald-500 dark:border-zinc-600'}`}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6l3 3 5-6" /></svg>
+                      </button>
                     </div>
-                    {s.exerciseCategory !== 'cardio' && (
-                      <div className="pl-8">
-                        <DifficultyChip value={s.difficulty} onSelect={(n) => handleSetDifficulty(s.localId, n)} />
+
+                    {(s.difficulty != null || formatRestRow(s.rest_seconds) || s.note) && expandedSetActionsId !== s.localId && (
+                      <div className="flex flex-wrap items-center gap-2 px-2 text-xs text-zinc-600 dark:text-zinc-300">
+                        {s.difficulty != null && <DifficultyChip value={s.difficulty} />}
+                        {formatRestRow(s.rest_seconds) && <span>{formatRestRow(s.rest_seconds)}</span>}
+                        {s.note && <span className="text-amber-800 dark:text-amber-200">Note: {s.note}</span>}
                       </div>
                     )}
-                    {formatRestRow(s.rest_seconds) && (
-                      <p className="text-xs text-zinc-400 dark:text-zinc-600 pl-8">{formatRestRow(s.rest_seconds)}</p>
-                    )}
-                    {s.note && (
-                      <p className="pl-8 text-xs text-amber-700 dark:text-amber-300">Set note: {s.note}</p>
+
+                    {expandedSetActionsId === s.localId && (
+                      <div className="grid gap-2 rounded-xl border border-zinc-200 bg-white p-2 dark:border-zinc-700 dark:bg-zinc-900">
+                        <div className="grid grid-cols-2 gap-2">
+                          <button type="button" onClick={() => startEditSet(s)} className="min-h-11 rounded-xl border border-zinc-300 px-3 text-sm font-bold text-zinc-700 dark:border-zinc-700 dark:text-zinc-200">Edit values & note</button>
+                          {s.exerciseCategory !== 'cardio' && !s.done ? (
+                            <button type="button" onClick={() => openGuidedSetupForSet(s)} title="Guided set (adjust tempo, reps, weight)" className="min-h-11 rounded-xl border border-orange-400 px-3 text-sm font-bold text-orange-600 dark:text-orange-300">Guide set</button>
+                          ) : <span />}
+                        </div>
+                        {s.exerciseCategory !== 'cardio' && (
+                          <DifficultyChip value={s.difficulty} onSelect={(n) => handleSetDifficulty(s.localId, n)} />
+                        )}
+                        <button type="button" onClick={() => handleDeleteTap(s.localId)} title="Delete set" className="min-h-11 rounded-xl border border-red-300 px-3 text-sm font-bold text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/30">Delete set</button>
+                      </div>
                     )}
                     {/* ADR-0008 (WP-09): two-tap confirm, mirrors the calendar's Confirm/Cancel (§3.15-3.17) */}
                     {pendingDeleteId === s.localId && (
@@ -2305,7 +2254,7 @@ export default function WorkoutLogger({
               )}
             </div>
             {selectedExercise?.id === exerciseId && renderAddSetForm()}
-          </div>
+          </section>
         )})}
 
         {localSets.length === 0 && !selectedExercise && (
@@ -2397,6 +2346,42 @@ export default function WorkoutLogger({
           loading={perfLoading}
           onClose={() => setPerfModal(null)}
         />
+      )}
+
+      {showWorkoutActions && (
+        <Modal
+          title="Workout actions"
+          onClose={() => setShowWorkoutActions(false)}
+          backdropClassName="fixed inset-0 z-[90] flex items-end justify-center bg-black/70 sm:items-center sm:px-4"
+          panelClassName="w-full max-w-md rounded-t-[1.5rem] bg-white p-4 shadow-2xl outline-none dark:bg-zinc-900 sm:rounded-2xl"
+        >
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-3 px-1 pb-2">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-orange-600 dark:text-orange-400">Active workout</p>
+                <h2 className="mt-0.5 text-lg font-black text-zinc-950 dark:text-white">More actions</h2>
+              </div>
+              <button type="button" onClick={() => setShowWorkoutActions(false)} aria-label="Close workout actions" className="grid min-h-12 min-w-12 place-items-center rounded-full text-2xl text-zinc-500 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800">×</button>
+            </div>
+            <button
+              type="button"
+              aria-label="Workout settings"
+              onClick={() => { setShowWorkoutActions(false); setShowWorkoutSettings(true) }}
+              className="flex min-h-14 items-center justify-between rounded-xl border border-zinc-200 px-4 text-left text-sm font-bold text-zinc-800 hover:border-orange-400 dark:border-zinc-700 dark:text-zinc-200"
+            >
+              Workout settings <span aria-hidden="true">›</span>
+            </button>
+            {localSets.length > 0 && (
+              <button
+                type="button"
+                onClick={() => { handleCopy(); setShowWorkoutActions(false) }}
+                className="flex min-h-14 items-center justify-between rounded-xl border border-zinc-200 px-4 text-left text-sm font-bold text-zinc-800 hover:border-orange-400 dark:border-zinc-700 dark:text-zinc-200"
+              >
+                {copied ? 'Workout copied' : 'Copy workout'} <span aria-hidden="true">⧉</span>
+              </button>
+            )}
+          </div>
+        </Modal>
       )}
 
       {showWorkoutSettings && (

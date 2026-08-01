@@ -22,8 +22,9 @@ function beep() {
 
 // Non-blocking, self-contained rest timer docked in the exercise panel.
 // Fixed mode counts down (adjustable ±15s live); variable counts up. Reports
-// ACTUAL elapsed seconds on done. mode/target live in refs so mid-rest changes
-// apply without remounting or a stale rAF closure.
+// ACTUAL elapsed seconds on done. The target lives in a ref so ±15 changes
+// apply without remounting or a stale rAF closure; mode changes live in the
+// explicit workout settings rather than on an easy-to-mistap running clock.
 export default function RestTimer({
   initialMode = 'fixed',
   initialTarget = 90,
@@ -40,7 +41,7 @@ export default function RestTimer({
   onSettingsChange?: (mode: 'fixed' | 'variable', target: number) => void
 }) {
   const [elapsed, setElapsed] = useState(initialElapsed)
-  const [mode, setMode] = useState<'fixed' | 'variable'>(initialMode)
+  const [mode] = useState<'fixed' | 'variable'>(initialMode)
   const [target, setTarget] = useState(initialTarget)
 
   const startRef = useRef<number>(0)
@@ -75,47 +76,27 @@ export default function RestTimer({
     setTarget(next)
     onSettingsChange?.(modeRef.current, next)
   }
-  function switchMode(m: 'fixed' | 'variable') {
-    setMode(m)
-    alertedRef.current = false
-    onSettingsChange?.(m, targetRef.current)
-  }
-
   const { display, overtime } = restViewAt(mode, target, elapsed)
 
   return (
-    <div className="rounded-2xl border-2 border-orange-400 bg-orange-50 dark:bg-orange-950/20 px-4 py-3 flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xs font-bold uppercase tracking-widest text-orange-500 shrink-0">
-            {overtime ? 'Rest over' : 'Resting'}
-          </span>
-          <span className={`text-2xl font-black tabular-nums ${overtime ? 'text-emerald-500' : 'text-zinc-900 dark:text-white'}`}>
-            {overtime ? '+' : ''}{display}
-          </span>
-        </div>
-        <button
-          onClick={() => onDone(Math.round(elapsed))}
-          className="shrink-0 rounded-lg bg-orange-500 hover:bg-orange-600 px-4 py-2 text-xs font-bold uppercase tracking-wide text-white transition-colors"
-        >
-          Done
-        </button>
+    <div className="workout-rest-running flex min-h-14 items-center gap-1.5 rounded-2xl border-2 border-orange-400 bg-orange-50 p-1.5 dark:bg-orange-950/25">
+      <div className="workout-rest-clock min-w-0 flex-1 rounded-xl px-2 py-1">
+        <span className="block text-[0.62rem] font-bold uppercase tracking-widest text-orange-700 dark:text-orange-300">{overtime ? 'Rest over' : 'Resting'}</span>
+        <span className={`block text-xl font-black tabular-nums ${overtime ? 'text-emerald-600' : 'text-zinc-950 dark:text-white'}`}>{overtime ? '+' : ''}{display}</span>
       </div>
-      <div className="flex flex-wrap items-center gap-1.5 text-xs">
-        <button
-          onClick={() => switchMode(mode === 'fixed' ? 'variable' : 'fixed')}
-          className="rounded-full border border-orange-300 dark:border-orange-800 px-2.5 py-1 font-bold uppercase tracking-wide text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
-        >
-          {mode === 'fixed' ? 'Fixed' : 'Variable'}
-        </button>
-        {mode === 'fixed' && (
-          <>
-            <button onClick={() => adjust(-5)} className="rounded-full border border-orange-300 dark:border-orange-800 w-8 py-1 font-bold text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors">−5</button>
-            <button onClick={() => adjust(5)} className="rounded-full border border-orange-300 dark:border-orange-800 w-8 py-1 font-bold text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors">+5</button>
-            <span className="text-orange-500/70 font-semibold">target {target}s</span>
-          </>
-        )}
-      </div>
+      {mode === 'fixed' && (
+        <>
+          <button type="button" onClick={() => adjust(-15)} aria-label="Reduce rest by 15 seconds" className="workout-rest-adjust grid min-h-11 min-w-11 place-items-center rounded-xl border border-orange-300 text-xs font-black text-orange-700 hover:bg-white dark:border-orange-800 dark:text-orange-300 dark:hover:bg-zinc-900">−15</button>
+          <button type="button" onClick={() => adjust(15)} aria-label="Add 15 seconds to rest" className="workout-rest-adjust grid min-h-11 min-w-11 place-items-center rounded-xl border border-orange-300 text-xs font-black text-orange-700 hover:bg-white dark:border-orange-800 dark:text-orange-300 dark:hover:bg-zinc-900">+15</button>
+        </>
+      )}
+      <button
+        type="button"
+        onClick={() => onDone(Math.round(elapsed))}
+        className="workout-rest-skip min-h-11 rounded-xl bg-orange-600 px-3 text-xs font-black text-white transition-colors hover:bg-orange-700"
+      >
+        Skip
+      </button>
     </div>
   )
 }

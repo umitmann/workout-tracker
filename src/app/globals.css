@@ -83,6 +83,100 @@ textarea {
   }
 }
 
+/* The set logger is a genuine data table, but it still has to reflow when a
+   phone user zooms the page. At extreme effective widths the previous-session
+   column yields to the editable values and done action instead of creating
+   page-level overflow; history remains available from the exercise menu. */
+.workout-log-table {
+  container-name: workout-log;
+  container-type: inline-size;
+}
+
+.workout-header {
+  container-name: workout-header;
+  container-type: inline-size;
+}
+
+.workout-rest-bar {
+  container-name: workout-rest;
+  container-type: inline-size;
+}
+
+.workout-log-grid {
+  grid-template-columns: 2.75rem minmax(3.5rem, 1fr) 3rem 2.75rem 2.75rem;
+}
+
+@container workout-log (max-width: 15rem) {
+  .workout-log-grid {
+    grid-template-columns: 2.25rem minmax(0, 1fr) minmax(0, 1fr) 2.25rem;
+  }
+
+  .workout-log-previous {
+    display: none;
+  }
+
+  .workout-log-set-button,
+  .workout-log-done-button {
+    min-width: 0;
+  }
+
+  .workout-effort-scale {
+    flex-wrap: wrap;
+  }
+
+  .workout-effort-choice {
+    min-height: 2.25rem;
+    min-width: 2.25rem;
+  }
+}
+
+@container workout-header (max-width: 15rem) {
+  .workout-header-row {
+    gap: 0.125rem;
+  }
+
+  .workout-header-title {
+    display: none;
+  }
+
+  .workout-header-square {
+    min-height: 2.25rem;
+    min-width: 2.25rem;
+  }
+
+  .workout-header-action {
+    min-height: 2.25rem;
+    padding-inline: 0.5rem;
+  }
+}
+
+@container workout-rest (max-width: 15rem) {
+  .workout-rest-controls {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.125rem;
+  }
+
+  .workout-rest-label {
+    display: none;
+  }
+
+  .workout-rest-action,
+  .workout-rest-adjust,
+  .workout-rest-skip {
+    min-height: 2.25rem;
+    min-width: 0;
+    padding-inline: 0.25rem;
+  }
+
+  .workout-rest-running {
+    gap: 0.125rem;
+  }
+
+  .workout-rest-clock {
+    padding-inline: 0.25rem;
+  }
+}
+
 @utility scrollbar-hide {
   scrollbar-width: none;
   &::-webkit-scrollbar {

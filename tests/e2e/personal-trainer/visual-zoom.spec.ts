@@ -154,6 +154,11 @@ test.describe('full application visual and zoom audit', () => {
       await expect(session.page).toHaveURL(/\/workout\/\d+$/)
       await session.page.getByRole('button', { name: /add exercise/i }).click()
       const picker = session.page.getByRole('dialog', { name: /select exercise/i })
+      await expect(picker.getByRole('button', { name: /^filters/i })).toHaveAttribute('aria-expanded', 'false')
+      await expect(picker.getByRole('button', { name: /^chest/i })).toHaveCount(0)
+      await picker.getByRole('button', { name: /^filters/i }).click()
+      await expect(picker.getByRole('button', { name: /^chest/i })).toBeVisible()
+      await picker.getByRole('button', { name: /^filters/i }).click()
       await picker.getByRole('button', { name: /QA Snapshot Squat 47391/i }).click()
       await expect(session.page.getByText('Adding set')).toBeVisible()
       const addCard = session.page.getByText('Adding set').locator('..').locator('..')
@@ -161,6 +166,17 @@ test.describe('full application visual and zoom audit', () => {
       await addCard.getByRole('button', { name: /increase reps/i }).click()
       await addCard.getByRole('button', { name: /^add$/i }).click()
       await expect(session.page.getByText('Resting', { exact: true })).toBeVisible()
+      await expect(session.page.getByTestId('set-log-header')).toContainText('Previous')
+      const logRow = session.page.getByTestId('set-log-row').first()
+      await expect(logRow.getByRole('button', { name: /previous performance/i })).toBeVisible()
+      await expect(logRow.getByRole('button', { name: /mark set 1 done|mark set 1 not done/i })).toBeVisible()
+      const undersized = await logRow.getByRole('button').evaluateAll((buttons) => buttons.flatMap((button) => {
+        const box = button.getBoundingClientRect()
+        return box.width < 44 || box.height < 44
+          ? [{ label: button.getAttribute('aria-label') ?? button.textContent, width: box.width, height: box.height }]
+          : []
+      }))
+      expect(undersized).toEqual([])
 
       for (const viewport of zoomViewports) {
         for (const colorScheme of ['light', 'dark'] as const) {
@@ -190,6 +206,30 @@ test.describe('full application visual and zoom audit', () => {
       await expect(session.page).toHaveURL(/\/dashboard(?:\?|$)/)
     } finally {
       await session.page.close({ runBeforeUnload: false })
+    }
+  })
+
+  test('dashboard prioritizes the next workout over secondary check-in and history', async ({ browser }) => {
+    const session = await newSignedInContext(browser, 'trainee')
+    try {
+      await session.page.setViewportSize({ width: 390, height: 844 })
+      await session.page.goto('/dashboard')
+      const plan = session.page.getByRole('heading', { name: 'Upcoming plans' })
+      const readiness = session.page.getByRole('heading', { name: 'How are you feeling today?' })
+      const calendar = session.page.getByRole('heading', { name: 'Calendar' })
+      await expect(plan).toBeVisible()
+      await expect(readiness).toBeVisible()
+      await expect(calendar).toBeVisible()
+      const [planBox, readinessBox, calendarBox] = await Promise.all([
+        plan.boundingBox(),
+        readiness.boundingBox(),
+        calendar.boundingBox(),
+      ])
+      expect(planBox?.y).toBeLessThan(readinessBox?.y ?? 0)
+      expect(readinessBox?.y).toBeLessThan(calendarBox?.y ?? 0)
+      await expect(session.page.getByRole('heading', { name: 'Quick actions' })).toHaveCount(0)
+    } finally {
+      await session.context.close()
     }
   })
 })
