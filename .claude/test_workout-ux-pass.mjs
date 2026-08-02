@@ -2,7 +2,11 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
-const { buildWorkoutNavigationSnapshot } = await import('../src/lib/workoutNavigationSnapshot.ts')
+const {
+  buildWorkoutNavigationSnapshot,
+  shouldSaveWorkoutNavigationSnapshot,
+  workoutNavigationSnapshotsEqual,
+} = await import('../src/lib/workoutNavigationSnapshot.ts')
 const { normalizeWorkoutPreferences, DEFAULT_WORKOUT_PREFERENCES } = await import('../src/lib/workoutPreferences.ts')
 
 async function source(path) {
@@ -78,6 +82,27 @@ test('navigation snapshot adds a typed pending set exactly once and keeps it pen
   }), result)
 })
 
+test('navigation snapshots compare semantically so a clean minimize does not save twice', () => {
+  const current = [strengthSet(), strengthSet({ localId: 'set-2', done: false })]
+  const equivalentCopy = current.map((set) => ({ ...set }))
+
+  assert.equal(workoutNavigationSnapshotsEqual(current, equivalentCopy), true)
+  assert.equal(workoutNavigationSnapshotsEqual(current, [
+    { ...equivalentCopy[0], reps: 9 },
+    equivalentCopy[1],
+  ]), false)
+  assert.equal(workoutNavigationSnapshotsEqual(current, [...equivalentCopy].reverse()), false)
+})
+
+test('navigation only skips snapshots that were really queued, including initial template sets', () => {
+  const current = [strengthSet()]
+
+  assert.equal(shouldSaveWorkoutNavigationSnapshot(current, current.map((set) => ({ ...set })), false), false)
+  assert.equal(shouldSaveWorkoutNavigationSnapshot(current, null, false), true)
+  assert.equal(shouldSaveWorkoutNavigationSnapshot(current, current, true), true)
+  assert.equal(shouldSaveWorkoutNavigationSnapshot(current, [{ ...current[0], weight: 70 }], false), true)
+})
+
 test('workout preferences reduce invalid legacy values to safe, simple defaults', () => {
   assert.deepEqual(normalizeWorkoutPreferences(null), DEFAULT_WORKOUT_PREFERENCES)
   assert.deepEqual(normalizeWorkoutPreferences({
@@ -99,9 +124,29 @@ test('minimize and save-and-leave share one final snapshot and wait for every qu
   const logger = await source('../src/app/workout/[id]/WorkoutLogger.tsx')
   assert.match(logger, /buildWorkoutNavigationSnapshot/)
   assert.match(logger, /async function flushNavigationSnapshot/)
+  assert.match(logger, /workoutNavigationSnapshotsEqual\(snapshot, localSets\)/)
+  assert.match(logger, /shouldSaveWorkoutNavigationSnapshot\(snapshot, lastQueuedSnapshotRef\.current, queueState\.dirty\)/)
+  assert.match(logger, /if \(needsSave\)\s*\{[\s\S]{0,120}await saveQueueRef\.current\.enqueue\(key, snapshot\)/)
+  assert.match(logger, /lastQueuedSnapshotRef\.current = snapshot/)
   assert.match(logger, /await saveQueueRef\.current\.idle\(key\)/)
   assert.match(logger, /if \(state\.pending \|\| state\.dirty \|\| state\.error\) return null/)
+  assert.match(logger, /router\.prefetch\('\/dashboard'\)/)
   assert.doesNotMatch(logger, /window\.location\.href = ['"]\/dashboard['"]/)
+})
+
+test('the minimized workout validates cheaply and prefetches both resume links', async () => {
+  const [dock, actions] = await Promise.all([
+    source('../src/components/ActiveWorkoutDock.tsx'),
+    source('../src/app/actions/workouts.ts'),
+  ])
+  assert.equal((dock.match(/prefetch=\{true\}/g) ?? []).length, 2)
+
+  const validationStart = actions.indexOf('export async function validateActiveWorkoutSession')
+  const validationEnd = actions.indexOf('\nexport async function ', validationStart + 1)
+  const validationBody = actions.slice(validationStart, validationEnd)
+  assert.doesNotMatch(validationBody, /getWorkoutWithSets/)
+  assert.match(validationBody, /\.from\('sets'\)[\s\S]*?\.limit\(1\)[\s\S]*?\.maybeSingle\(\)/)
+  assert.doesNotMatch(validationBody, /count:\s*'exact'/)
 })
 
 test('active workout renders before the authorized exercise catalog is requested', async () => {

@@ -48,7 +48,11 @@ import { buildClipboardEntries, clipboardEntriesToLocalSets } from '@/lib/clipbo
 import IconHitTarget from './IconHitTarget'
 import { localDateStr } from '@/lib/localDate'
 import { DistanceUnit, formatDistance, convertKmTo, readDistanceUnitPref, writeDistanceUnitPref } from '@/lib/distanceUnit'
-import { buildWorkoutNavigationSnapshot } from '@/lib/workoutNavigationSnapshot'
+import {
+  buildWorkoutNavigationSnapshot,
+  shouldSaveWorkoutNavigationSnapshot,
+  workoutNavigationSnapshotsEqual,
+} from '@/lib/workoutNavigationSnapshot'
 import {
   DEFAULT_GUIDED_VOICE_SETTINGS,
   GuidedVoiceSettings,
@@ -247,6 +251,14 @@ export default function WorkoutLogger({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const { clipboard, copy: copyToClipboard } = useWorkoutClipboard()
+
+  // Browse is a core part of an active session, especially during rest. Warm
+  // its destination while the athlete is logging so a clean Minimize can swap
+  // routes immediately after the (usually already-idle) save queue check.
+  useEffect(() => {
+    router.prefetch('/dashboard')
+  }, [router])
+
   const [copied, setCopied] = useState(false)
   // Tile 4/13: paste and import share one non-empty-workout prompt
   // (Overwrite / Append / cancel) instead of each silently wiping or
@@ -271,6 +283,12 @@ export default function WorkoutLogger({
   // All sets live in client state only — committed on Finish. §2 invariants
   // (completed never falls back to template) are enforced by deriveInitialSets.
   const [localSets, setLocalSets] = useState<LocalSet[]>(() => deriveInitialSets(workout, initialTemplate ?? null))
+  // The initial database rows are already known to be durable. Template rows
+  // shown for a brand-new empty workout are not: null makes the first
+  // navigation flush persist them even though they equal the visible state.
+  const lastQueuedSnapshotRef = useRef<LocalSet[] | null>(
+    workout.sets.length > 0 || localSets.length === 0 ? localSets : null,
+  )
 
   // ADR-0004: one serialized save queue per mounted logger, keyed by workout
   // id. Every persistence call site goes through `persist()` below, which
@@ -536,13 +554,15 @@ export default function WorkoutLogger({
   // The active session is intentionally route-independent. A global dock in
   // Providers reads this absolute-time snapshot while the logger is unmounted,
   // then this page restores the same rest owner by exercise ordinal on Resume.
-  function publishActiveSession() {
-    const summary = buildActiveWorkoutSummary(localSets)
+  function publishActiveSession(sets: LocalSet[] = localSets) {
+    const summary = sets === localSets
+      ? buildActiveWorkoutSummary(localSets)
+      : buildActiveWorkoutSummary(sets)
     if (!summary) {
       clearActiveWorkoutSession(workout.id)
       return
     }
-    const owner = restForSet ? restOwnerForSet(localSets, restForSet) : null
+    const owner = restForSet ? restOwnerForSet(sets, restForSet) : null
     const elapsed = restStartedAt == null ? 0 : Math.max(0, Math.round((Date.now() - restStartedAt) / 1_000))
     writeActiveWorkoutSession({
       version: ACTIVE_WORKOUT_SESSION_VERSION,
@@ -791,6 +811,7 @@ export default function WorkoutLogger({
   // `saveState` in sync with it for the aria-live indicator + beforeunload guard.
   function persist(sets: LocalSet[]) {
     startTransition(async () => {
+      lastQueuedSnapshotRef.current = sets
       await saveQueueRef.current.enqueue(String(workout.id), sets)
       setSaveState(saveQueueRef.current.getState(String(workout.id)))
     })
@@ -1380,15 +1401,28 @@ export default function WorkoutLogger({
 
   async function flushNavigationSnapshot(): Promise<LocalSet[] | null> {
     const snapshot = snapshotForNavigation()
-    setLocalSets(snapshot)
+    const key = String(workout.id)
+    const queueState = saveQueueRef.current.getState(key)
+    const snapshotChanged = !workoutNavigationSnapshotsEqual(snapshot, localSets)
+    // A clean autosave already contains this exact snapshot. In that common
+    // case Minimize only waits for the queue to be idle (which resolves
+    // immediately) instead of transmitting every set for a second time.
+    const needsSave = shouldSaveWorkoutNavigationSnapshot(snapshot, lastQueuedSnapshotRef.current, queueState.dirty)
+    if (snapshotChanged) setLocalSets(snapshot)
     setEditingId(null)
     setAddFormDirty(false)
-    const key = String(workout.id)
-    await saveQueueRef.current.enqueue(key, snapshot)
+    if (needsSave) {
+      lastQueuedSnapshotRef.current = snapshot
+      await saveQueueRef.current.enqueue(key, snapshot)
+    }
     await saveQueueRef.current.idle(key)
     const state = saveQueueRef.current.getState(key)
     setSaveState(state)
     if (state.pending || state.dirty || state.error) return null
+    // Publish synchronously before the route unmounts. This prevents the
+    // minimized frame from briefly showing the pre-edit summary while the
+    // localSets effect is still waiting for React to commit.
+    publishActiveSession(snapshot)
     return snapshot
   }
 

@@ -43,6 +43,52 @@ export type WorkoutNavigationDraft = {
 }
 
 /**
+ * Compares the complete persisted shape without relying on object identity.
+ * Navigation snapshots intentionally create fresh objects while committing an
+ * open editor, so referential equality would turn every Minimize into a
+ * redundant network save even when none of the values changed.
+ */
+export function workoutNavigationSnapshotsEqual(
+  left: LocalSet[],
+  right: LocalSet[],
+): boolean {
+  if (left === right) return true
+  if (left.length !== right.length) return false
+
+  return left.every((set, index) => {
+    const other = right[index]
+    return other != null
+      && set.localId === other.localId
+      && set.exerciseId === other.exerciseId
+      && set.exerciseName === other.exerciseName
+      && set.exerciseCategory === other.exerciseCategory
+      && set.weight === other.weight
+      && set.reps === other.reps
+      && set.duration_minutes === other.duration_minutes
+      && set.distance === other.distance
+      && set.rest_seconds === other.rest_seconds
+      && set.difficulty === other.difficulty
+      && set.note === other.note
+      && set.done === other.done
+  })
+}
+
+/**
+ * A snapshot is safe to skip only when the same values have actually entered
+ * the serialized save queue. `null` represents template-derived sets that are
+ * visible in a brand-new workout but do not exist in the database yet.
+ */
+export function shouldSaveWorkoutNavigationSnapshot(
+  snapshot: LocalSet[],
+  lastQueuedSnapshot: LocalSet[] | null,
+  queueDirty: boolean,
+): boolean {
+  return queueDirty
+    || lastQueuedSnapshot == null
+    || !workoutNavigationSnapshotsEqual(snapshot, lastQueuedSnapshot)
+}
+
+/**
  * Produces the one snapshot used by every action that can leave the logger.
  * It commits visible inputs but deliberately never marks a set completed.
  */

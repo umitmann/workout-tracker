@@ -133,6 +133,7 @@ export default function ActiveWorkoutDock() {
         </button>
         <Link
           href={`/workout/${session.workoutId}`}
+          prefetch={true}
           onClick={() => setResuming(true)}
           aria-label="Resume workout"
           aria-busy={resuming}
@@ -175,6 +176,7 @@ export default function ActiveWorkoutDock() {
           </div>
           <Link
             href={`/workout/${session.workoutId}`}
+            prefetch={true}
             onClick={() => setResuming(true)}
             aria-busy={resuming}
             className="active-workout-resume inline-flex min-h-11 shrink-0 items-center rounded-xl bg-white px-4 text-sm font-black text-zinc-950 hover:bg-orange-50"

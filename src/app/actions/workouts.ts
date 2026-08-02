@@ -47,9 +47,32 @@ export type { SetPayload } from './cores'
 // as a workout immediately after login.
 export async function validateActiveWorkoutSession(workoutId: number): Promise<boolean> {
   if (!Number.isInteger(workoutId) || workoutId <= 0) return false
-  const workout = await getWorkoutWithSets(workoutId)
-  return isResumableWorkoutRecord(workout
-    ? { status: workout.status, setCount: workout.sets.length }
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return false
+
+  // Validation is a guard for the floating frame, not a page load. Fetch only
+  // the workout status and one matching set instead of hydrating every set
+  // plus its exercise relationship, which the workout route will load itself.
+  const [workoutResult, setResult] = await Promise.all([
+    supabase
+      .from('workouts')
+      .select('status')
+      .eq('id', workoutId)
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    supabase
+      .from('sets')
+      .select('id')
+      .eq('workout_id', workoutId)
+      .eq('user_id', user.id)
+      .limit(1)
+      .maybeSingle(),
+  ])
+  if (workoutResult.error || setResult.error) return false
+
+  return isResumableWorkoutRecord(workoutResult.data
+    ? { status: workoutResult.data.status, setCount: setResult.data ? 1 : 0 }
     : null)
 }
 
