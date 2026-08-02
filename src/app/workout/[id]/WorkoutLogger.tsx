@@ -55,6 +55,8 @@ import {
   normalizeGuidedVoiceSettings,
 } from '@/lib/guidedVoice'
 import {
+  ACTIVE_WORKOUT_SESSION_VERSION,
+  buildActiveWorkoutSummary,
   clearActiveWorkoutSession,
   elapsedRestSeconds,
   findRestOwnerSet,
@@ -530,9 +532,15 @@ export default function WorkoutLogger({
   // Providers reads this absolute-time snapshot while the logger is unmounted,
   // then this page restores the same rest owner by exercise ordinal on Resume.
   function publishActiveSession() {
+    const summary = buildActiveWorkoutSummary(localSets)
+    if (!summary) {
+      clearActiveWorkoutSession(workout.id)
+      return
+    }
     const owner = restForSet ? restOwnerForSet(localSets, restForSet) : null
     const elapsed = restStartedAt == null ? 0 : Math.max(0, Math.round((Date.now() - restStartedAt) / 1_000))
     writeActiveWorkoutSession({
+      version: ACTIVE_WORKOUT_SESSION_VERSION,
       workoutId: workout.id,
       date: workout.date,
       updatedAt: Date.now(),
@@ -543,6 +551,7 @@ export default function WorkoutLogger({
         mode: restMode,
         target: activeRestTarget,
       } : null,
+      summary,
     })
   }
 

@@ -2,6 +2,7 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getWorkoutWithSets, WorkoutPreviewExercise } from '@/lib/dal'
+import { isResumableWorkoutRecord } from '@/lib/activeWorkoutSession'
 import { saveWorkoutProgressCore, completeWorkoutCore, startWorkoutCore, startWorkoutFromTemplateCore, logWorkoutForDateCore, SetPayload } from './cores'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -38,6 +39,19 @@ export async function fetchWorkoutPreview(workoutId: number): Promise<WorkoutPre
 }
 
 export type { SetPayload } from './cores'
+
+// Browser storage is only a continuity hint. Before rendering the global
+// mini-player, confirm against the authenticated database row that the
+// workout still belongs to this user, remains active, and contains something
+// meaningful to resume. This prevents old/empty local state from appearing
+// as a workout immediately after login.
+export async function validateActiveWorkoutSession(workoutId: number): Promise<boolean> {
+  if (!Number.isInteger(workoutId) || workoutId <= 0) return false
+  const workout = await getWorkoutWithSets(workoutId)
+  return isResumableWorkoutRecord(workout
+    ? { status: workout.status, setCount: workout.sets.length }
+    : null)
+}
 
 export async function startWorkout(date: string) {
   return startWorkoutCore(await createServerSupabaseClient(), date)
