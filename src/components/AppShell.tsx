@@ -59,6 +59,7 @@ function NavigationLink({
   return (
     <Link
       href={item.href}
+      prefetch={item.href === '/routines' ? true : undefined}
       aria-current={current ? 'page' : undefined}
       aria-label={accessibleLabel}
       className={mobile

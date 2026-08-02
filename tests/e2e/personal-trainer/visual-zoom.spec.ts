@@ -232,4 +232,31 @@ test.describe('full application visual and zoom audit', () => {
       await session.context.close()
     }
   })
+
+  test('exercise library filtering does not reload or change the mobile viewport', async ({ browser }) => {
+    const session = await newSignedInContext(browser, 'exerciseClient')
+    try {
+      await session.page.setViewportSize({ width: 390, height: 844 })
+      await session.page.goto('/routines')
+      await expect(session.page.getByRole('heading', { name: 'Exercise library' })).toBeVisible()
+      const search = session.page.getByPlaceholder('Search exercises...')
+      await expect(search).toBeVisible()
+      const before = await session.page.evaluate(() => ({
+        clientWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+      }))
+      expect(await search.evaluate((input) => Number.parseFloat(getComputedStyle(input).fontSize))).toBeGreaterThanOrEqual(16)
+
+      await search.fill('QA Snapshot Squat')
+      await expect(session.page.getByText('QA Snapshot Squat 47391', { exact: true })).toBeVisible()
+      await expect(session.page.getByRole('status', { name: 'Loading page' })).toHaveCount(0)
+      const after = await session.page.evaluate(() => ({
+        clientWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+      }))
+      expect(after).toEqual(before)
+    } finally {
+      await session.context.close()
+    }
+  })
 })

@@ -73,6 +73,7 @@ import {
   setAllSelectedMaxMode,
 } from '@/lib/guideSetSelection'
 import { effortLabel, previousSetLabel } from '@/lib/workoutLogPresentation'
+import { createAsyncResourceCache } from '@/lib/asyncResourceCache'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -481,6 +482,10 @@ export default function WorkoutLogger({
   const [perfModal, setPerfModal] = useState<{ id: number; name: string; mode: PerfMode; category: string | null } | null>(null)
   const [perfData, setPerfData] = useState<LastExercisePerformance | null>(null)
   const [perfLoading, setPerfLoading] = useState(false)
+  const infoQueryCache = useMemo(() => createAsyncResourceCache<number, ExerciseDetails | null>(), [])
+  const perfQueryCache = useMemo(() => createAsyncResourceCache<string, LastExercisePerformance | null>(), [])
+  const infoRequestRef = useRef(0)
+  const perfRequestRef = useRef(0)
 
   // Template import
   const [templates, setTemplates] = useState<RoutineWithExercises[] | null>(null)
@@ -575,9 +580,12 @@ export default function WorkoutLogger({
         ...prev,
         ...Object.fromEntries(missingPerformanceIds.map((id) => [id, null])),
       }))
-      fetchLastExercisePerformances(missingPerformanceIds).then((map) => (
+      fetchLastExercisePerformances(missingPerformanceIds).then((map) => {
+        for (const [exerciseId, performance] of Object.entries(map)) {
+          perfQueryCache.seed(performanceCacheKey(Number(exerciseId), 'last'), performance)
+        }
         setLastPerf((prev) => ({ ...prev, ...map }))
-      ))
+      })
     }
     const missingNotes = exerciseOrder.filter((id) => !(id in notes))
     if (missingNotes.length > 0) {
@@ -591,6 +599,18 @@ export default function WorkoutLogger({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exerciseKey])
+
+  // Warm every contextual read as soon as an exercise is part of the workout
+  // (or selected for its first set). The cache is component-memory only and
+  // disappears when this authenticated logger unmounts.
+  useEffect(() => {
+    warmExerciseQueries([
+      ...exerciseOrder,
+      ...(selectedExercise ? [selectedExercise.id] : []),
+    ])
+    // warmExerciseQueries is a render-local dispatcher over stable caches.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exerciseKey, selectedExercise?.id])
 
   // Keyboard-open detection: while a field is focused the on-screen keyboard
   // shrinks the viewport and shoves a sticky bar around — so drop the sticky
@@ -1231,23 +1251,72 @@ export default function WorkoutLogger({
     persist(nextSets)
   }
 
+  function performanceCacheKey(exerciseId: number, mode: PerfMode): string {
+    return mode === 'best60'
+      ? `${exerciseId}:${mode}:${localDateStr()}`
+      : `${exerciseId}:${mode}`
+  }
+
+  function loadPerformance(exerciseId: number, mode: PerfMode): Promise<LastExercisePerformance | null> {
+    return perfQueryCache.get(performanceCacheKey(exerciseId, mode), () => {
+      if (mode === 'last') return fetchLastExercisePerformance(exerciseId)
+      if (mode === 'best') return fetchBestExercisePerformance(exerciseId)
+      return fetchBestExercisePerformance60Days(exerciseId, localDateStr())
+    })
+  }
+
+  function warmExerciseQueries(exerciseIds: number[]) {
+    for (const exerciseId of [...new Set(exerciseIds)]) {
+      void infoQueryCache
+        .get(exerciseId, async () => (await fetchExerciseDetails(exerciseId)) as ExerciseDetails | null)
+        .catch(() => undefined)
+      void loadPerformance(exerciseId, 'best').catch(() => undefined)
+      void loadPerformance(exerciseId, 'best60').catch(() => undefined)
+    }
+  }
+
   async function handleInfoClick(exerciseId: number) {
+    const cached = infoQueryCache.read(exerciseId)
+    if (cached.found) {
+      if (cached.value) setInfoExercise(cached.value)
+      return
+    }
+    const requestId = ++infoRequestRef.current
     setInfoLoading(true)
-    const details = await fetchExerciseDetails(exerciseId)
-    setInfoLoading(false)
-    if (details) setInfoExercise(details as ExerciseDetails)
+    try {
+      const details = await infoQueryCache.get(
+        exerciseId,
+        async () => (await fetchExerciseDetails(exerciseId)) as ExerciseDetails | null,
+      )
+      if (requestId === infoRequestRef.current && details) setInfoExercise(details)
+    } catch {
+      // A background warm-up failure is retryable; an explicit tap also fails
+      // closed without leaving a permanent loading overlay.
+    } finally {
+      if (requestId === infoRequestRef.current) setInfoLoading(false)
+    }
   }
 
   async function handlePerfClick(exerciseId: number, exerciseName: string, mode: PerfMode, category: string | null = null) {
     setPerfModal({ id: exerciseId, name: exerciseName, mode, category })
+    const cacheKey = performanceCacheKey(exerciseId, mode)
+    const cached = perfQueryCache.read(cacheKey)
+    if (cached.found) {
+      setPerfData(cached.value)
+      setPerfLoading(false)
+      return
+    }
+    const requestId = ++perfRequestRef.current
     setPerfData(null)
     setPerfLoading(true)
-    let data: LastExercisePerformance | null = null
-    if (mode === 'last') data = await fetchLastExercisePerformance(exerciseId)
-    else if (mode === 'best') data = await fetchBestExercisePerformance(exerciseId)
-    else data = await fetchBestExercisePerformance60Days(exerciseId, localDateStr())
-    setPerfData(data)
-    setPerfLoading(false)
+    try {
+      const data = await loadPerformance(exerciseId, mode)
+      if (requestId === perfRequestRef.current) setPerfData(data)
+    } catch {
+      if (requestId === perfRequestRef.current) setPerfData(null)
+    } finally {
+      if (requestId === perfRequestRef.current) setPerfLoading(false)
+    }
   }
 
   async function handleOpenImport() {

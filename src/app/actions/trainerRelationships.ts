@@ -23,6 +23,11 @@ function revalidateRelationshipViews(
 ) {
   revalidatePath('/dashboard')
   revalidatePath('/trainers')
+  // Exercise discovery includes current-client-only trainer exercises. Any
+  // relationship transition must invalidate the browser-prefetched catalog so
+  // newly granted or revoked visibility is reflected immediately.
+  revalidatePath('/routines')
+  revalidatePath('/workout')
   if (participantPages) {
     revalidatePath('/connections')
     revalidatePath('/trainer/connections')
