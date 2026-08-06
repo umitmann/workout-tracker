@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { saveWorkoutProgress, completeWorkout, deleteWorkout, SetPayload } from '@/app/actions/workouts'
 import { createSaveQueue, SaveState } from '@/lib/saveQueue'
 import { fetchAvailableExercises, fetchExerciseDetails, fetchLastExercisePerformance, fetchLastExercisePerformances, fetchBestExercisePerformance, fetchBestExercisePerformance60Days } from '@/app/actions/exercises'
@@ -27,6 +28,7 @@ import {
   LocalSet,
   addSet as addSetOp,
   deleteSet as deleteSetOp,
+  deleteExercise as deleteExerciseOp,
   applyEdit,
   reorderExercise,
   recordRestForSet,
@@ -252,11 +254,27 @@ export default function WorkoutLogger({
   const [isPending, startTransition] = useTransition()
   const { clipboard, copy: copyToClipboard } = useWorkoutClipboard()
 
-  // Browse is a core part of an active session, especially during rest. Warm
-  // its destination while the athlete is logging so a clean Minimize can swap
-  // routes immediately after the (usually already-idle) save queue check.
+  // Keep the dashboard's private Router Cache entry warm for the lifetime of
+  // the workout. Next calls onInvalidate only when this prefetch becomes
+  // stale; re-prefetching there avoids polling and avoids a loading screen
+  // when a long workout is minimized after the normal cache window elapsed.
   useEffect(() => {
-    router.prefetch('/dashboard')
+    let cancelled = false
+    const warmDashboard = () => {
+      router.prefetch('/dashboard', {
+        // The Next 16.2 runtime supports the documented onInvalidate option,
+        // while its bundled declaration also requires this full-prefetch kind.
+        kind: 'full' as NonNullable<Parameters<typeof router.prefetch>[1]>['kind'],
+        onInvalidate: () => {
+          if (!cancelled) warmDashboard()
+        },
+      })
+    }
+
+    warmDashboard()
+    return () => {
+      cancelled = true
+    }
   }, [router])
 
   const [copied, setCopied] = useState(false)
@@ -512,6 +530,7 @@ export default function WorkoutLogger({
   const [nextTimeState, setNextTimeState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [nextTimeMessage, setNextTimeMessage] = useState<string | null>(null)
   const [expandedSetActionsId, setExpandedSetActionsId] = useState<string | null>(null)
+  const [pendingDeleteExerciseId, setPendingDeleteExerciseId] = useState<number | null>(null)
 
   // Warn on browser tab close / refresh — for active workouts with sets, and
   // unconditionally while a save has failed or is still pending (ADR-0004:
@@ -820,6 +839,13 @@ export default function WorkoutLogger({
   function handleDeleteSet(localId: string) {
     const nextSets = deleteSetOp(localSets, localId)
     setLocalSets(nextSets)
+    setExpandedSetActionsId(null)
+    if (editingId === localId) setEditingId(null)
+    if (restForSet === localId) {
+      setRestForSet(null)
+      setRestStartedAt(null)
+      setRestInitialElapsed(0)
+    }
     persist(nextSets)
   }
 
@@ -836,6 +862,32 @@ export default function WorkoutLogger({
 
   function cancelDeleteTap() {
     setPendingDeleteId(requestSetDelete.cancel())
+  }
+
+  function confirmDeleteExercise(exerciseId: number) {
+    const removedLocalIds = new Set(
+      localSets.filter((set) => set.exerciseId === exerciseId).map((set) => set.localId),
+    )
+    const nextSets = deleteExerciseOp(localSets, exerciseId)
+    setLocalSets(nextSets)
+    setPendingDeleteExerciseId(null)
+    setExpandedSetActionsId(null)
+    if (editingId && removedLocalIds.has(editingId)) setEditingId(null)
+    if (pendingDeleteId && removedLocalIds.has(pendingDeleteId)) setPendingDeleteId(null)
+    if (restForSet && removedLocalIds.has(restForSet)) {
+      setRestForSet(null)
+      setRestStartedAt(null)
+      setRestInitialElapsed(0)
+    }
+    if (selectedExercise?.id === exerciseId) {
+      setSelectedExercise(null)
+      setWeight('')
+      setReps('')
+      setDuration('')
+      setDistance('')
+      setAddFormDirty(false)
+    }
+    persist(nextSets)
   }
 
   // Tapping a set's ✓ commits it (done) and auto-starts rest for that set.
@@ -1948,16 +2000,21 @@ export default function WorkoutLogger({
             </span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleMinimize}
-          disabled={minimizing || isPending}
+        <Link
+          href="/dashboard"
+          prefetch={true}
+          onClick={(event) => {
+            event.preventDefault()
+            if (!minimizing && !isPending) void handleMinimize()
+          }}
+          aria-disabled={minimizing || isPending}
+          aria-busy={minimizing}
           aria-label="Minimize workout and browse app"
           title="Keep this workout and rest timer running while you use the app"
-          className="workout-header-action min-h-12 rounded-xl px-2.5 text-xs font-bold text-orange-700 transition-colors hover:bg-orange-50 disabled:opacity-40 dark:text-orange-300 dark:hover:bg-orange-950/30 sm:px-3"
+          className="workout-header-action inline-flex min-h-12 items-center rounded-xl px-2.5 text-xs font-bold text-orange-700 transition-colors hover:bg-orange-50 aria-disabled:pointer-events-none aria-disabled:opacity-40 dark:text-orange-300 dark:hover:bg-orange-950/30 sm:px-3"
         >
           {minimizing ? 'Saving…' : 'Browse'}
-        </button>
+        </Link>
         <button
           type="button"
           onClick={() => setShowWorkoutActions(true)}
@@ -2071,6 +2128,30 @@ export default function WorkoutLogger({
                 </p>
               </div>
               <button type="button" onClick={() => handleInfoClick(exerciseId)} title="Exercise info" aria-label={`Exercise details for ${group.name}`} className="grid min-h-11 min-w-11 place-items-center rounded-xl text-lg font-bold text-zinc-500 hover:bg-zinc-100 hover:text-orange-600 dark:text-zinc-300 dark:hover:bg-zinc-800">ⓘ</button>
+              {exerciseOrder.length > 1 && (
+                <div className="flex shrink-0 items-center">
+                  <button
+                    type="button"
+                    onClick={() => moveExercise(exerciseId, 'up')}
+                    disabled={exIdx === 0}
+                    title="Move exercise up"
+                    aria-label={`Move ${group.name} up`}
+                    className="grid min-h-11 min-w-11 place-items-center rounded-xl text-lg font-black text-zinc-600 hover:bg-zinc-100 hover:text-orange-600 disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveExercise(exerciseId, 'down')}
+                    disabled={exIdx === exerciseOrder.length - 1}
+                    title="Move exercise down"
+                    aria-label={`Move ${group.name} down`}
+                    className="grid min-h-11 min-w-11 place-items-center rounded-xl text-lg font-black text-zinc-600 hover:bg-zinc-100 hover:text-orange-600 disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    ↓
+                  </button>
+                </div>
+              )}
               <details className="group/actions relative">
                 <summary aria-label={`More exercise actions for ${group.name}`} className="grid min-h-11 min-w-11 cursor-pointer list-none place-items-center rounded-xl text-xl font-black text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 [&::-webkit-details-marker]:hidden">⋯</summary>
                 <div className="absolute right-0 top-full z-30 mt-1 flex w-56 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
@@ -2079,17 +2160,11 @@ export default function WorkoutLogger({
                   <button type="button" onClick={() => handlePerfClick(exerciseId, group.name, 'best', group.sets[0]?.exerciseCategory ?? null)} title="Best session" className="min-h-11 rounded-lg px-3 text-left text-sm font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800">Best session</button>
                   <button type="button" onClick={() => handlePerfClick(exerciseId, group.name, 'best60', group.sets[0]?.exerciseCategory ?? null)} title="Best · 60 days" className="min-h-11 rounded-lg px-3 text-left text-sm font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800">Best in 60 days</button>
                   <button type="button" onClick={() => setEditingNote({ exerciseId, name: group.name, text: notes[exerciseId] ?? '' })} className="min-h-11 rounded-lg px-3 text-left text-sm font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800">{notes[exerciseId] ? 'Edit exercise note' : 'Add exercise note'}</button>
-                  {exerciseOrder.length > 1 && (
-                    <div className="grid grid-cols-2 gap-1 border-t border-zinc-200 pt-1 dark:border-zinc-700">
-                      <button type="button" onClick={() => moveExercise(exerciseId, 'up')} disabled={exIdx === 0} title="Move exercise up" className="min-h-11 rounded-lg text-sm font-bold hover:bg-zinc-100 disabled:opacity-30 dark:hover:bg-zinc-800">↑ Up</button>
-                      <button type="button" onClick={() => moveExercise(exerciseId, 'down')} disabled={exIdx === exerciseOrder.length - 1} title="Move exercise down" className="min-h-11 rounded-lg text-sm font-bold hover:bg-zinc-100 disabled:opacity-30 dark:hover:bg-zinc-800">↓ Down</button>
-                    </div>
-                  )}
                 </div>
               </details>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2">
               <button
                 type="button"
                 onClick={() => openGuideSetup(exerciseId)}
@@ -2109,6 +2184,15 @@ export default function WorkoutLogger({
                 className="min-h-11 rounded-xl bg-zinc-100 px-3 text-sm font-black text-zinc-700 hover:bg-orange-500 hover:text-white dark:bg-zinc-800 dark:text-zinc-200"
               >
                 + Add set
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingDeleteExerciseId(exerciseId)}
+                aria-label={`Remove ${group.name} from workout`}
+                title="Remove exercise"
+                className="min-h-11 rounded-xl border border-red-300 px-3 text-sm font-bold text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/30"
+              >
+                Remove
               </button>
             </div>
 
@@ -2132,6 +2216,7 @@ export default function WorkoutLogger({
                 <span>{group.sets[0]?.exerciseCategory === 'cardio' ? 'Min' : 'kg'}</span>
                 <span>{group.sets[0]?.exerciseCategory === 'cardio' ? 'Dist.' : 'Reps'}</span>
                 <span>Done</span>
+                <span aria-label="Set actions"><span className="sr-only">Actions</span></span>
               </div>
               {group.sets.map((s, i) =>
                 editingId === s.localId ? (
@@ -2320,6 +2405,15 @@ export default function WorkoutLogger({
                       >
                         <svg width="16" height="16" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6l3 3 5-6" /></svg>
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTap(s.localId)}
+                        aria-label={`Remove set ${i + 1}`}
+                        title="Remove set"
+                        className={`workout-log-remove-button mx-auto grid min-h-11 min-w-11 place-items-center rounded-xl text-xl font-bold transition-colors ${pendingDeleteId === s.localId ? 'bg-red-600 text-white' : 'text-zinc-500 hover:bg-red-50 hover:text-red-700 dark:text-zinc-400 dark:hover:bg-red-950/30 dark:hover:text-red-300'}`}
+                      >
+                        ×
+                      </button>
                     </div>
 
                     {(s.difficulty != null || formatRestRow(s.rest_seconds) || s.note) && expandedSetActionsId !== s.localId && (
@@ -2349,12 +2443,14 @@ export default function WorkoutLogger({
                       <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => handleDeleteTap(s.localId)}
+                          aria-label={`Confirm remove set ${i + 1}`}
                           className="flex-1 min-h-11 rounded-lg bg-red-500 hover:bg-red-600 text-sm font-bold uppercase tracking-wide text-white transition-colors"
                         >
                           Confirm
                         </button>
                         <button
                           onClick={cancelDeleteTap}
+                          aria-label={`Cancel removing set ${i + 1}`}
                           className="flex-1 min-h-11 rounded-lg border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                         >
                           Cancel
@@ -2431,6 +2527,38 @@ export default function WorkoutLogger({
         )}
 
       </main>
+
+      {pendingDeleteExerciseId != null && grouped[pendingDeleteExerciseId] && (
+        <Modal
+          title={`Remove ${grouped[pendingDeleteExerciseId].name}?`}
+          onClose={() => setPendingDeleteExerciseId(null)}
+          destructive
+          backdropClassName="fixed inset-0 z-[95] flex items-center justify-center bg-black/70 px-4"
+          panelClassName="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl outline-none dark:bg-zinc-900"
+        >
+          <p className="text-xs font-bold uppercase tracking-widest text-red-600 dark:text-red-400">Remove exercise</p>
+          <h2 className="mt-2 text-xl font-black text-zinc-950 dark:text-white">{grouped[pendingDeleteExerciseId].name}</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">All sets for this exercise will be removed from this workout.</p>
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setPendingDeleteExerciseId(null)}
+              aria-label={`Cancel removing ${grouped[pendingDeleteExerciseId].name}`}
+              className="min-h-12 rounded-xl border border-zinc-300 text-sm font-bold text-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => confirmDeleteExercise(pendingDeleteExerciseId)}
+              aria-label={`Confirm remove ${grouped[pendingDeleteExerciseId].name}`}
+              className="min-h-12 rounded-xl bg-red-600 text-sm font-black text-white hover:bg-red-700"
+            >
+              Remove
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {/* Exercise info spinner + modal */}
       {infoLoading && (

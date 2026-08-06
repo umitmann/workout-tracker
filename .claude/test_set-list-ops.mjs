@@ -9,6 +9,7 @@ import assert from 'node:assert/strict'
 const {
   addSet,
   deleteSet,
+  deleteExercise,
   applyEdit,
   cancelEdit,
   reorderExercise,
@@ -97,6 +98,20 @@ test('deleteSet no-ops when localId is not present', () => {
   const sets = [set({ localId: 'a' }), set({ localId: 'b' })]
   const next = deleteSet(sets, 'zzz')
   assert.deepEqual(next.map((s) => s.localId), ['a', 'b'])
+})
+
+test('deleteExercise removes every set in one exercise without mutating other blocks', () => {
+  const sets = [
+    set({ localId: 'a1', exerciseId: 1 }),
+    set({ localId: 'a2', exerciseId: 1 }),
+    set({ localId: 'b1', exerciseId: 2 }),
+  ]
+  const snapshot = structuredClone(sets)
+
+  const next = deleteExercise(sets, 1)
+
+  assert.deepEqual(next.map((item) => item.localId), ['b1'])
+  assert.deepEqual(sets, snapshot)
 })
 
 test('applyEdit updates only the target set, leaving others untouched', () => {

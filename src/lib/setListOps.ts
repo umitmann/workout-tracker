@@ -61,6 +61,11 @@ export function deleteSet(sets: LocalSet[], localId: string): LocalSet[] {
   return sets.filter((s) => s.localId !== localId)
 }
 
+/** Removes one exercise block while preserving every other block and order. */
+export function deleteExercise(sets: LocalSet[], exerciseId: number): LocalSet[] {
+  return sets.filter((set) => set.exerciseId !== exerciseId)
+}
+
 // §4.3/§4.4: commits an in-progress edit onto the target set only.
 export function applyEdit(sets: LocalSet[], localId: string, edit: SetEdit): LocalSet[] {
   return sets.map((s) => (s.localId === localId ? { ...s, ...edit } : s))

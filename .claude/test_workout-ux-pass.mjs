@@ -130,7 +130,7 @@ test('minimize and save-and-leave share one final snapshot and wait for every qu
   assert.match(logger, /lastQueuedSnapshotRef\.current = snapshot/)
   assert.match(logger, /await saveQueueRef\.current\.idle\(key\)/)
   assert.match(logger, /if \(state\.pending \|\| state\.dirty \|\| state\.error\) return null/)
-  assert.match(logger, /router\.prefetch\('\/dashboard'\)/)
+  assert.match(logger, /<Link[\s\S]{0,180}href="\/dashboard"[\s\S]{0,180}prefetch=\{true\}/)
   assert.doesNotMatch(logger, /window\.location\.href = ['"]\/dashboard['"]/)
 })
 
@@ -147,6 +147,20 @@ test('the minimized workout validates cheaply and prefetches both resume links',
   assert.doesNotMatch(validationBody, /getWorkoutWithSets/)
   assert.match(validationBody, /\.from\('sets'\)[\s\S]*?\.limit\(1\)[\s\S]*?\.maybeSingle\(\)/)
   assert.doesNotMatch(validationBody, /count:\s*'exact'/)
+})
+
+test('authenticated screens stay in the private in-memory router cache while browsing a workout', async () => {
+  const [config, logger, worker] = await Promise.all([
+    source('../next.config.ts'),
+    source('../src/app/workout/[id]/WorkoutLogger.tsx'),
+    source('../public/sw.js'),
+  ])
+  assert.match(config, /staleTimes:\s*\{[\s\S]*?dynamic:\s*300/)
+  assert.match(logger, /router\.prefetch\('\/dashboard',\s*\{/)
+  assert.match(logger, /onInvalidate:\s*\(\)\s*=>\s*\{[\s\S]{0,80}warmDashboard\(\)/)
+  assert.match(worker, /pathname\.startsWith\('\/dashboard'\)/)
+  assert.match(worker, /pathname\.startsWith\('\/workout'\)/)
+  assert.match(worker, /if \(isPrivateOrDynamic\(url\.pathname\)\) return/)
 })
 
 test('active workout renders before the authorized exercise catalog is requested', async () => {

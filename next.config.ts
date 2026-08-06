@@ -13,6 +13,15 @@ function getCommitSha(): string {
 }
 
 const nextConfig: NextConfig = {
+  // Keep authenticated page segments in Next's private, tab-local Router
+  // Cache while an athlete moves between an active workout and the rest of
+  // the app. This is intentionally not an HTTP or service-worker cache, and
+  // mutations continue to invalidate affected routes with revalidatePath.
+  experimental: {
+    staleTimes: {
+      dynamic: 300,
+    },
+  },
   env: {
     COMMIT_SHA: getCommitSha(),
   },

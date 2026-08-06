@@ -84,7 +84,7 @@ textarea {
 }
 
 /* The set logger is a genuine data table, but it still has to reflow when a
-   phone user zooms the page. At extreme effective widths the previous-session
+   phone user zooms the page. At narrow effective widths the previous-session
    column yields to the editable values and done action instead of creating
    page-level overflow; history remains available from the exercise menu. */
 .workout-log-table {
@@ -108,12 +108,12 @@ textarea {
 }
 
 .workout-log-grid {
-  grid-template-columns: 2.75rem minmax(3.5rem, 1fr) 3rem 2.75rem 2.75rem;
+  grid-template-columns: 2.75rem minmax(3.5rem, 1fr) 3rem 2.75rem 2.75rem 2.75rem;
 }
 
-@container workout-log (max-width: 15rem) {
+@container workout-log (max-width: 20rem) {
   .workout-log-grid {
-    grid-template-columns: 2.25rem minmax(0, 1fr) minmax(0, 1fr) 2.25rem;
+    grid-template-columns: 2.25rem minmax(0, 1fr) minmax(0, 1fr) 2.25rem 2.25rem;
   }
 
   .workout-log-previous {
@@ -121,7 +121,8 @@ textarea {
   }
 
   .workout-log-set-button,
-  .workout-log-done-button {
+  .workout-log-done-button,
+  .workout-log-remove-button {
     min-width: 0;
   }
 

@@ -285,6 +285,41 @@ test.describe('active workout guided behavior', () => {
     }
   })
 
+  test('normal logging exposes reorder and confirmed set and exercise removal', async ({ browser }) => {
+    const session = await newSignedInContext(browser, 'exerciseClient')
+    try {
+      await startWorkoutWithExercise(session.page)
+      await addStrengthSet(session.page, '60', '8')
+      await addStrengthSet(session.page, '62.5', '6')
+
+      await session.page.getByRole('button', { name: /add exercise/i }).click()
+      const picker = session.page.getByRole('dialog', { name: /select exercise/i })
+      await picker.getByRole('button', { name: /QA Guide Push-Up/i }).first().click()
+      await addStrengthSet(session.page, '20', '10')
+
+      const exerciseNames = () => session.page.locator('main section h2').allTextContents()
+      await expect.poll(exerciseNames).toEqual(['QA Snapshot Squat 47391', 'QA Guide Push-Up'])
+      await session.page.getByRole('button', { name: 'Move QA Guide Push-Up up' }).click()
+      await expect.poll(exerciseNames).toEqual(['QA Guide Push-Up', 'QA Snapshot Squat 47391'])
+
+      const squat = session.page.getByRole('heading', { name: 'QA Snapshot Squat 47391' }).locator('xpath=ancestor::section[1]')
+      await squat.getByRole('button', { name: 'Remove set 1' }).click()
+      await squat.getByRole('button', { name: 'Confirm remove set 1' }).click()
+      await expect(squat.getByTestId('set-log-row')).toHaveCount(1)
+
+      await squat.getByRole('button', { name: 'Remove QA Snapshot Squat 47391 from workout' }).click()
+      const confirm = session.page.getByRole('dialog', { name: 'Remove QA Snapshot Squat 47391?' })
+      await expect(confirm.getByText(/all sets for this exercise/i)).toBeVisible()
+      await confirm.getByRole('button', { name: 'Confirm remove QA Snapshot Squat 47391' }).click()
+      await expect(session.page.getByRole('heading', { name: 'QA Snapshot Squat 47391' })).toHaveCount(0)
+      await expect(session.page.getByRole('heading', { name: 'QA Guide Push-Up' })).toBeVisible()
+
+      await deleteWorkout(session.page)
+    } finally {
+      await session.context.close()
+    }
+  })
+
   test('exposes one compact workout settings entry while keeping common rest control inline', async ({ browser }) => {
     const session = await newSignedInContext(browser, 'exerciseClient')
     try {

@@ -29,7 +29,10 @@ test('cardio comparison and effort use short, scan-friendly labels', () => {
 })
 
 test('active workout follows the compact logging hierarchy', async () => {
-  const logger = await source('../src/app/workout/[id]/WorkoutLogger.tsx')
+  const [logger, styles] = await Promise.all([
+    source('../src/app/workout/[id]/WorkoutLogger.tsx'),
+    source('../src/app/globals.css'),
+  ])
   assert.match(logger, /data-testid="set-log-header"/)
   assert.match(logger, /data-testid="set-log-row"/)
   assert.match(logger, />Previous</)
@@ -37,6 +40,13 @@ test('active workout follows the compact logging hierarchy', async () => {
   assert.match(logger, /aria-label={`More options for set/)
   assert.match(logger, /Mark set \$\{i \+ 1\} done/)
   assert.match(logger, /More exercise actions/)
+  assert.match(logger, /aria-label={`Move \$\{group\.name\} up`}/)
+  assert.match(logger, /aria-label={`Move \$\{group\.name\} down`}/)
+  assert.match(logger, /aria-label={`Remove \$\{group\.name\} from workout`}/)
+  assert.match(logger, /aria-label={`Remove set \$\{i \+ 1\}`}/)
+  assert.match(logger, /Confirm remove set \$\{i \+ 1\}/)
+  assert.match(logger, /Confirm remove \$\{grouped\[pendingDeleteExerciseId\]\.name\}/)
+  assert.match(styles, /@container workout-log \(max-width: 20rem\)[\s\S]*?\.workout-log-previous\s*\{\s*display:\s*none/)
   assert.doesNotMatch(logger, /<DifficultyChip[\s\S]{0,80}<DifficultyChip/)
 })
 
